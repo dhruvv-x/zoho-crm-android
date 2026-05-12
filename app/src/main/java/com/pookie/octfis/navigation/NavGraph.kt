@@ -34,13 +34,37 @@ fun NavGraph(navController: NavHostController) {
             AccountDetailScreen(navController, accountId)
         }
         composable(Screen.Contacts.route) {
-            PlaceholderScreen(navController, "Contacts")
+            ContactsScreen(navController)
+
+        }
+        composable(Screen.CreateContact.route) {
+            CreateContactScreen(navController)
         }
         composable(Screen.Deals.route) {
-            PlaceholderScreen(navController, "Deals")
+            DealsScreen(navController)
+        }
+        composable(Screen.CreateDeal.route) {
+            CreateDealScreen(navController)
+        }
+        composable(
+            route     = Screen.DealDetail.route,
+            arguments = listOf(navArgument("dealId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val dealId = backStackEntry.arguments?.getInt("dealId") ?: 0
+            DealDetailScreen(navController, dealId)
         }
         composable(Screen.Quotes.route) {
-            PlaceholderScreen(navController, "Quotes")
+            QuotesScreen(navController)
+        }
+        composable(Screen.CreateQuote.route) {
+            CreateQuoteScreen(navController)
+        }
+        composable(
+            route     = Screen.QuoteDetail.route,
+            arguments = listOf(navArgument("quoteId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val quoteId = backStackEntry.arguments?.getInt("quoteId") ?: 0
+            QuoteDetailScreen(navController, quoteId)
         }
     }
 }
