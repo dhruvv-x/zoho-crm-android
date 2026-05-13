@@ -100,3 +100,26 @@ object FakeData {
     val upcomingCalls : List<CallActivity>    = emptyList()
     val thisWeekCalls : List<CallActivity>    = emptyList()
 }
+data class ActivityTask(
+    val id       : String,
+    val subject  : String,
+    val dueDate  : String,
+    val status   : String,
+    val priority : String,
+)
+
+data class ActivityMeeting(
+    val id            : String,
+    val title         : String,
+    val startDateTime : String,
+    val endDateTime   : String,
+)
+
+data class ActivityCall(
+    val id        : String,
+    val subject   : String,
+    val startTime : String,
+    val duration  : String,
+    val callType  : String,
+    val status    : String,
+)

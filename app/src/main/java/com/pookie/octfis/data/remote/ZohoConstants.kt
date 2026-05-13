@@ -10,7 +10,10 @@ object ZohoConstants {
         "ZohoCRM.modules.accounts.READ," +
                 "ZohoCRM.modules.contacts.READ," +
                 "ZohoCRM.modules.deals.READ," +
-                "ZohoCRM.modules.quotes.READ"
+                "ZohoCRM.modules.quotes.READ," +
+                "ZohoCRM.modules.Tasks.READ," +
+                "ZohoCRM.modules.Events.READ," +
+                "ZohoCRM.modules.Calls.READ"
 
     const val PREFS_NAME         = "zoho_prefs"
     const val KEY_ACCESS_TOKEN   = "access_token"
