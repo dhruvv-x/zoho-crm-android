@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -20,13 +21,38 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.pookie.octfis.data.remote.AuthState
+import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun SignInScreen(navController: NavController) {
     var email    by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val context  = LocalContext.current   // Activity context — safe for CustomTabsIntent
+    val scope    = rememberCoroutineScope()
+
+    // ── FIX 1: Navigate to Dashboard as soon as OAuth callback succeeds ───────
+    val loginSuccess by AuthState.loginSuccess.collectAsState()
+    LaunchedEffect(loginSuccess) {
+        if (loginSuccess) {
+            AuthState.reset()
+            navController.navigate(Screen.Dashboard.route) {
+                popUpTo(Screen.SignIn.route) { inclusive = true }
+            }
+        }
+    }
+
+    // Auto-redirect if already logged in (app restart)
+    LaunchedEffect(Unit) {
+        if (ZohoServiceLocator.getTokenStore().isLoggedIn()) {
+            navController.navigate(Screen.Dashboard.route) {
+                popUpTo(Screen.SignIn.route) { inclusive = true }
+            }
+        }
+    }
 
     Column(
         modifier            = Modifier
@@ -37,7 +63,6 @@ fun SignInScreen(navController: NavController) {
         verticalArrangement = Arrangement.Center,
     ) {
 
-        // ── Logo ──────────────────────────────────────────────────────────
         Text(
             text       = "🦅 OCTFIS\nTECHNO LLP",
             color      = CrmPrimary,
@@ -49,13 +74,7 @@ fun SignInScreen(navController: NavController) {
 
         Spacer(Modifier.height(36.dp))
 
-        // ── Title ─────────────────────────────────────────────────────────
-        Text(
-            text       = "Login an account",
-            fontSize   = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color      = CrmOnSurface,
-        )
+        Text("Login an account", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CrmOnSurface)
         Spacer(Modifier.height(6.dp))
         Text(
             text      = "Enter your email and password to sign in for this app",
@@ -66,7 +85,6 @@ fun SignInScreen(navController: NavController) {
 
         Spacer(Modifier.height(28.dp))
 
-        // ── Email ─────────────────────────────────────────────────────────
         OutlinedTextField(
             value         = email,
             onValueChange = { email = it },
@@ -83,7 +101,6 @@ fun SignInScreen(navController: NavController) {
 
         Spacer(Modifier.height(12.dp))
 
-        // ── Password ──────────────────────────────────────────────────────
         OutlinedTextField(
             value                = password,
             onValueChange        = { password = it },
@@ -101,21 +118,17 @@ fun SignInScreen(navController: NavController) {
 
         Spacer(Modifier.height(20.dp))
 
-        // ── Continue Button ───────────────────────────────────────────────
         Button(
             onClick  = { navController.navigate(Screen.Dashboard.route) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape  = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape    = RoundedCornerShape(8.dp),
+            colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
         ) {
             Text("Continue", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
         }
 
         Spacer(Modifier.height(16.dp))
 
-        // ── Divider ───────────────────────────────────────────────────────
         Row(verticalAlignment = Alignment.CenterVertically) {
             HorizontalDivider(modifier = Modifier.weight(1f), color = CrmDivider)
             Text("  or  ", color = CrmSubtext, fontSize = 12.sp)
@@ -124,15 +137,15 @@ fun SignInScreen(navController: NavController) {
 
         Spacer(Modifier.height(16.dp))
 
-        // ── Zoho CRM Button ───────────────────────────────────────────────
         OutlinedButton(
-            onClick  = { /* TODO: Zoho OAuth */ },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape  = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = CrmOnSurface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, CrmDivider),
+            onClick  = {
+                // FIX 2: pass Activity context, not applicationContext
+                ZohoServiceLocator.getAuthManager().launchAuthFlow(context)
+            },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape    = RoundedCornerShape(8.dp),
+            colors   = ButtonDefaults.outlinedButtonColors(contentColor = CrmOnSurface),
+            border   = androidx.compose.foundation.BorderStroke(1.dp, CrmDivider),
         ) {
             Text("⚙ ", fontSize = 18.sp)
             Spacer(Modifier.width(8.dp))
@@ -141,7 +154,6 @@ fun SignInScreen(navController: NavController) {
 
         Spacer(Modifier.height(28.dp))
 
-        // ── Legal Text ────────────────────────────────────────────────────
         Text(
             text = buildAnnotatedString {
                 append("By clicking continue, you agree to our ")

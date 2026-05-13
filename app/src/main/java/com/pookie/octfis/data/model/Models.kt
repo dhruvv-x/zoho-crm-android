@@ -2,6 +2,8 @@ package com.pookie.octfis.data.model
 
 data class Account(
     val id            : Int,
+    val zohoId        : String = "",
+    val accountNo     : String = "",
     val name          : String,
     val phone         : String,
     val website       : String = "",
@@ -62,20 +64,9 @@ data class Quote(
     ),
 )
 
-data class CallActivity(
-    val time   : String,
-    val subject: String,
-)
-
-data class MeetingActivity(
-    val time   : String,
-    val subject: String,
-)
-
-data class TaskActivity(
-    val time   : String,
-    val subject: String,
-)
+data class CallActivity(val time: String, val subject: String)
+data class MeetingActivity(val time: String, val subject: String)
+data class TaskActivity(val time: String, val subject: String)
 
 object FakeData {
     val accounts = (1..8).map { i ->

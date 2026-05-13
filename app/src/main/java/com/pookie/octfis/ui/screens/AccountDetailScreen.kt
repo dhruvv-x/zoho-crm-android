@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pookie.octfis.data.model.FakeData
+import com.pookie.octfis.data.repository.AccountRepository
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
@@ -22,7 +23,9 @@ import com.pookie.octfis.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountDetailScreen(navController: NavController, accountId: Int) {
-    val account = FakeData.accounts.firstOrNull { it.id == accountId }
+    // Try real cached data first, fall back to FakeData
+    val account = AccountRepository.cache.firstOrNull { it.id == accountId }
+        ?: FakeData.accounts.firstOrNull { it.id == accountId }
         ?: FakeData.accounts.first()
 
     Scaffold(
@@ -30,23 +33,19 @@ fun AccountDetailScreen(navController: NavController, accountId: Int) {
             TopAppBar(
                 title = {
                     Text(
-                        text       = "Account Detail",
+                        text       = account.name.ifEmpty { "Account Detail" },
                         fontWeight = FontWeight.SemiBold,
                         fontSize   = 17.sp,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
                     IconButton(onClick = { /* TODO: edit */ }) {
-                        Icon(
-                            imageVector        = Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint               = CrmPrimary,
-                        )
+                        Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -60,43 +59,45 @@ fun AccountDetailScreen(navController: NavController, accountId: Int) {
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // ── Key Information ───────────────────────────────────────────
             SectionHeader("Key Information")
-
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    FormRow("Account Name",  account.name.ifEmpty { "Enter Company name" })
+                    FormRow("Account Name",  account.name.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Phone",         account.phone.ifEmpty { "Enter Phone no" })
+                    FormRow("Account No",    account.accountNo.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Website",       account.website.ifEmpty { "www.example.com" })
+                    FormRow("Phone",         account.phone.ifEmpty { "—" })
+                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    FormRow("Website",       account.website.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Industry",      account.industry)
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("GST Treatment", account.gstTreatment)
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("GSTIN",         account.gstin.ifEmpty { "Enter GST Number" })
+                    FormRow("GSTIN",         account.gstin.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Lead Source",   account.leadSource)
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Account Owner", account.accountOwner)
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Description",   account.description.ifEmpty { "Short description" })
+                    FormRow("Description",   account.description.ifEmpty { "—" })
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // ── Address ───────────────────────────────────────────────────
             SectionHeader("Address")
-
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    FormRow("Billing Street",   account.billingStreet.ifEmpty { "Plot no, Building name" })
+                    FormRow("Billing Street",  account.billingStreet.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Billing Street 2", account.billingStreet2.ifEmpty { "Landmark" })
+                    FormRow("Billing City",    account.billingCity.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Billing City",     account.billingCity.ifEmpty { "Enter City Name" })
+                    FormRow("Billing State",   account.billingState.ifEmpty { "—" })
+                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    FormRow("Billing Code",    account.billingCode.ifEmpty { "—" })
+                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    FormRow("Billing Country", account.billingCountry.ifEmpty { "—" })
                 }
             }
 

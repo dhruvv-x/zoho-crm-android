@@ -12,7 +12,7 @@ import com.pookie.octfis.ui.screens.*
 fun NavGraph(navController: NavHostController) {
     NavHost(
         navController    = navController,
-        startDestination = Screen.SignIn.route
+        startDestination = Screen.SignIn.route,
     ) {
         composable(Screen.SignIn.route) {
             SignInScreen(navController)
@@ -28,14 +28,13 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(
             route     = Screen.AccountDetail.route,
-            arguments = listOf(navArgument("accountId") { type = NavType.IntType })
+            arguments = listOf(navArgument("accountId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val accountId = backStackEntry.arguments?.getInt("accountId") ?: 0
             AccountDetailScreen(navController, accountId)
         }
         composable(Screen.Contacts.route) {
             ContactsScreen(navController)
-
         }
         composable(Screen.CreateContact.route) {
             CreateContactScreen(navController)
@@ -48,7 +47,7 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(
             route     = Screen.DealDetail.route,
-            arguments = listOf(navArgument("dealId") { type = NavType.IntType })
+            arguments = listOf(navArgument("dealId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val dealId = backStackEntry.arguments?.getInt("dealId") ?: 0
             DealDetailScreen(navController, dealId)
@@ -61,7 +60,7 @@ fun NavGraph(navController: NavHostController) {
         }
         composable(
             route     = Screen.QuoteDetail.route,
-            arguments = listOf(navArgument("quoteId") { type = NavType.IntType })
+            arguments = listOf(navArgument("quoteId") { type = NavType.IntType }),
         ) { backStackEntry ->
             val quoteId = backStackEntry.arguments?.getInt("quoteId") ?: 0
             QuoteDetailScreen(navController, quoteId)
