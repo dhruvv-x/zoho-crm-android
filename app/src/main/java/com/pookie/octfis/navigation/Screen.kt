@@ -6,8 +6,8 @@ sealed class Screen(val route: String) {
 
     object Accounts      : Screen("accounts")
     object CreateAccount : Screen("create_account")
-    object AccountDetail : Screen("account_detail/{accountId}") {
-        fun createRoute(accountId: Int) = "account_detail/$accountId"
+    object AccountDetail : Screen("account_detail/{zohoId}") {
+        fun createRoute(zohoId: String) = "account_detail/$zohoId"
     }
 
     object Contacts      : Screen("contacts")

@@ -121,7 +121,7 @@ fun AccountsScreen(
                     ) {
                         itemsIndexed(s.accounts) { _, account ->
                             AccountRow(account) {
-                                navController.navigate(Screen.AccountDetail.createRoute(account.id))
+                                navController.navigate(Screen.AccountDetail.createRoute(account.zohoId))
                             }
                             HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
                         }
