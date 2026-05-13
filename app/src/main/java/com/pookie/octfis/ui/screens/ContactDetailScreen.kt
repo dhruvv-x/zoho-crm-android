@@ -14,24 +14,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.pookie.octfis.data.repository.AccountRepository
+import com.pookie.octfis.data.repository.ContactRepository
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountDetailScreen(navController: NavController, accountId: Int) {
-    // Try real cached data first, fall back to FakeData
-    val account = AccountRepository.cache.firstOrNull { it.id == accountId }
-        ?: return
+fun ContactDetailScreen(navController: NavController, contactId: Int) {
+    val contact = ContactRepository.cache.firstOrNull { it.id == contactId }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text       = account.name.ifEmpty { "Account Detail" },
+                        text       = contact?.fullName?.ifEmpty { "Contact Detail" } ?: "Contact Detail",
                         fontWeight = FontWeight.SemiBold,
                         fontSize   = 17.sp,
                     )
@@ -51,6 +49,13 @@ fun AccountDetailScreen(navController: NavController, accountId: Int) {
         },
         containerColor = CrmBackground,
     ) { padding ->
+        if (contact == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Text("Contact not found", color = CrmSubtext, modifier = Modifier.padding(16.dp))
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -60,25 +65,29 @@ fun AccountDetailScreen(navController: NavController, accountId: Int) {
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    FormRow("Account Name",  account.name.ifEmpty { "—" })
+                    FormRow("Full Name",      contact.fullName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Account No",    account.accountNo.ifEmpty { "—" })
+                    FormRow("First Name",     contact.firstName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Phone",         account.phone.ifEmpty { "—" })
+                    FormRow("Last Name",      contact.lastName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Website",       account.website.ifEmpty { "—" })
+                    FormRow("Phone",          contact.phone.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Industry",      account.industry)
+                    FormRow("Mobile",         contact.mobile.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("GST Treatment", account.gstTreatment)
+                    FormRow("Email",          contact.email.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("GSTIN",         account.gstin.ifEmpty { "—" })
+                    FormRow("Account Name",   contact.accountName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Lead Source",   account.leadSource)
+                    FormRow("Title",          contact.title.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Account Owner", account.accountOwner)
+                    FormRow("Department",     contact.department.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Description",   account.description.ifEmpty { "—" })
+                    FormRow("Lead Source",    contact.leadSource)
+                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    FormRow("Contact Owner",  contact.contactOwner)
+                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    FormRow("Description",    contact.description.ifEmpty { "—" })
                 }
             }
 
@@ -87,15 +96,15 @@ fun AccountDetailScreen(navController: NavController, accountId: Int) {
             SectionHeader("Address")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    FormRow("Billing Street",  account.billingStreet.ifEmpty { "—" })
+                    FormRow("Mailing Street",  contact.mailingStreet.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Billing City",    account.billingCity.ifEmpty { "—" })
+                    FormRow("Mailing City",    contact.mailingCity.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Billing State",   account.billingState.ifEmpty { "—" })
+                    FormRow("Mailing State",   contact.mailingState.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Billing Code",    account.billingCode.ifEmpty { "—" })
+                    FormRow("Mailing ZIP",     contact.mailingZip.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Billing Country", account.billingCountry.ifEmpty { "—" })
+                    FormRow("Mailing Country", contact.mailingCountry.ifEmpty { "—" })
                 }
             }
 

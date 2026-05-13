@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.pookie.octfis.data.model.FakeData
+import com.pookie.octfis.data.repository.QuoteRepository
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
@@ -23,31 +23,26 @@ import com.pookie.octfis.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuoteDetailScreen(navController: NavController, quoteId: Int) {
-    val quote = FakeData.quotes.firstOrNull { it.id == quoteId }
-        ?: FakeData.quotes.first()
+    val quote = QuoteRepository.cache.firstOrNull { it.id == quoteId }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text       = "Quote Detail",
+                        text       = quote?.subject?.ifEmpty { "Quote Detail" } ?: "Quote Detail",
                         fontWeight = FontWeight.SemiBold,
                         fontSize   = 17.sp,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
                     IconButton(onClick = { /* TODO: edit */ }) {
-                        Icon(
-                            imageVector        = Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint               = CrmPrimary,
-                        )
+                        Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -55,92 +50,132 @@ fun QuoteDetailScreen(navController: NavController, quoteId: Int) {
         },
         containerColor = CrmBackground,
     ) { padding ->
+        if (quote == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                Text("Quote not found", color = CrmSubtext, modifier = Modifier.padding(16.dp))
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // ── Key Information ───────────────────────────────────────────
             SectionHeader("Key Information")
-
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    FormRow("Subject",      quote.subject.ifEmpty     { "Enter Quote title" })
+                    FormRow("Subject",      quote.subject.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Account Name", quote.accountName.ifEmpty { "Select Company Name" })
+                    FormRow("Account Name", quote.accountName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Contact Name", quote.contactName.ifEmpty { "Select Contact Person" })
+                    FormRow("Contact Name", quote.contactName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Valid Until",  quote.validUntil)
+                    FormRow("Valid Until",  quote.validUntil.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Quote Stage",  quote.quoteStage)
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Description",  quote.description.ifEmpty { "Short description" })
+                    FormRow("Description",  quote.description.ifEmpty { "—" })
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // ── Quoted Items ──────────────────────────────────────────────
             SectionHeader("Quoted Items")
-
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    // Table header
+                    // Table Header
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                     ) {
-                        Text("S.NO",         fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.width(48.dp))
-                        Text("Product Name", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.weight(1f))
-                        Text("PRICE",        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface)
+                        Text("S.NO",         fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.width(40.dp))
+                        Text("Product",      fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.weight(1f))
+                        Text("Qty",          fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.width(36.dp))
+                        Text("Price",        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface)
                     }
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
 
-                    // Item rows
-                    quote.items.forEachIndexed { index, item ->
-                        Row(
-                            modifier          = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.Top,
+                    if (quote.items.isEmpty()) {
+                        Box(
+                            modifier         = Modifier.fillMaxWidth().padding(24.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text     = "${item.sNo}",
-                                fontSize = 13.sp,
-                                color    = CrmOnSurface,
-                                modifier = Modifier.width(48.dp).padding(top = 2.dp),
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(item.brand,       fontSize = 11.sp, color = CrmSubtext)
-                                Text(item.productName, fontSize = 13.sp, color = CrmOnSurface, fontWeight = FontWeight.Medium)
-                                Text(item.description, fontSize = 11.sp, color = CrmSubtext)
-                                Text("Quantity: ${String.format("%02d", item.quantity)}", fontSize = 11.sp, color = CrmSubtext)
-                            }
-                            Text(
-                                text       = "$${String.format("%.2f", item.price)}",
-                                fontSize   = 13.sp,
-                                color      = CrmOnSurface,
-                                fontWeight = FontWeight.Medium,
-                            )
+                            Text("No items", fontSize = 13.sp, color = CrmSubtext)
                         }
-                        if (index < quote.items.lastIndex)
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    } else {
+                        quote.items.forEachIndexed { index, item ->
+                            Row(
+                                modifier          = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                Text(
+                                    text     = "${item.sNo}",
+                                    fontSize = 13.sp,
+                                    color    = CrmOnSurface,
+                                    modifier = Modifier.width(40.dp).padding(top = 2.dp),
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(item.productName, fontSize = 13.sp, color = CrmOnSurface, fontWeight = FontWeight.Medium)
+                                    if (item.description.isNotEmpty())
+                                        Text(item.description, fontSize = 11.sp, color = CrmSubtext)
+                                }
+                                Text(
+                                    text     = "${item.quantity}",
+                                    fontSize = 13.sp,
+                                    color    = CrmOnSurface,
+                                    modifier = Modifier.width(36.dp),
+                                )
+                                Text(
+                                    text       = "₹${"%.2f".format(item.price)}",
+                                    fontSize   = 13.sp,
+                                    color      = CrmOnSurface,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                            if (index < quote.items.lastIndex)
+                                HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                        }
                     }
 
-                    // + Add Item (read-only label, non-functional in detail view)
-                    TextButton(
-                        onClick  = { /* view only */ },
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    ) {
-                        Text(
-                            text       = "+ Add Item",
-                            color      = CrmPrimary,
-                            fontSize   = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
+                    HorizontalDivider(color = CrmDivider, thickness = 1.dp)
+
+                    // Totals section
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        if (quote.subTotal > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Sub Total", fontSize = 13.sp, color = CrmSubtext)
+                                Text("₹${"%.2f".format(quote.subTotal)}", fontSize = 13.sp, color = CrmOnSurface)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
+                        if (quote.discount > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Discount", fontSize = 13.sp, color = CrmSubtext)
+                                Text("- ₹${"%.2f".format(quote.discount)}", fontSize = 13.sp, color = CrmError)
+                            }
+                            Spacer(Modifier.height(4.dp))
+                        }
+                        if (quote.tax > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Tax", fontSize = 13.sp, color = CrmSubtext)
+                                Text("₹${"%.2f".format(quote.tax)}", fontSize = 13.sp, color = CrmOnSurface)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Grand Total", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmOnSurface)
+                            Text(
+                                text       = "₹${"%.2f".format(quote.grandTotal)}",
+                                fontSize   = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = CrmPrimary,
+                            )
+                        }
                     }
                 }
             }

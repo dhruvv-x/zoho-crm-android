@@ -21,10 +21,33 @@ data class Account(
     val billingCountry: String = "",
 )
 
+data class Contact(
+    val id            : Int,
+    val zohoId        : String = "",
+    val firstName     : String = "",
+    val lastName      : String = "",
+    val fullName      : String,
+    val phone         : String = "",
+    val mobile        : String = "",
+    val email         : String = "",
+    val accountName   : String = "",
+    val title         : String = "",
+    val department    : String = "",
+    val leadSource    : String = "-None-",
+    val contactOwner  : String = "-None-",
+    val description   : String = "",
+    val mailingStreet : String = "",
+    val mailingCity   : String = "",
+    val mailingState  : String = "",
+    val mailingZip    : String = "",
+    val mailingCountry: String = "",
+)
+
 data class Deal(
     val id              : Int,
+    val zohoId          : String = "",
     val name            : String,
-    val phone           : String,
+    val phone           : String = "",
     val dealName        : String = "",
     val accountName     : String = "",
     val contactName     : String = "",
@@ -41,27 +64,29 @@ data class Deal(
 
 data class QuoteItem(
     val sNo         : Int,
-    val brand       : String = "Brand",
+    val brand       : String = "",
     val productName : String = "Product name",
-    val description : String = "Description",
+    val description : String = "",
     val quantity    : Int    = 1,
     val price       : Double = 0.0,
 )
 
 data class Quote(
     val id          : Int,
+    val zohoId      : String = "",
     val name        : String,
-    val phone       : String,
+    val phone       : String = "",
     val subject     : String = "",
     val accountName : String = "",
     val contactName : String = "",
-    val validUntil  : String = "10/05/2026",
+    val validUntil  : String = "",
     val quoteStage  : String = "Draft",
     val description : String = "",
-    val items       : List<QuoteItem> = listOf(
-        QuoteItem(1, price = 10.99),
-        QuoteItem(2, price = 8.99),
-    ),
+    val grandTotal  : Double = 0.0,
+    val subTotal    : Double = 0.0,
+    val discount    : Double = 0.0,
+    val tax         : Double = 0.0,
+    val items       : List<QuoteItem> = emptyList(),
 )
 
 data class CallActivity(val time: String, val subject: String)
@@ -69,16 +94,6 @@ data class MeetingActivity(val time: String, val subject: String)
 data class TaskActivity(val time: String, val subject: String)
 
 object FakeData {
-    val accounts = (1..8).map { i ->
-        Account(id = i, name = "starryskies23", phone = "+91-9845787415")
-    }
-    val deals = (1..8).map { i ->
-        Deal(id = i, name = "starryskies23", phone = "+91-9845787415")
-    }
-    val quotes = (1..8).map { i ->
-        Quote(id = i, name = "starryskies23", phone = "+91-9845787415")
-    }
-
     val todayCalls    : List<CallActivity>    = emptyList()
     val todayMeetings : List<MeetingActivity> = emptyList()
     val todayTasks    : List<TaskActivity>    = emptyList()

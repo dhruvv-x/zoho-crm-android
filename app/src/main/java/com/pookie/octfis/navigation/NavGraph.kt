@@ -20,6 +20,8 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Dashboard.route) {
             DashboardScreen(navController)
         }
+
+        // ── Accounts ──────────────────────────────────────────────────────────
         composable(Screen.Accounts.route) {
             AccountsScreen(navController)
         }
@@ -33,12 +35,23 @@ fun NavGraph(navController: NavHostController) {
             val accountId = backStackEntry.arguments?.getInt("accountId") ?: 0
             AccountDetailScreen(navController, accountId)
         }
+
+        // ── Contacts ──────────────────────────────────────────────────────────
         composable(Screen.Contacts.route) {
             ContactsScreen(navController)
         }
         composable(Screen.CreateContact.route) {
             CreateContactScreen(navController)
         }
+        composable(
+            route     = Screen.ContactDetail.route,
+            arguments = listOf(navArgument("contactId") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val contactId = backStackEntry.arguments?.getInt("contactId") ?: 0
+            ContactDetailScreen(navController, contactId)
+        }
+
+        // ── Deals ─────────────────────────────────────────────────────────────
         composable(Screen.Deals.route) {
             DealsScreen(navController)
         }
@@ -52,6 +65,8 @@ fun NavGraph(navController: NavHostController) {
             val dealId = backStackEntry.arguments?.getInt("dealId") ?: 0
             DealDetailScreen(navController, dealId)
         }
+
+        // ── Quotes ────────────────────────────────────────────────────────────
         composable(Screen.Quotes.route) {
             QuotesScreen(navController)
         }
