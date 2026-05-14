@@ -74,5 +74,11 @@ fun NavGraph(navController: NavHostController) {
         ) { back ->
             QuoteDetailScreen(navController, back.arguments?.getInt("quoteId") ?: 0)
         }
+        composable(
+            route     = Screen.EditQuote.route,
+            arguments = listOf(navArgument("quoteId") { type = NavType.IntType }),
+        ) { back ->
+            EditQuoteScreen(navController, back.arguments?.getInt("quoteId") ?: 0)
+        }
     }
 }

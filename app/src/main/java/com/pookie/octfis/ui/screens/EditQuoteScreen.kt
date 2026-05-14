@@ -20,7 +20,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.pookie.octfis.data.model.Quote
 import com.pookie.octfis.data.model.QuoteItem
 import com.pookie.octfis.data.repository.QuoteRepository
 import com.pookie.octfis.ui.components.SectionHeader
@@ -30,24 +29,38 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateQuoteScreen(navController: NavController) {
+fun EditQuoteScreen(navController: NavController, quoteId: Int) {
+    val original = QuoteRepository.cache.firstOrNull { it.id == quoteId }
 
-    var subject        by remember { mutableStateOf("") }
-    var accountName    by remember { mutableStateOf("") }
-    var contactName    by remember { mutableStateOf("") }
-    var validUntil     by remember { mutableStateOf("") }
-    var quoteStage     by remember { mutableStateOf("Draft") }
-    var description    by remember { mutableStateOf("") }
+    if (original == null) {
+        Scaffold { padding ->
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                Text("Quote not found", modifier = Modifier.padding(16.dp))
+            }
+        }
+        return
+    }
+
+    var subject        by remember { mutableStateOf(original.subject) }
+    var accountName    by remember { mutableStateOf(original.accountName) }
+    var contactName    by remember { mutableStateOf(original.contactName) }
+    var validUntil     by remember { mutableStateOf(original.validUntil) }
+    var quoteStage     by remember { mutableStateOf(original.quoteStage) }
+    var description    by remember { mutableStateOf(original.description) }
     var stageExpanded  by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showItemDialog by remember { mutableStateOf(false) }
     var editingIndex   by remember { mutableStateOf<Int?>(null) }
 
     val stageOptions = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
-    val items = remember { mutableStateListOf<QuoteItem>() }
+    val items = remember { mutableStateListOf<QuoteItem>().also { it.addAll(original.items) } }
 
-    // ── Date Picker Dialog ────────────────────────────────────────────────────
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+    // ── Date Picker ───────────────────────────────────────────────────────────
+    val initialMillis = runCatching {
+        SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).parse(original.validUntil)?.time
+    }.getOrNull() ?: System.currentTimeMillis()
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+
     if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -63,14 +76,14 @@ fun CreateQuoteScreen(navController: NavController) {
         ) { DatePicker(state = datePickerState) }
     }
 
-    // ── Add / Edit Item Dialog ────────────────────────────────────────────────
+    // ── Item Dialog ───────────────────────────────────────────────────────────
     if (showItemDialog) {
-        val editing  = editingIndex?.let { items.getOrNull(it) }
-        var dBrand   by remember(editingIndex) { mutableStateOf(editing?.brand ?: "") }
-        var dName    by remember(editingIndex) { mutableStateOf(editing?.productName?.takeIf { it != "Product name" } ?: "") }
-        var dDesc    by remember(editingIndex) { mutableStateOf(editing?.description ?: "") }
-        var dQty     by remember(editingIndex) { mutableStateOf((editing?.quantity ?: 1).toString()) }
-        var dPrice   by remember(editingIndex) { mutableStateOf(if ((editing?.price ?: 0.0) == 0.0) "" else (editing?.price ?: 0.0).toString()) }
+        val editing = editingIndex?.let { items.getOrNull(it) }
+        var dBrand  by remember(editingIndex) { mutableStateOf(editing?.brand ?: "") }
+        var dName   by remember(editingIndex) { mutableStateOf(editing?.productName?.takeIf { it != "Product name" } ?: "") }
+        var dDesc   by remember(editingIndex) { mutableStateOf(editing?.description ?: "") }
+        var dQty    by remember(editingIndex) { mutableStateOf((editing?.quantity ?: 1).toString()) }
+        var dPrice  by remember(editingIndex) { mutableStateOf(if ((editing?.price ?: 0.0) == 0.0) "" else (editing?.price ?: 0.0).toString()) }
 
         AlertDialog(
             onDismissRequest = { showItemDialog = false; editingIndex = null },
@@ -102,11 +115,11 @@ fun CreateQuoteScreen(navController: NavController) {
         )
     }
 
-    // ── UI ────────────────────────────────────────────────────────────────────
+    // ── Scaffold ──────────────────────────────────────────────────────────────
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create Quote", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text("Edit Quote", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -116,11 +129,9 @@ fun CreateQuoteScreen(navController: NavController) {
                     Button(
                         onClick = {
                             val subTotal = items.sumOf { it.price * it.quantity }
-                            val newId    = (QuoteRepository.cache.maxOfOrNull { it.id } ?: 0) + 1
-                            QuoteRepository.cache.add(
-                                Quote(
-                                    id          = newId,
-                                    zohoId      = "",
+                            val cacheIdx = QuoteRepository.cache.indexOfFirst { it.id == quoteId }
+                            if (cacheIdx >= 0) {
+                                QuoteRepository.cache[cacheIdx] = original.copy(
                                     name        = subject.ifEmpty { "(No Subject)" },
                                     subject     = subject,
                                     accountName = accountName,
@@ -132,7 +143,7 @@ fun CreateQuoteScreen(navController: NavController) {
                                     grandTotal  = subTotal,
                                     items       = items.toList(),
                                 )
-                            )
+                            }
                             navController.popBackStack()
                         },
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
@@ -146,22 +157,18 @@ fun CreateQuoteScreen(navController: NavController) {
         containerColor = CrmBackground,
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
         ) {
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    QuoteFormField("Subject",      subject,     "Enter Quote title")     { subject = it }
-                    QuoteDivider()
-                    QuoteFormField("Account Name", accountName, "Select Company Name")   { accountName = it }
-                    QuoteDivider()
-                    QuoteFormField("Contact Name", contactName, "Select Contact Person") { contactName = it }
-                    QuoteDivider()
+                    EQFormField("Subject",      subject,     "Enter Quote title")     { subject = it }
+                    EQDivider()
+                    EQFormField("Account Name", accountName, "Select Company Name")   { accountName = it }
+                    EQDivider()
+                    EQFormField("Contact Name", contactName, "Select Contact Person") { contactName = it }
+                    EQDivider()
 
-                    // Valid Until — taps open DatePicker
                     TextButton(
                         onClick        = { showDatePicker = true },
                         modifier       = Modifier.fillMaxWidth(),
@@ -177,9 +184,8 @@ fun CreateQuoteScreen(navController: NavController) {
                             )
                         }
                     }
-                    QuoteDivider()
+                    EQDivider()
 
-                    // Quote Stage — dropdown, value persists immediately
                     ExposedDropdownMenuBox(expanded = stageExpanded, onExpandedChange = { stageExpanded = !stageExpanded }) {
                         Row(
                             modifier          = Modifier.fillMaxWidth().menuAnchor().padding(horizontal = 16.dp, vertical = 14.dp),
@@ -191,16 +197,12 @@ fun CreateQuoteScreen(navController: NavController) {
                         }
                         ExposedDropdownMenu(expanded = stageExpanded, onDismissRequest = { stageExpanded = false }) {
                             stageOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text    = { Text(option, fontSize = 13.sp) },
-                                    onClick = { quoteStage = option; stageExpanded = false },
-                                )
+                                DropdownMenuItem(text = { Text(option, fontSize = 13.sp) }, onClick = { quoteStage = option; stageExpanded = false })
                             }
                         }
                     }
-                    QuoteDivider()
-
-                    QuoteFormField("Description", description, "Short description") { description = it }
+                    EQDivider()
+                    EQFormField("Description", description, "Short description") { description = it }
                 }
             }
 
@@ -208,12 +210,11 @@ fun CreateQuoteScreen(navController: NavController) {
             SectionHeader("Quoted Items")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    // Header row
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Text("S.NO",         fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.width(40.dp))
                         Text("Product Name", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.weight(1f))
                         Text("PRICE",        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.width(60.dp))
-                        Spacer(Modifier.width(48.dp))
+                        Spacer(Modifier.width(64.dp))
                     }
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
 
@@ -229,13 +230,7 @@ fun CreateQuoteScreen(navController: NavController) {
                                 if (item.description.isNotEmpty()) Text(item.description, fontSize = 11.sp, color = CrmSubtext)
                                 Text("Qty: ${item.quantity}", fontSize = 11.sp, color = CrmSubtext)
                             }
-                            Text(
-                                text       = "₹${String.format("%.2f", item.price)}",
-                                fontSize   = 13.sp,
-                                color      = CrmOnSurface,
-                                fontWeight = FontWeight.Medium,
-                                modifier   = Modifier.width(60.dp),
-                            )
+                            Text("₹${String.format("%.2f", item.price)}", fontSize = 13.sp, color = CrmOnSurface, fontWeight = FontWeight.Medium, modifier = Modifier.width(60.dp))
                             IconButton(onClick = { editingIndex = index; showItemDialog = true }, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary, modifier = Modifier.size(16.dp))
                             }
@@ -250,19 +245,13 @@ fun CreateQuoteScreen(navController: NavController) {
                     if (items.isNotEmpty()) {
                         val subTotal = items.sumOf { it.price * it.quantity }
                         HorizontalDivider(color = CrmDivider, thickness = 1.dp)
-                        Row(
-                            modifier              = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Grand Total", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmOnSurface)
                             Text("₹${String.format("%.2f", subTotal)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmPrimary)
                         }
                     }
 
-                    TextButton(
-                        onClick  = { editingIndex = null; showItemDialog = true },
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    ) {
+                    TextButton(onClick = { editingIndex = null; showItemDialog = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
                         Text("+ Add Item", color = CrmPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
@@ -274,7 +263,7 @@ fun CreateQuoteScreen(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuoteFormField(label: String, value: String, placeholder: String, onValueChange: (String) -> Unit) {
+private fun EQFormField(label: String, value: String, placeholder: String, onValueChange: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(text = label, fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
         TextField(
@@ -294,6 +283,4 @@ private fun QuoteFormField(label: String, value: String, placeholder: String, on
 }
 
 @Composable
-private fun QuoteDivider() {
-    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-}
+private fun EQDivider() = HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
