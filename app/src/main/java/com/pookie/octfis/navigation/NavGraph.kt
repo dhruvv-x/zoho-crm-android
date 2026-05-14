@@ -17,7 +17,7 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.SignIn.route)     { SignInScreen(navController) }
         composable(Screen.Dashboard.route)  { DashboardScreen(navController) }
 
-        // ── Accounts ──────────────────────────────────────────────────────────
+        // ── Accounts ──────────────────────────────────────────────────────
         composable(Screen.Accounts.route)      { AccountsScreen(navController) }
         composable(Screen.CreateAccount.route) { CreateAccountScreen(navController) }
         composable(
@@ -33,7 +33,7 @@ fun NavGraph(navController: NavHostController) {
             EditAccountScreen(navController, back.arguments?.getString("zohoId") ?: "")
         }
 
-        // ── Contacts ──────────────────────────────────────────────────────────
+        // ── Contacts ──────────────────────────────────────────────────────
         composable(Screen.Contacts.route)      { ContactsScreen(navController) }
         composable(Screen.CreateContact.route) { CreateContactScreen(navController) }
         composable(
@@ -49,7 +49,7 @@ fun NavGraph(navController: NavHostController) {
             EditContactScreen(navController, back.arguments?.getInt("contactId") ?: 0)
         }
 
-        // ── Deals ─────────────────────────────────────────────────────────────
+        // ── Deals ─────────────────────────────────────────────────────────
         composable(Screen.Deals.route)      { DealsScreen(navController) }
         composable(Screen.CreateDeal.route) { CreateDealScreen(navController) }
         composable(
@@ -65,7 +65,7 @@ fun NavGraph(navController: NavHostController) {
             EditDealScreen(navController, back.arguments?.getInt("dealId") ?: 0)
         }
 
-        // ── Quotes ────────────────────────────────────────────────────────────
+        // ── Quotes ────────────────────────────────────────────────────────
         composable(Screen.Quotes.route)      { QuotesScreen(navController) }
         composable(Screen.CreateQuote.route) { CreateQuoteScreen(navController) }
         composable(
@@ -79,6 +79,54 @@ fun NavGraph(navController: NavHostController) {
             arguments = listOf(navArgument("quoteId") { type = NavType.IntType }),
         ) { back ->
             EditQuoteScreen(navController, back.arguments?.getInt("quoteId") ?: 0)
+        }
+
+        // ── Tasks ─────────────────────────────────────────────────────────
+        composable(Screen.Tasks.route)      { TaskListScreen(navController) }
+        composable(Screen.CreateTask.route) { CreateTaskScreen(navController) }
+        composable(
+            route     = Screen.TaskDetail.route,
+            arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+        ) { back ->
+            TaskDetailScreen(navController, back.arguments?.getString("taskId") ?: "")
+        }
+        composable(
+            route     = Screen.EditTask.route,
+            arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
+        ) { back ->
+            EditTaskScreen(navController, back.arguments?.getString("taskId") ?: "")
+        }
+
+        // ── Meetings ──────────────────────────────────────────────────────
+        composable(Screen.Meetings.route)      { MeetingListScreen(navController) }
+        composable(Screen.CreateMeeting.route) { CreateMeetingScreen(navController) }
+        composable(
+            route     = Screen.MeetingDetail.route,
+            arguments = listOf(navArgument("meetingId") { type = NavType.StringType }),
+        ) { back ->
+            MeetingDetailScreen(navController, back.arguments?.getString("meetingId") ?: "")
+        }
+        composable(
+            route     = Screen.EditMeeting.route,
+            arguments = listOf(navArgument("meetingId") { type = NavType.StringType }),
+        ) { back ->
+            EditMeetingScreen(navController, back.arguments?.getString("meetingId") ?: "")
+        }
+
+        // ── Calls ─────────────────────────────────────────────────────────
+        composable(Screen.Calls.route)      { CallListScreen(navController) }
+        composable(Screen.CreateCall.route) { CreateCallScreen(navController) }
+        composable(
+            route     = Screen.CallDetail.route,
+            arguments = listOf(navArgument("callId") { type = NavType.StringType }),
+        ) { back ->
+            CallDetailScreen(navController, back.arguments?.getString("callId") ?: "")
+        }
+        composable(
+            route     = Screen.EditCall.route,
+            arguments = listOf(navArgument("callId") { type = NavType.StringType }),
+        ) { back ->
+            EditCallScreen(navController, back.arguments?.getString("callId") ?: "")
         }
     }
 }

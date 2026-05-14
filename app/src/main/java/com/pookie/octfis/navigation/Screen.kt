@@ -39,4 +39,34 @@ sealed class Screen(val route: String) {
     object EditQuote     : Screen("edit_quote/{quoteId}") {
         fun createRoute(quoteId: Int) = "edit_quote/$quoteId"
     }
+
+    // ── Tasks ──────────────────────────────────────────────────────────────
+    object Tasks        : Screen("tasks")
+    object CreateTask   : Screen("create_task")
+    object TaskDetail   : Screen("task_detail/{taskId}") {
+        fun createRoute(taskId: String) = "task_detail/$taskId"
+    }
+    object EditTask     : Screen("edit_task/{taskId}") {
+        fun createRoute(taskId: String) = "edit_task/$taskId"
+    }
+
+    // ── Meetings ───────────────────────────────────────────────────────────
+    object Meetings       : Screen("meetings")
+    object CreateMeeting  : Screen("create_meeting")
+    object MeetingDetail  : Screen("meeting_detail/{meetingId}") {
+        fun createRoute(meetingId: String) = "meeting_detail/$meetingId"
+    }
+    object EditMeeting    : Screen("edit_meeting/{meetingId}") {
+        fun createRoute(meetingId: String) = "edit_meeting/$meetingId"
+    }
+
+    // ── Calls ──────────────────────────────────────────────────────────────
+    object Calls        : Screen("calls")
+    object CreateCall   : Screen("create_call")
+    object CallDetail   : Screen("call_detail/{callId}") {
+        fun createRoute(callId: String) = "call_detail/$callId"
+    }
+    object EditCall     : Screen("edit_call/{callId}") {
+        fun createRoute(callId: String) = "edit_call/$callId"
+    }
 }
