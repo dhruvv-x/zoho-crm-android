@@ -16,32 +16,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.data.repository.AccountRepository
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateContactScreen(
+fun EditAccountScreen(
     navController: NavController,
-    vm: CreateContactViewModel = viewModel(),
+    zohoId: String,
+    vm: CreateAccountViewModel = viewModel(),
 ) {
-    var firstName      by remember { mutableStateOf("") }
-    var lastName       by remember { mutableStateOf("") }
-    var phone          by remember { mutableStateOf("") }
-    var email          by remember { mutableStateOf("") }
-    var accountName    by remember { mutableStateOf("") }
-    var title          by remember { mutableStateOf("") }
-    var department     by remember { mutableStateOf("") }
-    var selectedOwner  by remember { mutableStateOf(Pair("", "-None-")) }
-    var leadSource     by remember { mutableStateOf("-None-") }
-    var description    by remember { mutableStateOf("") }
+    val account = AccountRepository.cache.firstOrNull { it.zohoId == zohoId }
 
-    var billingStreet  by remember { mutableStateOf("") }
-    var billingStreet2 by remember { mutableStateOf("") }
-    var billingCity    by remember { mutableStateOf("") }
-    var billingState   by remember { mutableStateOf("") }
-    var billingCode    by remember { mutableStateOf("") }
-    var billingCountry by remember { mutableStateOf("") }
+    var accountName    by remember { mutableStateOf(account?.name ?: "") }
+    var phone          by remember { mutableStateOf(account?.phone ?: "") }
+    var website        by remember { mutableStateOf(account?.website ?: "") }
+    var industry       by remember { mutableStateOf(account?.industry?.ifEmpty { "-None-" } ?: "-None-") }
+    var gstTreatment   by remember { mutableStateOf(account?.gstTreatment?.ifEmpty { "-None-" } ?: "-None-") }
+    var gstin          by remember { mutableStateOf(account?.gstin ?: "") }
+    var leadSource     by remember { mutableStateOf(account?.leadSource?.ifEmpty { "-None-" } ?: "-None-") }
+    var selectedOwner  by remember { mutableStateOf(Pair("", account?.accountOwner ?: "-None-")) }
+    var description    by remember { mutableStateOf(account?.description ?: "") }
+    var billingStreet  by remember { mutableStateOf(account?.billingStreet ?: "") }
+    var billingCity    by remember { mutableStateOf(account?.billingCity ?: "") }
+    var billingState   by remember { mutableStateOf(account?.billingState ?: "") }
+    var billingCode    by remember { mutableStateOf(account?.billingCode ?: "") }
+    var billingCountry by remember { mutableStateOf(account?.billingCountry ?: "") }
 
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
@@ -49,10 +50,10 @@ fun CreateContactScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create Contact", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text("Edit Account", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
@@ -79,35 +80,28 @@ fun CreateContactScreen(
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    ContactTextField("First Name",   firstName,   "Enter First Name")   { firstName = it }
-                    ContactDivider()
-                    ContactTextField("Last Name",    lastName,    "Enter Last Name")    { lastName = it }
-                    ContactDivider()
-                    ContactTextField("Phone",        phone,       "Enter Phone No")     { phone = it }
-                    ContactDivider()
-                    ContactTextField("Email",        email,       "Enter Email ID")     { email = it }
-                    ContactDivider()
-                    ContactTextField("Account Name", accountName, "Enter Company Name") { accountName = it }
-                    ContactDivider()
-                    ContactTextField("Title",        title,       "Enter Job Title")    { title = it }
-                    ContactDivider()
-                    ContactTextField("Department",   department,  "Enter Department")   { department = it }
-                    ContactDivider()
-                    ContactDropdown(
-                        label   = "Contact Owner",
+                    EditAccountTextField("Account Name",  accountName,  "Enter Company name") { accountName = it }
+                    EditAccountDivider()
+                    EditAccountTextField("Phone",         phone,        "Enter Phone no")     { phone = it }
+                    EditAccountDivider()
+                    EditAccountTextField("Website",       website,      "www.example.com")    { website = it }
+                    EditAccountDivider()
+                    EditAccountDropdown("Industry",      industry,      options.industries,    optionsLoading) { industry = it }
+                    EditAccountDivider()
+                    EditAccountDropdown("GST Treatment", gstTreatment, options.gstTreatments, optionsLoading) { gstTreatment = it }
+                    EditAccountDivider()
+                    EditAccountTextField("GSTIN",         gstin,        "Enter GST Number")   { gstin = it }
+                    EditAccountDivider()
+                    EditAccountDropdown("Lead Source",   leadSource,   options.leadSources,   optionsLoading) { leadSource = it }
+                    EditAccountDivider()
+                    EditAccountDropdown(
+                        label   = "Account Owner",
                         value   = selectedOwner.second,
                         options = options.owners.map { it.second },
                         loading = optionsLoading,
                     ) { name -> selectedOwner = options.owners.firstOrNull { it.second == name } ?: Pair("", name) }
-                    ContactDivider()
-                    ContactDropdown(
-                        label   = "Lead Source",
-                        value   = leadSource,
-                        options = options.leadSources,
-                        loading = optionsLoading,
-                    ) { leadSource = it }
-                    ContactDivider()
-                    ContactTextField("Description",  description, "Short description")  { description = it }
+                    EditAccountDivider()
+                    EditAccountTextField("Description",   description,  "Short description")  { description = it }
                 }
             }
 
@@ -116,17 +110,15 @@ fun CreateContactScreen(
             SectionHeader("Address")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    ContactTextField("Billing Street",   billingStreet,  "Plot no, Building name") { billingStreet = it }
-                    ContactDivider()
-                    ContactTextField("Billing Street 2", billingStreet2, "Landmark")               { billingStreet2 = it }
-                    ContactDivider()
-                    ContactTextField("Billing City",     billingCity,    "Enter City Name")        { billingCity = it }
-                    ContactDivider()
-                    ContactTextField("Billing State",    billingState,   "Enter State")            { billingState = it }
-                    ContactDivider()
-                    ContactTextField("Billing Code",     billingCode,    "Enter Postal Code")      { billingCode = it }
-                    ContactDivider()
-                    ContactTextField("Billing Country",  billingCountry, "Enter Country")          { billingCountry = it }
+                    EditAccountTextField("Billing Street",   billingStreet,  "Plot no, Building name") { billingStreet = it }
+                    EditAccountDivider()
+                    EditAccountTextField("Billing City",     billingCity,    "Enter City Name")        { billingCity = it }
+                    EditAccountDivider()
+                    EditAccountTextField("Billing State",    billingState,   "Enter State")            { billingState = it }
+                    EditAccountDivider()
+                    EditAccountTextField("Billing Code",     billingCode,    "PIN / ZIP code")         { billingCode = it }
+                    EditAccountDivider()
+                    EditAccountTextField("Billing Country",  billingCountry, "Enter Country")          { billingCountry = it }
                 }
             }
 
@@ -136,7 +128,7 @@ fun CreateContactScreen(
 }
 
 @Composable
-private fun ContactTextField(
+private fun EditAccountTextField(
     label: String, value: String, placeholder: String, onValueChange: (String) -> Unit,
 ) {
     Row(
@@ -162,7 +154,7 @@ private fun ContactTextField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ContactDropdown(
+private fun EditAccountDropdown(
     label: String, value: String, options: List<String>, loading: Boolean, onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -204,6 +196,6 @@ private fun ContactDropdown(
 }
 
 @Composable
-private fun ContactDivider() {
+private fun EditAccountDivider() {
     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }

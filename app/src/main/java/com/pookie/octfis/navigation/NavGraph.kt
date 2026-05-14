@@ -28,6 +28,13 @@ fun NavGraph(navController: NavHostController) {
             val zohoId = back.arguments?.getString("zohoId") ?: ""
             AccountDetailScreen(navController, zohoId)
         }
+        composable(
+            route     = Screen.EditAccount.route,
+            arguments = listOf(navArgument("zohoId") { type = NavType.StringType }),
+        ) { back ->
+            val zohoId = back.arguments?.getString("zohoId") ?: ""
+            EditAccountScreen(navController, zohoId)
+        }
 
         // ── Contacts ──────────────────────────────────────────────────────────
         composable(Screen.Contacts.route)      { ContactsScreen(navController) }
@@ -37,6 +44,12 @@ fun NavGraph(navController: NavHostController) {
             arguments = listOf(navArgument("contactId") { type = NavType.IntType }),
         ) { back ->
             ContactDetailScreen(navController, back.arguments?.getInt("contactId") ?: 0)
+        }
+        composable(
+            route     = Screen.EditContact.route,
+            arguments = listOf(navArgument("contactId") { type = NavType.IntType }),
+        ) { back ->
+            EditContactScreen(navController, back.arguments?.getInt("contactId") ?: 0)
         }
 
         // ── Deals ─────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pookie.octfis.data.repository.ContactRepository
+import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
@@ -40,7 +41,9 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: edit */ }) {
+                    IconButton(onClick = {
+                        navController.navigate(Screen.EditContact.createRoute(contactId))
+                    }) {
                         Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                     }
                 },
@@ -65,29 +68,29 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    FormRow("Full Name",      contact.fullName.ifEmpty { "—" })
+                    FormRow("Full Name",     contact.fullName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("First Name",     contact.firstName.ifEmpty { "—" })
+                    FormRow("First Name",    contact.firstName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Last Name",      contact.lastName.ifEmpty { "—" })
+                    FormRow("Last Name",     contact.lastName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Phone",          contact.phone.ifEmpty { "—" })
+                    FormRow("Phone",         contact.phone.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Mobile",         contact.mobile.ifEmpty { "—" })
+                    FormRow("Mobile",        contact.mobile.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Email",          contact.email.ifEmpty { "—" })
+                    FormRow("Email",         contact.email.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Account Name",   contact.accountName.ifEmpty { "—" })
+                    FormRow("Account Name",  contact.accountName.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Title",          contact.title.ifEmpty { "—" })
+                    FormRow("Title",         contact.title.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Department",     contact.department.ifEmpty { "—" })
+                    FormRow("Department",    contact.department.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Lead Source",    contact.leadSource)
+                    FormRow("Lead Source",   contact.leadSource.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Contact Owner",  contact.contactOwner)
+                    FormRow("Contact Owner", contact.contactOwner.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Description",    contact.description.ifEmpty { "—" })
+                    FormRow("Description",   contact.description.ifEmpty { "—" })
                 }
             }
 

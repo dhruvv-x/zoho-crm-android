@@ -10,8 +10,6 @@ class AccountRepository(private val api: ZohoApiService) {
         val cache = mutableListOf<Account>()
     }
 
-    // ── LIST ──────────────────────────────────────────────────────────────────
-
     suspend fun getAccounts(page: Int = 1): Result<Pair<List<Account>, Boolean>> =
         runCatching {
             val response = api.getAccounts(page = page, perPage = 100)
@@ -23,10 +21,10 @@ class AccountRepository(private val api: ZohoApiService) {
                     name           = zoho.accountName.orEmpty(),
                     phone          = zoho.phone.orEmpty(),
                     website        = zoho.website.orEmpty(),
-                    industry       = zoho.industry.orEmpty().ifEmpty { "-None-" },
-                    gstTreatment   = zoho.gstTreatment.orEmpty().ifEmpty { "-None-" },
-                    accountOwner   = zoho.accountOwner?.name.orEmpty().ifEmpty { "-None-" },
-                    leadSource     = zoho.leadSource.orEmpty().ifEmpty { "-None-" },
+                    industry       = zoho.industry.orEmpty(),
+                    gstTreatment   = zoho.gstTreatment.orEmpty(),
+                    accountOwner   = zoho.accountOwner?.name.orEmpty(),
+                    leadSource     = zoho.leadSource.orEmpty(),
                     description    = zoho.description.orEmpty(),
                     billingStreet  = zoho.billingStreet.orEmpty(),
                     billingCity    = zoho.billingCity.orEmpty(),
@@ -44,8 +42,6 @@ class AccountRepository(private val api: ZohoApiService) {
             Pair(accounts, hasMore)
         }
 
-    // ── SINGLE RECORD ─────────────────────────────────────────────────────────
-
     suspend fun getAccountDetail(zohoId: String): Result<Account> =
         runCatching {
             val response = api.getAccountById(zohoId)
@@ -58,10 +54,10 @@ class AccountRepository(private val api: ZohoApiService) {
                 name           = zoho.accountName.orEmpty(),
                 phone          = zoho.phone.orEmpty(),
                 website        = zoho.website.orEmpty(),
-                industry       = zoho.industry.orEmpty().ifEmpty { "-None-" },
-                gstTreatment   = zoho.gstTreatment.orEmpty().ifEmpty { "-None-" },
-                accountOwner   = zoho.accountOwner?.name.orEmpty().ifEmpty { "-None-" },
-                leadSource     = zoho.leadSource.orEmpty().ifEmpty { "-None-" },
+                industry       = zoho.industry.orEmpty(),
+                gstTreatment   = zoho.gstTreatment.orEmpty(),
+                accountOwner   = zoho.accountOwner?.name.orEmpty(),
+                leadSource     = zoho.leadSource.orEmpty(),
                 description    = zoho.description.orEmpty(),
                 billingStreet  = zoho.billingStreet.orEmpty(),
                 billingCity    = zoho.billingCity.orEmpty(),
@@ -89,14 +85,12 @@ class AccountRepository(private val api: ZohoApiService) {
                     accountName  = zoho.accountName?.name.orEmpty(),
                     title        = zoho.title.orEmpty(),
                     department   = zoho.department.orEmpty(),
-                    leadSource   = zoho.leadSource.orEmpty().ifEmpty { "-None-" },
-                    contactOwner = zoho.contactOwner?.name.orEmpty().ifEmpty { "-None-" },
+                    leadSource   = zoho.leadSource.orEmpty(),
+                    contactOwner = zoho.contactOwner?.name.orEmpty(),
                     description  = zoho.description.orEmpty(),
                 )
             } ?: emptyList()
         }
-
-    // ── CREATE ────────────────────────────────────────────────────────────────
 
     suspend fun createAccount(
         name          : String,
@@ -119,10 +113,10 @@ class AccountRepository(private val api: ZohoApiService) {
             put("Account_Name", name)
             if (phone.isNotBlank())          put("Phone", phone)
             if (website.isNotBlank())        put("Website", website)
-            if (industry != "-None-")        put("Industry", industry)
-            if (gstTreatment != "-None-")    put("GST_Treatment", gstTreatment)
+            if (industry.isNotBlank())       put("Industry", industry)
+            if (gstTreatment.isNotBlank())   put("GST_Treatment", gstTreatment)
             if (gstin.isNotBlank())          put("GSTIN", gstin)
-            if (leadSource != "-None-")      put("Lead_Source", leadSource)
+            if (leadSource.isNotBlank())     put("Lead_Source", leadSource)
             if (accountOwner.isNotBlank())   put("Owner", mapOf("id" to accountOwner))
             if (description.isNotBlank())    put("Description", description)
             val street = listOfNotNull(
