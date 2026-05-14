@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pookie.octfis.data.repository.DealRepository
+import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
@@ -40,7 +41,9 @@ fun DealDetailScreen(navController: NavController, dealId: Int) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: edit */ }) {
+                    IconButton(onClick = {
+                        navController.navigate(Screen.EditDeal.createRoute(dealId))
+                    }) {
                         Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                     }
                 },
@@ -75,13 +78,13 @@ fun DealDetailScreen(navController: NavController, dealId: Int) {
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Closing Date", deal.closingDate.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Type",         deal.type)
+                    FormRow("Type",         deal.type.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Email",        deal.email.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Phone",        deal.phone.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Deal Owner",   deal.dealOwner)
+                    FormRow("Deal Owner",   deal.dealOwner.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Description",  deal.description.ifEmpty { "—" })
                 }
@@ -92,9 +95,9 @@ fun DealDetailScreen(navController: NavController, dealId: Int) {
             SectionHeader("Additional Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    FormRow("Stage",       deal.stage)
+                    FormRow("Stage",       deal.stage.ifEmpty { "—" })
                     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Lead Source", deal.leadSource)
+                    FormRow("Lead Source", deal.leadSource.ifEmpty { "—" })
                 }
             }
 

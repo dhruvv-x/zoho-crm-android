@@ -3,7 +3,6 @@ package com.pookie.octfis.navigation
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
-import com.pookie.octfis.ui.screens.CreateAccountScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -25,15 +24,13 @@ fun NavGraph(navController: NavHostController) {
             route     = Screen.AccountDetail.route,
             arguments = listOf(navArgument("zohoId") { type = NavType.StringType }),
         ) { back ->
-            val zohoId = back.arguments?.getString("zohoId") ?: ""
-            AccountDetailScreen(navController, zohoId)
+            AccountDetailScreen(navController, back.arguments?.getString("zohoId") ?: "")
         }
         composable(
             route     = Screen.EditAccount.route,
             arguments = listOf(navArgument("zohoId") { type = NavType.StringType }),
         ) { back ->
-            val zohoId = back.arguments?.getString("zohoId") ?: ""
-            EditAccountScreen(navController, zohoId)
+            EditAccountScreen(navController, back.arguments?.getString("zohoId") ?: "")
         }
 
         // ── Contacts ──────────────────────────────────────────────────────────
@@ -60,6 +57,12 @@ fun NavGraph(navController: NavHostController) {
             arguments = listOf(navArgument("dealId") { type = NavType.IntType }),
         ) { back ->
             DealDetailScreen(navController, back.arguments?.getInt("dealId") ?: 0)
+        }
+        composable(
+            route     = Screen.EditDeal.route,
+            arguments = listOf(navArgument("dealId") { type = NavType.IntType }),
+        ) { back ->
+            EditDealScreen(navController, back.arguments?.getInt("dealId") ?: 0)
         }
 
         // ── Quotes ────────────────────────────────────────────────────────────

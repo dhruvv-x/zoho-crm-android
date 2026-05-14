@@ -100,4 +100,10 @@ interface ZohoApiService {
         @Path("id") id: String,
         @Body body: Map<String, @JvmSuppressWildcards Any>,
     ): CreateRecordResponse
+
+    @PUT("Deals/{id}")
+    suspend fun updateDeal(
+        @Path("id") id: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+    ): CreateRecordResponse
 }
