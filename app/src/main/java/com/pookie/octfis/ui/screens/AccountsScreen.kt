@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -14,8 +16,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,9 +39,11 @@ fun AccountsScreen(
     val navBackStack by navController.currentBackStackEntryAsState()
     val currentRoute  = navBackStack?.destination?.route
     val uiState      by vm.uiState.collectAsState()
+    val searchQuery  by vm.searchQuery.collectAsState()
     val listState     = rememberLazyListState()
+    var searchActive  by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
 
-    // Trigger next page when near the bottom
     val nearBottom by remember {
         derivedStateOf {
             val last  = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -45,18 +52,23 @@ fun AccountsScreen(
         }
     }
     LaunchedEffect(nearBottom) {
-        if (nearBottom) vm.loadNextPage()
+        if (nearBottom && !searchActive) vm.loadNextPage()
+    }
+    LaunchedEffect(searchActive) {
+        if (searchActive) focusRequester.requestFocus()
     }
 
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick        = { navController.navigate(Screen.CreateAccount.route) },
-                containerColor = CrmPrimary,
-                contentColor   = Color.White,
-                shape          = CircleShape,
-            ) { Icon(Icons.Default.Add, "Create Account") }
+            if (!searchActive) {
+                FloatingActionButton(
+                    onClick        = { navController.navigate(Screen.CreateAccount.route) },
+                    containerColor = CrmPrimary,
+                    contentColor   = Color.White,
+                    shape          = CircleShape,
+                ) { Icon(Icons.Default.Add, "Create Account") }
+            }
         },
         containerColor = CrmBackground,
     ) { padding ->
@@ -67,22 +79,54 @@ fun AccountsScreen(
                 modifier          = Modifier
                     .fillMaxWidth()
                     .background(Color.White)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
-                Spacer(Modifier.width(12.dp))
-                Text("Accounts", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                if (uiState is AccountsUiState.Success) {
-                    Text(
-                        text     = "${(uiState as AccountsUiState.Success).accounts.size} loaded",
-                        fontSize = 11.sp,
-                        color    = CrmSubtext,
+                if (searchActive) {
+                    IconButton(onClick = {
+                        searchActive = false
+                        vm.setSearch("")
+                    }) { Icon(Icons.Default.ArrowBack, "Close Search", tint = CrmOnSurface) }
+
+                    TextField(
+                        value         = searchQuery,
+                        onValueChange = { vm.setSearch(it) },
+                        placeholder   = { Text("Search accounts…", fontSize = 14.sp, color = CrmSubtext) },
+                        singleLine    = true,
+                        modifier      = Modifier.weight(1f).focusRequester(focusRequester),
+                        colors        = TextFieldDefaults.colors(
+                            focusedContainerColor   = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor   = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { /* already filtering live */ }),
                     )
-                }
-                IconButton(onClick = { vm.load() }) {
-                    Icon(Icons.Default.Refresh, "Refresh", tint = CrmSubtext)
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { vm.setSearch("") }) {
+                            Icon(Icons.Default.Close, "Clear", tint = CrmSubtext)
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Accounts", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(Modifier.weight(1f))
+                    if (uiState is AccountsUiState.Success) {
+                        Text(
+                            text     = "${(uiState as AccountsUiState.Success).accounts.size} loaded",
+                            fontSize = 11.sp,
+                            color    = CrmSubtext,
+                        )
+                    }
+                    IconButton(onClick = { searchActive = true }) {
+                        Icon(Icons.Default.Search, "Search", tint = CrmSubtext)
+                    }
+                    IconButton(onClick = { vm.load() }) {
+                        Icon(Icons.Default.Refresh, "Refresh", tint = CrmSubtext)
+                    }
                 }
             }
 
@@ -114,28 +158,34 @@ fun AccountsScreen(
                 }
 
                 is AccountsUiState.Success -> {
-                    LazyColumn(
-                        state          = listState,
-                        modifier       = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                    ) {
-                        itemsIndexed(s.accounts) { _, account ->
-                            AccountRow(account) {
-                                navController.navigate(Screen.AccountDetail.createRoute(account.zohoId))
-                            }
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                    if (s.accounts.isEmpty() && searchQuery.isNotBlank()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
                         }
-                        if (s.hasMore) {
-                            item {
-                                Box(
-                                    Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier    = Modifier.size(24.dp),
-                                        color       = CrmPrimary,
-                                        strokeWidth = 2.dp,
-                                    )
+                    } else {
+                        LazyColumn(
+                            state          = listState,
+                            modifier       = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                        ) {
+                            itemsIndexed(s.accounts) { _, account ->
+                                AccountRow(account) {
+                                    navController.navigate(Screen.AccountDetail.createRoute(account.zohoId))
+                                }
+                                HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                            }
+                            if (s.hasMore && searchQuery.isBlank()) {
+                                item {
+                                    Box(
+                                        Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier    = Modifier.size(24.dp),
+                                            color       = CrmPrimary,
+                                            strokeWidth = 2.dp,
+                                        )
+                                    }
                                 }
                             }
                         }

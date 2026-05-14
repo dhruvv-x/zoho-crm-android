@@ -46,4 +46,54 @@ class QuoteRepository(private val api: ZohoApiService) {
             val hasMore = response.info?.moreRecords ?: false
             Pair(quotes, hasMore)
         }
+
+    suspend fun updateQuote(
+        zohoId     : String,
+        subject    : String,
+        quoteStage : String,
+        validUntil : String,
+        description: String,
+        items      : List<QuoteItem>,
+    ): Result<Unit> = runCatching {
+        val subTotal = items.sumOf { it.price * it.quantity }
+
+        val quotedItems = items.map { item ->
+            buildMap<String, Any> {
+                put("product",    mapOf("name" to item.productName))
+                put("quantity",   item.quantity.toDouble())
+                put("unit_price", item.price)
+                put("total",      item.price * item.quantity)
+                if (item.description.isNotBlank()) put("description", item.description)
+            }
+        }
+
+        val record = buildMap<String, Any> {
+            put("Subject",      subject.ifBlank { "(No Subject)" })
+            put("Quote_Stage",  quoteStage.ifBlank { "Draft" })
+            put("Sub_Total",    subTotal)
+            put("Grand_Total",  subTotal)
+            if (validUntil.isNotBlank())  put("Valid_Till",   validUntil)
+            if (description.isNotBlank()) put("Description",  description)
+            if (quotedItems.isNotEmpty()) put("Quoted_Items", quotedItems)
+        }
+
+        val response = api.updateQuote(zohoId, mapOf("data" to listOf(record)))
+        val result   = response.data?.firstOrNull()
+        if (result?.status != "success") error(result?.message ?: "Update failed")
+
+        // update local cache
+        val idx = cache.indexOfFirst { it.zohoId == zohoId }
+        if (idx >= 0) {
+            cache[idx] = cache[idx].copy(
+                name        = subject.ifEmpty { "(No Subject)" },
+                subject     = subject,
+                quoteStage  = quoteStage,
+                validUntil  = validUntil,
+                description = description,
+                subTotal    = subTotal,
+                grandTotal  = subTotal,
+                items       = items,
+            )
+        }
+    }
 }

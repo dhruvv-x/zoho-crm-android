@@ -21,11 +21,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pookie.octfis.data.model.QuoteItem
+import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.data.repository.QuoteRepository
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +53,9 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showItemDialog by remember { mutableStateOf(false) }
     var editingIndex   by remember { mutableStateOf<Int?>(null) }
+    var isSaving       by remember { mutableStateOf(false) }
+    var saveError      by remember { mutableStateOf<String?>(null) }
+    val scope          = rememberCoroutineScope()
 
     val stageOptions = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
     val items = remember { mutableStateListOf<QuoteItem>().also { it.addAll(original.items) } }
@@ -128,31 +133,40 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
                 actions = {
                     Button(
                         onClick = {
-                            val subTotal = items.sumOf { it.price * it.quantity }
-                            val cacheIdx = QuoteRepository.cache.indexOfFirst { it.id == quoteId }
-                            if (cacheIdx >= 0) {
-                                QuoteRepository.cache[cacheIdx] = original.copy(
-                                    name        = subject.ifEmpty { "(No Subject)" },
+                            isSaving = true
+                            scope.launch {
+                                val repo = QuoteRepository(ZohoServiceLocator.getApiService())
+                                repo.updateQuote(
+                                    zohoId      = original.zohoId,
                                     subject     = subject,
-                                    accountName = accountName,
-                                    contactName = contactName,
-                                    validUntil  = validUntil,
                                     quoteStage  = quoteStage,
+                                    validUntil  = validUntil,
                                     description = description,
-                                    subTotal    = subTotal,
-                                    grandTotal  = subTotal,
                                     items       = items.toList(),
-                                )
+                                ).onSuccess {
+                                    navController.popBackStack()
+                                }.onFailure { e ->
+                                    saveError = e.message ?: "Save failed"
+                                }
+                                isSaving = false
                             }
-                            navController.popBackStack()
                         },
+                        enabled  = !isSaving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
-                    ) { Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold) }
+                    ) { Text(if (isSaving) "Saving…" else "Save", color = Color.White, fontWeight = FontWeight.SemiBold) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
             )
+        },
+        snackbarHost = {
+            saveError?.let { msg ->
+                Snackbar(
+                    action = { TextButton(onClick = { saveError = null }) { Text("OK") } },
+                    modifier = Modifier.padding(8.dp),
+                ) { Text(msg) }
+            }
         },
         containerColor = CrmBackground,
     ) { padding ->

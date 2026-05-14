@@ -23,6 +23,9 @@ class ContactsViewModel : ViewModel() {
     private val _uiState = MutableStateFlow<ContactsUiState>(ContactsUiState.Loading)
     val uiState: StateFlow<ContactsUiState> = _uiState.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
     private val allContacts = mutableListOf<Contact>()
     private var currentPage  = 1
     private var loadingMore  = false
@@ -44,13 +47,33 @@ class ContactsViewModel : ViewModel() {
         viewModelScope.launch { fetchPage(currentPage + 1) }
     }
 
+    fun setSearch(query: String) {
+        _searchQuery.value = query
+        val current = _uiState.value
+        if (current is ContactsUiState.Success) {
+            _uiState.value = current.copy(contacts = filter(allContacts, query))
+        }
+    }
+
+    private fun filter(list: List<Contact>, query: String): List<Contact> {
+        if (query.isBlank()) return list
+        val q = query.trim().lowercase()
+        return list.filter {
+            it.fullName.lowercase().contains(q) ||
+                    it.phone.lowercase().contains(q) ||
+                    it.mobile.lowercase().contains(q) ||
+                    it.email.lowercase().contains(q) ||
+                    it.accountName.lowercase().contains(q)
+        }
+    }
+
     private suspend fun fetchPage(page: Int) {
         loadingMore = true
         repo.getContacts(page).fold(
             onSuccess = { (newItems, hasMore) ->
                 allContacts.addAll(newItems)
                 currentPage    = page
-                _uiState.value = ContactsUiState.Success(allContacts.toList(), hasMore)
+                _uiState.value = ContactsUiState.Success(filter(allContacts, _searchQuery.value), hasMore)
             },
             onFailure = { e ->
                 _uiState.value = ContactsUiState.Error(e.message ?: "Unknown error")

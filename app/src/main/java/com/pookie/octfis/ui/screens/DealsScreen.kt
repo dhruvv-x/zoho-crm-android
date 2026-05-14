@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,8 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,7 +40,10 @@ fun DealsScreen(
     val navBackStack by navController.currentBackStackEntryAsState()
     val currentRoute  = navBackStack?.destination?.route
     val uiState      by vm.uiState.collectAsState()
+    val searchQuery  by vm.searchQuery.collectAsState()
     val listState     = rememberLazyListState()
+    var searchActive  by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
 
     val nearBottom by remember {
         derivedStateOf {
@@ -45,44 +53,80 @@ fun DealsScreen(
         }
     }
     LaunchedEffect(nearBottom) {
-        if (nearBottom) vm.loadNextPage()
+        if (nearBottom && !searchActive) vm.loadNextPage()
+    }
+    LaunchedEffect(searchActive) {
+        if (searchActive) focusRequester.requestFocus()
     }
 
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick        = { navController.navigate(Screen.CreateDeal.route) },
-                containerColor = CrmPrimary,
-                contentColor   = Color.White,
-                shape          = CircleShape,
-            ) { Icon(Icons.Default.Add, "Create Deal") }
+            if (!searchActive) {
+                FloatingActionButton(
+                    onClick        = { navController.navigate(Screen.CreateDeal.route) },
+                    containerColor = CrmPrimary,
+                    contentColor   = Color.White,
+                    shape          = CircleShape,
+                ) { Icon(Icons.Default.Add, "Create Deal") }
+            }
         },
         containerColor = CrmBackground,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
-            // Top Bar
             Row(
                 modifier          = Modifier
                     .fillMaxWidth()
                     .background(Color.White)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
-                Spacer(Modifier.width(12.dp))
-                Text("Deals", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                if (uiState is DealsUiState.Success) {
-                    Text(
-                        text     = "${(uiState as DealsUiState.Success).deals.size} loaded",
-                        fontSize = 11.sp,
-                        color    = CrmSubtext,
+                if (searchActive) {
+                    IconButton(onClick = {
+                        searchActive = false
+                        vm.setSearch("")
+                    }) { Icon(Icons.Default.ArrowBack, "Close Search", tint = CrmOnSurface) }
+
+                    TextField(
+                        value         = searchQuery,
+                        onValueChange = { vm.setSearch(it) },
+                        placeholder   = { Text("Search deals…", fontSize = 14.sp, color = CrmSubtext) },
+                        singleLine    = true,
+                        modifier      = Modifier.weight(1f).focusRequester(focusRequester),
+                        colors        = TextFieldDefaults.colors(
+                            focusedContainerColor   = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor   = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {}),
                     )
-                }
-                IconButton(onClick = { vm.load() }) {
-                    Icon(Icons.Default.Refresh, "Refresh", tint = CrmSubtext)
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { vm.setSearch("") }) {
+                            Icon(Icons.Default.Close, "Clear", tint = CrmSubtext)
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Deals", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(Modifier.weight(1f))
+                    if (uiState is DealsUiState.Success) {
+                        Text(
+                            text     = "${(uiState as DealsUiState.Success).deals.size} loaded",
+                            fontSize = 11.sp,
+                            color    = CrmSubtext,
+                        )
+                    }
+                    IconButton(onClick = { searchActive = true }) {
+                        Icon(Icons.Default.Search, "Search", tint = CrmSubtext)
+                    }
+                    IconButton(onClick = { vm.load() }) {
+                        Icon(Icons.Default.Refresh, "Refresh", tint = CrmSubtext)
+                    }
                 }
             }
 
@@ -114,28 +158,34 @@ fun DealsScreen(
                 }
 
                 is DealsUiState.Success -> {
-                    LazyColumn(
-                        state          = listState,
-                        modifier       = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                    ) {
-                        itemsIndexed(s.deals) { _, deal ->
-                            DealRow(deal) {
-                                navController.navigate(Screen.DealDetail.createRoute(deal.id))
-                            }
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                    if (s.deals.isEmpty() && searchQuery.isNotBlank()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
                         }
-                        if (s.hasMore) {
-                            item {
-                                Box(
-                                    Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier    = Modifier.size(24.dp),
-                                        color       = CrmPrimary,
-                                        strokeWidth = 2.dp,
-                                    )
+                    } else {
+                        LazyColumn(
+                            state          = listState,
+                            modifier       = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 8.dp),
+                        ) {
+                            itemsIndexed(s.deals) { _, deal ->
+                                DealRow(deal) {
+                                    navController.navigate(Screen.DealDetail.createRoute(deal.id))
+                                }
+                                HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                            }
+                            if (s.hasMore && searchQuery.isBlank()) {
+                                item {
+                                    Box(
+                                        Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier    = Modifier.size(24.dp),
+                                            color       = CrmPrimary,
+                                            strokeWidth = 2.dp,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -184,18 +234,17 @@ private fun DealRow(deal: Deal, onClick: () -> Unit) {
             Text(deal.stage.ifEmpty { "-None-" }, fontSize = 11.sp, color = CrmSubtext)
         }
 
-        // Amount badge
         if (deal.amount.isNotEmpty()) {
             Surface(
                 shape = RoundedCornerShape(6.dp),
                 color = CrmBackground,
             ) {
                 Text(
-                    text     = "₹${deal.amount}",
-                    fontSize = 12.sp,
+                    text       = "₹${deal.amount}",
+                    fontSize   = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color    = CrmPrimary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    color      = CrmPrimary,
+                    modifier   = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
             }
         }
