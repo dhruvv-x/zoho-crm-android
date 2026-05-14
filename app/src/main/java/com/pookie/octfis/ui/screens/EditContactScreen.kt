@@ -14,18 +14,125 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.data.repository.ContactRepository
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+// ── ViewModel ─────────────────────────────────────────────────────────────────
+
+sealed class EditContactState {
+    object Idle   : EditContactState()
+    object Saving : EditContactState()
+    object Saved  : EditContactState()
+    data class Error(val message: String) : EditContactState()
+}
+
+class EditContactViewModel : ViewModel() {
+
+    private val api  = ZohoServiceLocator.getApiService()
+    private val repo = ContactRepository(api)
+
+    private val _options        = MutableStateFlow(ContactPicklistOptions())
+    val options: StateFlow<ContactPicklistOptions> = _options.asStateFlow()
+
+    private val _optionsLoading = MutableStateFlow(true)
+    val optionsLoading: StateFlow<Boolean> = _optionsLoading.asStateFlow()
+
+    private val _saveState      = MutableStateFlow<EditContactState>(EditContactState.Idle)
+    val saveState: StateFlow<EditContactState> = _saveState.asStateFlow()
+
+    init { loadOptions() }
+
+    private fun loadOptions() {
+        viewModelScope.launch {
+            _optionsLoading.value = true
+            try {
+                val fields = runCatching { api.getFields("Contacts") }.getOrNull()
+                val users  = runCatching { api.getUsers("AllUsers") }.getOrNull()
+                val none   = listOf("-None-")
+                _options.value = ContactPicklistOptions(
+                    leadSources = none + (fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
+                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                    owners      = listOf(Pair("", "-None-")) +
+                            (users?.users?.map { Pair(it.id, it.fullName ?: it.email ?: it.id) } ?: emptyList()),
+                )
+            } catch (_: Exception) {
+                _options.value = ContactPicklistOptions(
+                    leadSources = listOf("-None-"),
+                    owners      = listOf(Pair("", "-None-")),
+                )
+            } finally {
+                _optionsLoading.value = false
+            }
+        }
+    }
+
+    fun save(
+        zohoId        : String,
+        contactId     : Int,
+        firstName     : String,
+        lastName      : String,
+        phone         : String,
+        email         : String,
+        accountName   : String,
+        title         : String,
+        department    : String,
+        ownerEntry    : Pair<String, String>,
+        leadSource    : String,
+        description   : String,
+        mailingStreet : String,
+        mailingCity   : String,
+        mailingState  : String,
+        mailingZip    : String,
+        mailingCountry: String,
+    ) {
+        viewModelScope.launch {
+            _saveState.value = EditContactState.Saving
+            repo.updateContact(
+                zohoId         = zohoId,
+                contactId      = contactId,
+                firstName      = firstName,
+                lastName       = lastName,
+                phone          = phone,
+                email          = email,
+                accountName    = accountName,
+                title          = title,
+                department     = department,
+                contactOwner   = ownerEntry.first,
+                leadSource     = if (leadSource == "-None-") "" else leadSource,
+                description    = description,
+                mailingStreet  = mailingStreet,
+                mailingCity    = mailingCity,
+                mailingState   = mailingState,
+                mailingZip     = mailingZip,
+                mailingCountry = mailingCountry,
+            ).fold(
+                onSuccess = { _saveState.value = EditContactState.Saved },
+                onFailure = { e -> _saveState.value = EditContactState.Error(e.message ?: "Save failed") },
+            )
+        }
+    }
+
+    fun resetState() { _saveState.value = EditContactState.Idle }
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditContactScreen(
     navController: NavController,
     contactId: Int,
-    vm: CreateContactViewModel = viewModel(),
+    vm: EditContactViewModel = viewModel(),
 ) {
     val contact = ContactRepository.cache.firstOrNull { it.id == contactId }
 
@@ -47,8 +154,19 @@ fun EditContactScreen(
 
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
+    val saveState      by vm.saveState.collectAsState()
+    val snackbarHost    = remember { SnackbarHostState() }
+
+    LaunchedEffect(saveState) {
+        when (val s = saveState) {
+            is EditContactState.Saved  -> navController.popBackStack()
+            is EditContactState.Error  -> { snackbarHost.showSnackbar(s.message); vm.resetState() }
+            else -> Unit
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
                 title = { Text("Edit Contact", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
@@ -58,13 +176,38 @@ fun EditContactScreen(
                     }
                 },
                 actions = {
+                    val saving = saveState is EditContactState.Saving
                     Button(
-                        onClick  = { navController.popBackStack() },
+                        onClick = {
+                            if (!saving) vm.save(
+                                zohoId         = contact?.zohoId ?: "",
+                                contactId      = contactId,
+                                firstName      = firstName,
+                                lastName       = lastName,
+                                phone          = phone,
+                                email          = email,
+                                accountName    = accountName,
+                                title          = title,
+                                department     = department,
+                                ownerEntry     = selectedOwner,
+                                leadSource     = leadSource,
+                                description    = description,
+                                mailingStreet  = mailingStreet,
+                                mailingCity    = mailingCity,
+                                mailingState   = mailingState,
+                                mailingZip     = mailingZip,
+                                mailingCountry = mailingCountry,
+                            )
+                        },
+                        enabled  = !saving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        if (saving)
+                            CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                        else
+                            Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
@@ -81,35 +224,35 @@ fun EditContactScreen(
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    EditContactTextField("First Name",   firstName,   "Enter First Name")   { firstName = it }
-                    EditContactDivider()
-                    EditContactTextField("Last Name",    lastName,    "Enter Last Name")    { lastName = it }
-                    EditContactDivider()
-                    EditContactTextField("Phone",        phone,       "Enter Phone No")     { phone = it }
-                    EditContactDivider()
-                    EditContactTextField("Email",        email,       "Enter Email ID")     { email = it }
-                    EditContactDivider()
-                    EditContactTextField("Account Name", accountName, "Enter Company Name") { accountName = it }
-                    EditContactDivider()
-                    EditContactTextField("Title",        title,       "Enter Job Title")    { title = it }
-                    EditContactDivider()
-                    EditContactTextField("Department",   department,  "Enter Department")   { department = it }
-                    EditContactDivider()
-                    EditContactDropdown(
+                    ECTextField("First Name",   firstName,   "Enter First Name")   { firstName = it }
+                    ECDivider()
+                    ECTextField("Last Name",    lastName,    "Enter Last Name")    { lastName = it }
+                    ECDivider()
+                    ECTextField("Phone",        phone,       "Enter Phone No")     { phone = it }
+                    ECDivider()
+                    ECTextField("Email",        email,       "Enter Email ID")     { email = it }
+                    ECDivider()
+                    ECTextField("Account Name", accountName, "Enter Company Name") { accountName = it }
+                    ECDivider()
+                    ECTextField("Title",        title,       "Enter Job Title")    { title = it }
+                    ECDivider()
+                    ECTextField("Department",   department,  "Enter Department")   { department = it }
+                    ECDivider()
+                    ECDropdown(
                         label   = "Contact Owner",
                         value   = selectedOwner.second,
                         options = options.owners.map { it.second },
                         loading = optionsLoading,
                     ) { name -> selectedOwner = options.owners.firstOrNull { it.second == name } ?: Pair("", name) }
-                    EditContactDivider()
-                    EditContactDropdown(
+                    ECDivider()
+                    ECDropdown(
                         label   = "Lead Source",
                         value   = leadSource,
                         options = options.leadSources,
                         loading = optionsLoading,
                     ) { leadSource = it }
-                    EditContactDivider()
-                    EditContactTextField("Description",  description, "Short description")  { description = it }
+                    ECDivider()
+                    ECTextField("Description",  description, "Short description")  { description = it }
                 }
             }
 
@@ -118,15 +261,15 @@ fun EditContactScreen(
             SectionHeader("Address")
             Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
                 Column {
-                    EditContactTextField("Mailing Street",  mailingStreet,  "Plot no, Building name") { mailingStreet = it }
-                    EditContactDivider()
-                    EditContactTextField("Mailing City",    mailingCity,    "Enter City Name")        { mailingCity = it }
-                    EditContactDivider()
-                    EditContactTextField("Mailing State",   mailingState,   "Enter State")            { mailingState = it }
-                    EditContactDivider()
-                    EditContactTextField("Mailing ZIP",     mailingZip,     "Enter ZIP Code")         { mailingZip = it }
-                    EditContactDivider()
-                    EditContactTextField("Mailing Country", mailingCountry, "Enter Country")          { mailingCountry = it }
+                    ECTextField("Mailing Street",  mailingStreet,  "Plot no, Building name") { mailingStreet = it }
+                    ECDivider()
+                    ECTextField("Mailing City",    mailingCity,    "Enter City Name")        { mailingCity = it }
+                    ECDivider()
+                    ECTextField("Mailing State",   mailingState,   "Enter State")            { mailingState = it }
+                    ECDivider()
+                    ECTextField("Mailing ZIP",     mailingZip,     "Enter ZIP Code")         { mailingZip = it }
+                    ECDivider()
+                    ECTextField("Mailing Country", mailingCountry, "Enter Country")          { mailingCountry = it }
                 }
             }
 
@@ -136,7 +279,7 @@ fun EditContactScreen(
 }
 
 @Composable
-private fun EditContactTextField(
+private fun ECTextField(
     label: String, value: String, placeholder: String, onValueChange: (String) -> Unit,
 ) {
     Row(
@@ -162,7 +305,7 @@ private fun EditContactTextField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditContactDropdown(
+private fun ECDropdown(
     label: String, value: String, options: List<String>, loading: Boolean, onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -204,6 +347,6 @@ private fun EditContactDropdown(
 }
 
 @Composable
-private fun EditContactDivider() {
+private fun ECDivider() {
     HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }

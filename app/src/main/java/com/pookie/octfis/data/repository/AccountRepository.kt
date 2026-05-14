@@ -137,4 +137,62 @@ class AccountRepository(private val api: ZohoApiService) {
             error(result?.message ?: "Create failed")
         }
     }
+
+    suspend fun updateAccount(
+        zohoId        : String,
+        name          : String,
+        phone         : String,
+        website       : String,
+        industry      : String,
+        gstTreatment  : String,
+        gstin         : String,
+        leadSource    : String,
+        accountOwner  : String,
+        description   : String,
+        billingStreet : String,
+        billingCity   : String,
+        billingState  : String,
+        billingCode   : String,
+        billingCountry: String,
+    ): Result<Unit> = runCatching {
+        val record = buildMap<String, Any> {
+            put("Account_Name", name)
+            put("Phone",         phone)
+            put("Website",       website)
+            put("Industry",      industry)
+            put("GST_Treatment", gstTreatment)
+            put("GSTIN",         gstin)
+            put("Lead_Source",   leadSource)
+            put("Description",   description)
+            put("Billing_Street",   billingStreet)
+            put("Billing_City",     billingCity)
+            put("Billing_State",    billingState)
+            put("Billing_Code",     billingCode)
+            put("Billing_Country",  billingCountry)
+            if (accountOwner.isNotBlank()) put("Owner", mapOf("id" to accountOwner))
+        }
+        val response = api.updateAccount(zohoId, mapOf("data" to listOf(record)))
+        val result   = response.data?.firstOrNull()
+        if (result?.status != "success") error(result?.message ?: "Update failed")
+
+        // update local cache
+        val idx = cache.indexOfFirst { it.zohoId == zohoId }
+        if (idx >= 0) {
+            cache[idx] = cache[idx].copy(
+                name           = name,
+                phone          = phone,
+                website        = website,
+                industry       = industry,
+                gstTreatment   = gstTreatment,
+                gstin          = gstin,
+                leadSource     = leadSource,
+                description    = description,
+                billingStreet  = billingStreet,
+                billingCity    = billingCity,
+                billingState   = billingState,
+                billingCode    = billingCode,
+                billingCountry = billingCountry,
+            )
+        }
+    }
 }

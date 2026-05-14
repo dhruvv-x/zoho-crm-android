@@ -5,7 +5,7 @@ import retrofit2.http.*
 
 interface ZohoApiService {
 
-    // ── LIST ─────────────────────────────────────────────────────────────────
+    // ── LIST ──────────────────────────────────────────────────────────────────
 
     @GET("Accounts")
     suspend fun getAccounts(
@@ -86,4 +86,18 @@ interface ZohoApiService {
 
     @POST("Accounts")
     suspend fun createAccount(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
+
+    // ── UPDATE ────────────────────────────────────────────────────────────────
+
+    @PUT("Accounts/{id}")
+    suspend fun updateAccount(
+        @Path("id") id: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+    ): CreateRecordResponse
+
+    @PUT("Contacts/{id}")
+    suspend fun updateContact(
+        @Path("id") id: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+    ): CreateRecordResponse
 }
