@@ -50,7 +50,9 @@ data class Deal(
     val phone           : String = "",
     val dealName        : String = "",
     val accountName     : String = "",
+    val accountZohoId   : String = "",   // linked Account record id
     val contactName     : String = "",
+    val contactZohoId   : String = "",   // linked Contact record id
     val amount          : String = "",
     val closingDate     : String = "",
     val type            : String = "-None-",
@@ -93,13 +95,6 @@ data class CallActivity(val time: String, val subject: String)
 data class MeetingActivity(val time: String, val subject: String)
 data class TaskActivity(val time: String, val subject: String)
 
-object FakeData {
-    val todayCalls    : List<CallActivity>    = emptyList()
-    val todayMeetings : List<MeetingActivity> = emptyList()
-    val todayTasks    : List<TaskActivity>    = emptyList()
-    val upcomingCalls : List<CallActivity>    = emptyList()
-    val thisWeekCalls : List<CallActivity>    = emptyList()
-}
 data class ActivityTask(
     val id       : String,
     val subject  : String,

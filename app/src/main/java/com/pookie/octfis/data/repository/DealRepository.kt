@@ -19,7 +19,9 @@ class DealRepository(private val api: ZohoApiService) {
                     name            = zoho.dealName.orEmpty().ifEmpty { "(No Name)" },
                     dealName        = zoho.dealName.orEmpty(),
                     accountName     = zoho.accountName?.name.orEmpty(),
+                    accountZohoId   = zoho.accountName?.id.orEmpty(),
                     contactName     = zoho.contactName?.name.orEmpty(),
+                    contactZohoId   = zoho.contactName?.id.orEmpty(),
                     amount          = zoho.amount?.let { "%.2f".format(it) }.orEmpty(),
                     closingDate     = zoho.closingDate.orEmpty(),
                     type            = zoho.type.orEmpty().ifEmpty { "-None-" },
@@ -44,7 +46,9 @@ class DealRepository(private val api: ZohoApiService) {
         zohoId         : String,
         dealName       : String,
         accountName    : String,
+        accountZohoId  : String,
         contactName    : String,
+        contactZohoId  : String,
         amount         : String,
         closingDate    : String,
         type           : String,
@@ -56,18 +60,18 @@ class DealRepository(private val api: ZohoApiService) {
         leadSourceDrill: String,
     ): Result<Unit> = runCatching {
         val record = buildMap<String, Any> {
-            put("Deal_Name",               dealName)
-            if (accountName.isNotBlank())  put("Account_Name",  mapOf("name" to accountName))
-            if (contactName.isNotBlank())  put("Contact_Name",  mapOf("name" to contactName))
-            amount.toDoubleOrNull()?.let { put("Amount", it) }
-            if (closingDate.isNotBlank())  put("Closing_Date",  closingDate)
-            if (type.isNotBlank())         put("Type",          type)
-            if (email.isNotBlank())        put("Email",         email)
-            if (description.isNotBlank())  put("Description",   description)
-            if (stage.isNotBlank())        put("Stage",         stage)
-            if (leadSource.isNotBlank())   put("Lead_Source",   leadSource)
+            put("Deal_Name",    dealName)
+            put("Stage",        stage.ifBlank { "-None-" })
+            put("Closing_Date", closingDate)
+            if (accountZohoId.isNotBlank()) put("Account_Name", mapOf("id" to accountZohoId))
+            if (contactZohoId.isNotBlank()) put("Contact_Name", mapOf("id" to contactZohoId))
+            amount.toDoubleOrNull()?.let {  put("Amount", it) }
+            if (type.isNotBlank())          put("Type",          type)
+            if (email.isNotBlank())         put("Email",         email)
+            if (description.isNotBlank())   put("Description",   description)
+            if (leadSource.isNotBlank())    put("Lead_Source",   leadSource)
             if (leadSourceDrill.isNotBlank()) put("Lead_Source_Drill_Down", leadSourceDrill)
-            if (dealOwner.isNotBlank())    put("Owner",         mapOf("id" to dealOwner))
+            if (dealOwner.isNotBlank())     put("Owner",         mapOf("id" to dealOwner))
         }
         val response = api.updateDeal(zohoId, mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
@@ -79,7 +83,9 @@ class DealRepository(private val api: ZohoApiService) {
             cache[idx] = cache[idx].copy(
                 dealName        = dealName,
                 accountName     = accountName,
+                accountZohoId   = accountZohoId,
                 contactName     = contactName,
+                contactZohoId   = contactZohoId,
                 amount          = amount,
                 closingDate     = closingDate,
                 type            = type.ifEmpty { "-None-" },
