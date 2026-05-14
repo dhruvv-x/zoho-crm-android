@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +33,7 @@ import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.CrmBottomBar
 import com.pookie.octfis.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DealsScreen(
     navController: NavController,
@@ -44,6 +46,7 @@ fun DealsScreen(
     val listState     = rememberLazyListState()
     var searchActive  by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
+    val isRefreshing   = uiState is DealsUiState.Loading
 
     val nearBottom by remember {
         derivedStateOf {
@@ -52,12 +55,8 @@ fun DealsScreen(
             last >= total - 8 && total > 0
         }
     }
-    LaunchedEffect(nearBottom) {
-        if (nearBottom && !searchActive) vm.loadNextPage()
-    }
-    LaunchedEffect(searchActive) {
-        if (searchActive) focusRequester.requestFocus()
-    }
+    LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
+    LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
 
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
@@ -83,11 +82,9 @@ fun DealsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (searchActive) {
-                    IconButton(onClick = {
-                        searchActive = false
-                        vm.setSearch("")
-                    }) { Icon(Icons.Default.ArrowBack, "Close Search", tint = CrmOnSurface) }
-
+                    IconButton(onClick = { searchActive = false; vm.setSearch("") }) {
+                        Icon(Icons.Default.ArrowBack, "Close Search", tint = CrmOnSurface)
+                    }
                     TextField(
                         value         = searchQuery,
                         onValueChange = { vm.setSearch(it) },
@@ -130,61 +127,56 @@ fun DealsScreen(
                 }
             }
 
-            when (val s = uiState) {
-
-                is DealsUiState.Loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = CrmPrimary)
-                            Spacer(Modifier.height(12.dp))
-                            Text("Loading from Zoho CRM…", color = CrmSubtext, fontSize = 13.sp)
-                        }
-                    }
-                }
-
-                is DealsUiState.Error -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
-                            Spacer(Modifier.height(12.dp))
-                            Text(s.message, color = CrmSubtext, fontSize = 13.sp)
-                            Spacer(Modifier.height(16.dp))
-                            Button(
-                                onClick = { vm.load() },
-                                colors  = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
-                            ) { Text("Retry") }
-                        }
-                    }
-                }
-
-                is DealsUiState.Success -> {
-                    if (s.deals.isEmpty() && searchQuery.isNotBlank()) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh    = { vm.load() },
+                modifier     = Modifier.fillMaxSize(),
+            ) {
+                when (val s = uiState) {
+                    is DealsUiState.Loading -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
-                        }
-                    } else {
-                        LazyColumn(
-                            state          = listState,
-                            modifier       = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 8.dp),
-                        ) {
-                            itemsIndexed(s.deals) { _, deal ->
-                                DealRow(deal) {
-                                    navController.navigate(Screen.DealDetail.createRoute(deal.id))
-                                }
-                                HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = CrmPrimary)
+                                Spacer(Modifier.height(12.dp))
+                                Text("Loading from Zoho CRM…", color = CrmSubtext, fontSize = 13.sp)
                             }
-                            if (s.hasMore && searchQuery.isBlank()) {
-                                item {
-                                    Box(
-                                        Modifier.fillMaxWidth().padding(16.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier    = Modifier.size(24.dp),
-                                            color       = CrmPrimary,
-                                            strokeWidth = 2.dp,
-                                        )
+                        }
+                    }
+                    is DealsUiState.Error -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
+                                Spacer(Modifier.height(12.dp))
+                                Text(s.message, color = CrmSubtext, fontSize = 13.sp)
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { vm.load() }, colors = ButtonDefaults.buttonColors(containerColor = CrmPrimary)) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+                    is DealsUiState.Success -> {
+                        if (s.deals.isEmpty() && searchQuery.isNotBlank()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
+                            }
+                        } else {
+                            LazyColumn(
+                                state          = listState,
+                                modifier       = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                            ) {
+                                itemsIndexed(s.deals) { _, deal ->
+                                    DealRow(deal) {
+                                        navController.navigate(Screen.DealDetail.createRoute(deal.id))
+                                    }
+                                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                                }
+                                if (s.hasMore && searchQuery.isBlank()) {
+                                    item {
+                                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)
+                                        }
                                     }
                                 }
                             }
@@ -212,16 +204,9 @@ private fun DealRow(deal: Deal, onClick: () -> Unit) {
         ) {
             Icon(Icons.Default.Handshake, null, tint = Color.White, modifier = Modifier.size(22.dp))
         }
-
         Spacer(Modifier.width(12.dp))
-
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text       = deal.dealName.ifEmpty { "(No Name)" },
-                fontWeight = FontWeight.SemiBold,
-                fontSize   = 14.sp,
-                color      = CrmOnSurface,
-            )
+            Text(deal.dealName.ifEmpty { "(No Name)" }, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = CrmOnSurface)
             Spacer(Modifier.height(2.dp))
             if (deal.accountName.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -233,12 +218,8 @@ private fun DealRow(deal: Deal, onClick: () -> Unit) {
             }
             Text(deal.stage.ifEmpty { "-None-" }, fontSize = 11.sp, color = CrmSubtext)
         }
-
         if (deal.amount.isNotEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = CrmBackground,
-            ) {
+            Surface(shape = RoundedCornerShape(6.dp), color = CrmBackground) {
                 Text(
                     text       = "₹${deal.amount}",
                     fontSize   = 12.sp,

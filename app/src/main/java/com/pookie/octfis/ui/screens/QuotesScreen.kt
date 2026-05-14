@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +33,7 @@ import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.CrmBottomBar
 import com.pookie.octfis.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuotesScreen(
     navController: NavController,
@@ -44,6 +46,7 @@ fun QuotesScreen(
     val listState     = rememberLazyListState()
     var searchActive  by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
+    val isRefreshing   = uiState is QuotesUiState.Loading
 
     val nearBottom by remember {
         derivedStateOf {
@@ -52,12 +55,8 @@ fun QuotesScreen(
             last >= total - 8 && total > 0
         }
     }
-    LaunchedEffect(nearBottom) {
-        if (nearBottom && !searchActive) vm.loadNextPage()
-    }
-    LaunchedEffect(searchActive) {
-        if (searchActive) focusRequester.requestFocus()
-    }
+    LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
+    LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
 
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
@@ -83,11 +82,9 @@ fun QuotesScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (searchActive) {
-                    IconButton(onClick = {
-                        searchActive = false
-                        vm.setSearch("")
-                    }) { Icon(Icons.Default.ArrowBack, "Close Search", tint = CrmOnSurface) }
-
+                    IconButton(onClick = { searchActive = false; vm.setSearch("") }) {
+                        Icon(Icons.Default.ArrowBack, "Close Search", tint = CrmOnSurface)
+                    }
                     TextField(
                         value         = searchQuery,
                         onValueChange = { vm.setSearch(it) },
@@ -130,61 +127,56 @@ fun QuotesScreen(
                 }
             }
 
-            when (val s = uiState) {
-
-                is QuotesUiState.Loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = CrmPrimary)
-                            Spacer(Modifier.height(12.dp))
-                            Text("Loading from Zoho CRM…", color = CrmSubtext, fontSize = 13.sp)
-                        }
-                    }
-                }
-
-                is QuotesUiState.Error -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
-                            Spacer(Modifier.height(12.dp))
-                            Text(s.message, color = CrmSubtext, fontSize = 13.sp)
-                            Spacer(Modifier.height(16.dp))
-                            Button(
-                                onClick = { vm.load() },
-                                colors  = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
-                            ) { Text("Retry") }
-                        }
-                    }
-                }
-
-                is QuotesUiState.Success -> {
-                    if (s.quotes.isEmpty() && searchQuery.isNotBlank()) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh    = { vm.load() },
+                modifier     = Modifier.fillMaxSize(),
+            ) {
+                when (val s = uiState) {
+                    is QuotesUiState.Loading -> {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
-                        }
-                    } else {
-                        LazyColumn(
-                            state          = listState,
-                            modifier       = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 8.dp),
-                        ) {
-                            itemsIndexed(s.quotes) { _, quote ->
-                                QuoteRow(quote) {
-                                    navController.navigate(Screen.QuoteDetail.createRoute(quote.id))
-                                }
-                                HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = CrmPrimary)
+                                Spacer(Modifier.height(12.dp))
+                                Text("Loading from Zoho CRM…", color = CrmSubtext, fontSize = 13.sp)
                             }
-                            if (s.hasMore && searchQuery.isBlank()) {
-                                item {
-                                    Box(
-                                        Modifier.fillMaxWidth().padding(16.dp),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier    = Modifier.size(24.dp),
-                                            color       = CrmPrimary,
-                                            strokeWidth = 2.dp,
-                                        )
+                        }
+                    }
+                    is QuotesUiState.Error -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
+                                Spacer(Modifier.height(12.dp))
+                                Text(s.message, color = CrmSubtext, fontSize = 13.sp)
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { vm.load() }, colors = ButtonDefaults.buttonColors(containerColor = CrmPrimary)) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+                    is QuotesUiState.Success -> {
+                        if (s.quotes.isEmpty() && searchQuery.isNotBlank()) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
+                            }
+                        } else {
+                            LazyColumn(
+                                state          = listState,
+                                modifier       = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                            ) {
+                                itemsIndexed(s.quotes) { _, quote ->
+                                    QuoteRow(quote) {
+                                        navController.navigate(Screen.QuoteDetail.createRoute(quote.id))
+                                    }
+                                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                                }
+                                if (s.hasMore && searchQuery.isBlank()) {
+                                    item {
+                                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)
+                                        }
                                     }
                                 }
                             }
@@ -212,16 +204,9 @@ private fun QuoteRow(quote: Quote, onClick: () -> Unit) {
         ) {
             Icon(Icons.Default.RequestQuote, null, tint = Color.White, modifier = Modifier.size(22.dp))
         }
-
         Spacer(Modifier.width(12.dp))
-
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text       = quote.subject.ifEmpty { "(No Subject)" },
-                fontWeight = FontWeight.SemiBold,
-                fontSize   = 14.sp,
-                color      = CrmOnSurface,
-            )
+            Text(quote.subject.ifEmpty { "(No Subject)" }, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = CrmOnSurface)
             Spacer(Modifier.height(2.dp))
             if (quote.accountName.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -235,14 +220,13 @@ private fun QuoteRow(quote: Quote, onClick: () -> Unit) {
                 Text("Valid till: ${quote.validUntil}", fontSize = 11.sp, color = CrmSubtext)
             }
         }
-
         Surface(
             shape = RoundedCornerShape(6.dp),
             color = when (quote.quoteStage) {
-                "Delivered"  -> Color(0xFFE8F5E9)
-                "Approved"   -> Color(0xFFE3F2FD)
-                "Rejected"   -> Color(0xFFFFEBEE)
-                else         -> CrmBackground
+                "Delivered" -> Color(0xFFE8F5E9)
+                "Approved"  -> Color(0xFFE3F2FD)
+                "Rejected"  -> Color(0xFFFFEBEE)
+                else        -> CrmBackground
             },
         ) {
             Text(
@@ -250,10 +234,10 @@ private fun QuoteRow(quote: Quote, onClick: () -> Unit) {
                 fontSize   = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color      = when (quote.quoteStage) {
-                    "Delivered"  -> Color(0xFF2E7D32)
-                    "Approved"   -> Color(0xFF1565C0)
-                    "Rejected"   -> Color(0xFFC62828)
-                    else         -> CrmSubtext
+                    "Delivered" -> Color(0xFF2E7D32)
+                    "Approved"  -> Color(0xFF1565C0)
+                    "Rejected"  -> Color(0xFFC62828)
+                    else        -> CrmSubtext
                 },
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
