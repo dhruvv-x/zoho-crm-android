@@ -5,46 +5,67 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
+// ── Light — white surface, amber as the single brand/action colour ─────────────
+// TopAppBar uses surface (white) by default in M3.
+// The Dashboard's custom Row header uses CrmSlate directly (see DashboardScreen).
 private val LightColors = lightColorScheme(
-    primary            = CrmPrimary,
-    onPrimary          = CrmOnPrimary,
-    primaryContainer   = CrmPrimaryLight,
-    onPrimaryContainer = CrmOnSurface,
-    secondary          = CrmAccent,
-    onSecondary        = CrmOnPrimary,
-    background         = CrmBackground,
-    onBackground       = CrmOnSurface,
-    surface            = CrmSurface,
-    onSurface          = CrmOnSurface,
-    surfaceVariant     = CrmSurfaceAlt,
-    onSurfaceVariant   = CrmSubtext,
-    outline            = CrmDivider,
-    error              = CrmError,
-    onError            = CrmOnPrimary,
+    primary              = CrmAccent,            // amber — FAB, buttons, active icons/chips
+    onPrimary            = CrmOnAccent,          // near-black on amber
+    primaryContainer     = CrmAccentContainer,   // very light amber tint
+    onPrimaryContainer   = CrmOnSurface,
+
+    secondary            = CrmAccent,
+    onSecondary          = CrmOnAccent,
+    secondaryContainer   = CrmAccentContainer,
+    onSecondaryContainer = CrmOnSurface,
+
+    background           = CrmBackground,        // off-white page
+    onBackground         = CrmOnSurface,
+    surface              = CrmSurface,           // white — cards & TopAppBar
+    onSurface            = CrmOnSurface,
+    surfaceVariant       = CrmSurfaceAlt,        // grey alt rows / input fills
+    onSurfaceVariant     = CrmSubtext,
+
+    outline              = CrmDivider,
+    error                = CrmError,
+    onError              = CrmOnError,
+    errorContainer       = Color(0xFFFFDAD6),
+    onErrorContainer     = Color(0xFF410002),
 )
 
+// ── Dark — slate top bar, amber accent ────────────────────────────────────────
+// primary = slate so the Dashboard Row header stays dark-grey in dark mode.
+// secondary = amber so buttons/FAB/chips stay amber.
 private val DarkColors = darkColorScheme(
-    primary            = CrmPrimaryLight,    // Lighter indigo — readable on dark bg
-    onPrimary          = CrmOnSurface,       // Dark text on light primary button
-    primaryContainer   = CrmPrimaryDark,
-    onPrimaryContainer = CrmOnSurfaceDark,
-    secondary          = CrmAccent,
-    onSecondary        = CrmOnPrimary,
-    background         = CrmBackgroundDark,
-    onBackground       = CrmOnSurfaceDark,
-    surface            = CrmSurfaceDark,
-    onSurface          = CrmOnSurfaceDark,
-    surfaceVariant     = CrmSurfaceAltDark,
-    onSurfaceVariant   = CrmSubtextDark,
-    outline            = CrmDividerDark,
-    error              = CrmError,
-    onError            = CrmOnPrimary,
+    primary              = CrmSlate,             // slate — dark top bar background
+    onPrimary            = Color(0xFFFFFFFF),    // white on slate
+    primaryContainer     = CrmTableHeaderDark,   // neutral dark container
+    onPrimaryContainer   = CrmOnSurfaceDark,
+
+    secondary            = CrmAccentLight,       // light amber — buttons/FAB/chips
+    onSecondary          = CrmOnAccent,
+    secondaryContainer   = Color(0xFF3A2800),
+    onSecondaryContainer = CrmOnSurfaceDark,
+
+    background           = CrmBackgroundDark,
+    onBackground         = CrmOnSurfaceDark,
+    surface              = CrmSurfaceDark,
+    onSurface            = CrmOnSurfaceDark,
+    surfaceVariant       = CrmSurfaceAltDark,
+    onSurfaceVariant     = CrmSubtextDark,
+
+    outline              = CrmDividerDark,
+    error                = CrmErrorDark,         // lightened for dark bg contrast
+    onError              = CrmOnError,
+    errorContainer       = Color(0xFF93000A),
+    onErrorContainer     = Color(0xFFFFDAD6),
 )
 
 @Composable
 fun OctfisCRMTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),  // auto-follows device setting
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(

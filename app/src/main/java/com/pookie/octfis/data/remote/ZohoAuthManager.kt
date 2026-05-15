@@ -88,7 +88,6 @@ class ZohoAuthManager(
 
             val json = JSONObject(raw)
 
-            // Check for Zoho error response
             if (json.has("error")) {
                 Log.e("OctfisAuth", "Zoho token error: ${json.getString("error")}")
                 return@runCatching false
@@ -106,13 +105,31 @@ class ZohoAuthManager(
         }.getOrDefault(false)
     }
 
-    // ── Step 3: Refresh when expired ──────────────────────────────────────────
+    // ── Step 3: Return a valid token, refreshing if needed ────────────────────
+    //
+    // BUG FIX: old logic called isExpired() first — but isExpired() returns true
+    // when no token exists at all (expiresAt defaults to 0L), causing it to
+    // attempt a refresh on a fresh/cleared install and fail with "Not authenticated".
+    //
+    // Correct order:
+    //   1. Check we have a refresh token at all — if not, user is logged out.
+    //   2. If access token exists and is not expired, return it immediately.
+    //   3. Otherwise refresh using the refresh token.
 
     suspend fun getValidToken(): String? = withContext(Dispatchers.IO) {
-        if (!tokenStore.isExpired()) return@withContext tokenStore.getAccessToken()
+        // No refresh token → not logged in at all
+        val refreshToken = tokenStore.getRefreshToken()
+            ?: return@withContext null
 
-        val refreshToken = tokenStore.getRefreshToken() ?: return@withContext null
+        // Access token still valid → return it directly
+        val accessToken = tokenStore.getAccessToken()
+        if (accessToken != null && !tokenStore.isExpired()) {
+            Log.d("OctfisAuth", "getValidToken — returning cached access token")
+            return@withContext accessToken
+        }
 
+        // Token expired (or missing) → refresh it
+        Log.d("OctfisAuth", "getValidToken — token expired, refreshing")
         val body = FormBody.Builder()
             .add("grant_type",    "refresh_token")
             .add("client_id",    BuildConfig.ZOHO_CLIENT_ID)
@@ -120,12 +137,21 @@ class ZohoAuthManager(
             .build()
 
         runCatching {
-            val res  = http.newCall(Request.Builder().url(ZohoConstants.AUTH_BASE_URL + "token").post(body).build()).execute()
+            val res = http.newCall(
+                Request.Builder().url(ZohoConstants.AUTH_BASE_URL + "token").post(body).build()
+            ).execute()
             val raw  = res.body!!.string()
             Log.d("OctfisAuth", "refresh response [${res.code}]: $raw")
             val json = JSONObject(raw)
+
+            if (json.has("error")) {
+                Log.e("OctfisAuth", "refresh error: ${json.getString("error")}")
+                return@runCatching null
+            }
+
             val newToken = json.getString("access_token")
             tokenStore.saveAccessOnly(newToken, json.getLong("expires_in"))
+            Log.d("OctfisAuth", "token refreshed successfully ✅")
             newToken
         }.onFailure { e ->
             Log.e("OctfisAuth", "refresh exception: ${e.message}", e)
