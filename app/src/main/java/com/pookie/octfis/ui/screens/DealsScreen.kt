@@ -278,16 +278,6 @@ private fun DealRow(deal: Deal, onClick: () -> Unit) {
             }
             Text(deal.stage.ifEmpty { "-None-" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (deal.amount.isNotEmpty()) {
-            Surface(shape = RoundedCornerShape(6.dp), color = CrmBackground) {
-                Text(
-                    text       = "₹${deal.amount}",
-                    fontSize   = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color      = CrmPrimary,
-                    modifier   = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                )
-            }
-        }
+
     }
 }

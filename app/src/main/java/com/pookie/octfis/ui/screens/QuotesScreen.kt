@@ -279,27 +279,6 @@ private fun QuoteRow(quote: Quote, onClick: () -> Unit) {
                 Text("Valid till: ${quote.validUntil}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = when (quote.quoteStage) {
-                "Delivered" -> Color(0xFFE8F5E9)
-                "Approved"  -> Color(0xFFE3F2FD)
-                "Rejected"  -> Color(0xFFFFEBEE)
-                else        -> CrmBackground
-            },
-        ) {
-            Text(
-                text       = quote.quoteStage,
-                fontSize   = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color      = when (quote.quoteStage) {
-                    "Delivered" -> Color(0xFF2E7D32)
-                    "Approved"  -> Color(0xFF1565C0)
-                    "Rejected"  -> Color(0xFFC62828)
-                    else        -> CrmSubtext
-                },
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            )
-        }
+
     }
 }
