@@ -38,8 +38,10 @@ private enum class DashTab(val label: String, val icon: ImageVector) {
 
 @Composable
 fun DashboardScreen(
-    navController: NavController,
-    vm: DashboardViewModel = viewModel(),
+    navController : NavController,
+    onToggleTheme : () -> Unit = {},
+    isDark        : Boolean    = false,
+    vm            : DashboardViewModel = viewModel(),
 ) {
     var selectedTab by remember { mutableStateOf(DashTab.TodayActivity) }
     val navBackStack by navController.currentBackStackEntryAsState()
@@ -53,7 +55,7 @@ fun DashboardScreen(
 
     Scaffold(
         bottomBar      = { CrmBottomBar(navController, currentRoute) },
-        containerColor = CrmBackground,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -79,6 +81,13 @@ fun DashboardScreen(
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { vm.load() }) {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
+                }
+                IconButton(onClick = onToggleTheme) {
+                    Icon(
+                        imageVector        = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                        contentDescription = "Toggle theme",
+                        tint               = Color.White,
+                    )
                 }
                 IconButton(onClick = {
                     scope.launch {
@@ -110,7 +119,7 @@ fun DashboardScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -119,8 +128,8 @@ fun DashboardScreen(
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(20.dp))
-                            .background(if (sel) CrmPrimary else CrmBackground)
-                            .border(1.dp, if (sel) CrmPrimary else CrmDivider, RoundedCornerShape(20.dp))
+                            .background(if (sel) CrmPrimary else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, if (sel) CrmPrimary else MaterialTheme.colorScheme.outline, RoundedCornerShape(20.dp))
                             .clickable { selectedTab = tab }
                             .padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -129,20 +138,20 @@ fun DashboardScreen(
                         Icon(
                             imageVector        = tab.icon,
                             contentDescription = null,
-                            tint               = if (sel) Color.White else CrmSubtext,
+                            tint               = if (sel) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier           = Modifier.size(13.dp),
                         )
                         Text(
                             text       = tab.label,
                             fontSize   = 12.sp,
                             fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
-                            color      = if (sel) Color.White else CrmSubtext,
+                            color      = if (sel) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
 
-            HorizontalDivider(color = CrmDivider, thickness = 1.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 
             // ── Content ───────────────────────────────────────────────────
             when (val s = uiState) {
@@ -154,7 +163,7 @@ fun DashboardScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = CrmPrimary)
                             Spacer(Modifier.height(12.dp))
-                            Text("Loading activities…", color = CrmSubtext, fontSize = 13.sp)
+                            Text("Loading activities…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         }
                     }
                 }
@@ -167,7 +176,7 @@ fun DashboardScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text(s.message, color = CrmSubtext, fontSize = 13.sp)
+                            Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             Spacer(Modifier.height(16.dp))
                             Button(
                                 onClick = { vm.load() },
@@ -253,7 +262,7 @@ private fun SummaryCard(
     Card(
         modifier  = modifier,
         shape     = RoundedCornerShape(12.dp),
-        colors    = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.15f)),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(
@@ -264,8 +273,8 @@ private fun SummaryCard(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-            Text(count, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text(label, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+            Text(count, color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(label, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), fontSize = 11.sp)
         }
     }
 }
@@ -284,14 +293,14 @@ private fun ProperTable(
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = CrmOnSurface)
-            Text("${rows.size} records", fontSize = 11.sp, color = CrmSubtext)
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text("${rows.size} records", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         Card(
             shape     = RoundedCornerShape(10.dp),
             elevation = CardDefaults.cardElevation(2.dp),
-            colors    = CardDefaults.cardColors(containerColor = Color.White),
+            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
             modifier  = Modifier.fillMaxWidth(),
         ) {
             Column {
@@ -303,7 +312,7 @@ private fun ProperTable(
                                 .then(if (index > 0) Modifier.border(0.5.dp, Color.White.copy(alpha = 0.3f)) else Modifier)
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
-                            Text(header, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(header, color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         }
                     }
                 }
@@ -313,8 +322,8 @@ private fun ProperTable(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(if (rowIdx % 2 == 0) CrmRowAlt else Color.White)
-                                .border(0.5.dp, CrmDivider),
+                                .background(if (rowIdx % 2 == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
+                                .border(0.5.dp, MaterialTheme.colorScheme.outline),
                         ) {
                             headers.forEachIndexed { colIdx, _ ->
                                 Box(
@@ -322,7 +331,7 @@ private fun ProperTable(
                                         .weight(if (colIdx == 0) 1f else 2f)
                                         .then(if (colIdx > 0) Modifier.border(0.5.dp, CrmDivider) else Modifier)
                                         .padding(horizontal = 12.dp, vertical = 12.dp),
-                                ) { Text("—", fontSize = 12.sp, color = CrmSubtext) }
+                                ) { Text("—", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
                         }
                     }
@@ -330,14 +339,14 @@ private fun ProperTable(
                         modifier         = Modifier.fillMaxWidth().background(CrmBackground).padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("No records found", fontSize = 12.sp, color = CrmSubtext, textAlign = TextAlign.Center)
+                        Text("No records found", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 } else {
                     rows.forEachIndexed { rowIdx, row ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(if (rowIdx % 2 == 0) CrmRowAlt else Color.White),
+                                .background(if (rowIdx % 2 == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface),
                         ) {
                             row.forEachIndexed { colIdx, cell ->
                                 Box(
@@ -345,11 +354,11 @@ private fun ProperTable(
                                         .weight(if (colIdx == 0) 1f else 2f)
                                         .then(if (colIdx > 0) Modifier.border(0.5.dp, CrmDivider) else Modifier)
                                         .padding(horizontal = 12.dp, vertical = 12.dp),
-                                ) { Text(cell, fontSize = 12.sp, color = CrmOnSurface) }
+                                ) { Text(cell, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) }
                             }
                         }
                         if (rowIdx < rows.lastIndex)
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                     }
                 }
             }

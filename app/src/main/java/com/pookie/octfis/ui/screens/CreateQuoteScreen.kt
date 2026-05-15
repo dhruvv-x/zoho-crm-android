@@ -138,12 +138,12 @@ fun CreateQuoteScreen(navController: NavController) {
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
-                    ) { Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold) }
+                    ) { Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -152,7 +152,7 @@ fun CreateQuoteScreen(navController: NavController) {
                 .verticalScroll(rememberScrollState()),
         ) {
             SectionHeader("Key Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     QuoteFormField("Subject",      subject,     "Enter Quote title")     { subject = it }
                     QuoteDivider()
@@ -168,7 +168,7 @@ fun CreateQuoteScreen(navController: NavController) {
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
                     ) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Valid Until", fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
+                            Text("Valid Until", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(130.dp))
                             Text(
                                 text     = validUntil.ifEmpty { "Select date" },
                                 fontSize = 13.sp,
@@ -185,9 +185,9 @@ fun CreateQuoteScreen(navController: NavController) {
                             modifier          = Modifier.fillMaxWidth().menuAnchor().padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Quote Stage", fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
-                            Text(quoteStage, fontSize = 13.sp, color = CrmOnSurface, modifier = Modifier.weight(1f))
-                            Icon(Icons.Default.ArrowDropDown, null, tint = CrmSubtext)
+                            Text("Quote Stage", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(130.dp))
+                            Text(quoteStage, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ArrowDropDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         ExposedDropdownMenu(expanded = stageExpanded, onDismissRequest = { stageExpanded = false }) {
                             stageOptions.forEach { option ->
@@ -206,28 +206,28 @@ fun CreateQuoteScreen(navController: NavController) {
 
             Spacer(Modifier.height(8.dp))
             SectionHeader("Quoted Items")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     // Header row
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        Text("S.NO",         fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.width(40.dp))
-                        Text("Product Name", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.weight(1f))
-                        Text("PRICE",        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CrmOnSurface, modifier = Modifier.width(60.dp))
+                        Text("S.NO",         fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(40.dp))
+                        Text("Product Name", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                        Text("PRICE",        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(60.dp))
                         Spacer(Modifier.width(48.dp))
                     }
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
 
                     items.forEachIndexed { index, item ->
                         Row(
                             modifier          = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("${item.sNo}", fontSize = 13.sp, color = CrmOnSurface, modifier = Modifier.width(40.dp))
+                            Text("${item.sNo}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(40.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                if (item.brand.isNotEmpty()) Text(item.brand, fontSize = 11.sp, color = CrmSubtext)
-                                Text(item.productName, fontSize = 13.sp, color = CrmOnSurface, fontWeight = FontWeight.Medium)
-                                if (item.description.isNotEmpty()) Text(item.description, fontSize = 11.sp, color = CrmSubtext)
-                                Text("Qty: ${item.quantity}", fontSize = 11.sp, color = CrmSubtext)
+                                if (item.brand.isNotEmpty()) Text(item.brand, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(item.productName, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                                if (item.description.isNotEmpty()) Text(item.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Qty: ${item.quantity}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
                                 text       = "₹${String.format("%.2f", item.price)}",
@@ -244,17 +244,17 @@ fun CreateQuoteScreen(navController: NavController) {
                             }
                         }
                         if (index < items.lastIndex)
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     }
 
                     if (items.isNotEmpty()) {
                         val subTotal = items.sumOf { it.price * it.quantity }
-                        HorizontalDivider(color = CrmDivider, thickness = 1.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
                         Row(
                             modifier              = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text("Grand Total", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmOnSurface)
+                            Text("Grand Total", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text("₹${String.format("%.2f", subTotal)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmPrimary)
                         }
                     }
@@ -276,11 +276,11 @@ fun CreateQuoteScreen(navController: NavController) {
 @Composable
 private fun QuoteFormField(label: String, value: String, placeholder: String, onValueChange: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text = label, fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
+        Text(text = label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(130.dp))
         TextField(
             value         = value,
             onValueChange = onValueChange,
-            placeholder   = { Text(placeholder, color = CrmSubtext.copy(alpha = 0.7f), fontSize = 13.sp) },
+            placeholder   = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontSize = 13.sp) },
             singleLine    = true,
             modifier      = Modifier.weight(1f),
             colors        = TextFieldDefaults.colors(
@@ -295,5 +295,5 @@ private fun QuoteFormField(label: String, value: String, placeholder: String, on
 
 @Composable
 private fun QuoteDivider() {
-    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }

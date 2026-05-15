@@ -35,11 +35,11 @@ fun PlaceholderScreen(navController: NavController, title: String) {
                         fontSize   = 17.sp,
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
         bottomBar      = { CrmBottomBar(navController, currentRoute) },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Box(
             modifier         = Modifier

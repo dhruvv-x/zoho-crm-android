@@ -47,14 +47,14 @@ fun DealDetailScreen(navController: NavController, dealId: Int) {
                         Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         if (deal == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                Text("Deal not found", color = CrmSubtext, modifier = Modifier.padding(16.dp))
+                Text("Deal not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
             }
             return@Scaffold
         }
@@ -66,26 +66,26 @@ fun DealDetailScreen(navController: NavController, dealId: Int) {
                 .verticalScroll(rememberScrollState()),
         ) {
             SectionHeader("Key Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     FormRow("Deal Name",    deal.dealName.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Account Name", deal.accountName.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Contact Name", deal.contactName.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Amount",       deal.amount.ifEmpty { "—" }.let { if (it != "—") "₹$it" else it })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Closing Date", deal.closingDate.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Type",         deal.type.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Email",        deal.email.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Phone",        deal.phone.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Deal Owner",   deal.dealOwner.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Description",  deal.description.ifEmpty { "—" })
                 }
             }
@@ -93,10 +93,10 @@ fun DealDetailScreen(navController: NavController, dealId: Int) {
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Additional Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     FormRow("Stage",       deal.stage.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Lead Source", deal.leadSource.ifEmpty { "—" })
                 }
             }

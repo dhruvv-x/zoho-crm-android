@@ -71,20 +71,20 @@ fun CreateTaskScreen(
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
+                        else Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
         ) {
             SectionHeader("Task Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     ActivityTextField("Subject",     subject,     "Enter task subject", required = true) { subject = it }
                     ActivityDivider()
@@ -106,7 +106,7 @@ fun CreateTaskScreen(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Additional Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 ActivityTextField("Description", description, "Short description", multiline = true) { description = it }
             }
 
@@ -170,18 +170,18 @@ fun EditTaskScreen(
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
+                        else Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         if (task == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Task not found", color = CrmSubtext, modifier = Modifier.padding(16.dp))
+                Text("Task not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
             }
             return@Scaffold
         }
@@ -190,7 +190,7 @@ fun EditTaskScreen(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
         ) {
             SectionHeader("Task Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     ActivityTextField("Subject",  subject,  "Enter task subject", required = true) { subject = it }
                     ActivityDivider()
@@ -212,7 +212,7 @@ fun EditTaskScreen(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Additional Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 ActivityTextField("Description", description, "Short description", multiline = true) { description = it }
             }
 
@@ -245,7 +245,7 @@ internal fun ActivityTextField(
         TextField(
             value         = value,
             onValueChange = onValueChange,
-            placeholder   = { Text(placeholder, color = CrmSubtext.copy(alpha = 0.7f), fontSize = 13.sp) },
+            placeholder   = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontSize = 13.sp) },
             singleLine    = !multiline,
             minLines      = if (multiline) 3 else 1,
             modifier      = Modifier.weight(1f),
@@ -281,9 +281,9 @@ internal fun ActivityDropdown(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(120.dp))
+            Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(120.dp))
             if (loading) {
-                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = CrmSubtext)
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Text(
                     text     = value,
@@ -308,5 +308,5 @@ internal fun ActivityDropdown(
 
 @Composable
 internal fun ActivityDivider() {
-    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }

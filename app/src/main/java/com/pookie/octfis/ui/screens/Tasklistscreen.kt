@@ -78,7 +78,7 @@ fun TaskListScreen(
                 ) { Icon(Icons.Default.Add, "Create Task") }
             }
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
@@ -86,7 +86,7 @@ fun TaskListScreen(
             Row(
                 modifier          = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -97,7 +97,7 @@ fun TaskListScreen(
                     TextField(
                         value         = searchQuery,
                         onValueChange = { vm.setSearch(it) },
-                        placeholder   = { Text("Search tasks…", fontSize = 14.sp, color = CrmSubtext) },
+                        placeholder   = { Text("Search tasks…", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         singleLine    = true,
                         modifier      = Modifier.weight(1f).focusRequester(focusRequester),
                         colors        = TextFieldDefaults.colors(
@@ -111,7 +111,7 @@ fun TaskListScreen(
                     )
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { vm.setSearch("") }) {
-                            Icon(Icons.Default.Close, "Clear", tint = CrmSubtext)
+                            Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else {
@@ -128,10 +128,10 @@ fun TaskListScreen(
                         )
                     }
                     IconButton(onClick = { searchActive = true }) {
-                        Icon(Icons.Default.Search, "Search", tint = CrmSubtext)
+                        Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { vm.load() }) {
-                        Icon(Icons.Default.Refresh, "Refresh", tint = CrmSubtext)
+                        Icon(Icons.Default.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -143,7 +143,7 @@ fun TaskListScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = CrmPrimary)
                             Spacer(Modifier.height(12.dp))
-                            Text("Loading from Zoho CRM…", color = CrmSubtext, fontSize = 13.sp)
+                            Text("Loading from Zoho CRM…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         }
                     }
                 }
@@ -153,7 +153,7 @@ fun TaskListScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text(s.message, color = CrmSubtext, fontSize = 13.sp)
+                            Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = { vm.load() }, colors = ButtonDefaults.buttonColors(containerColor = CrmPrimary)) {
                                 Text("Retry")
@@ -165,7 +165,7 @@ fun TaskListScreen(
                 is TasksUiState.Success -> {
                     if (s.tasks.isEmpty() && searchQuery.isNotBlank()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
+                            Text("No results for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         }
                     } else {
                         LazyColumn(
@@ -180,7 +180,7 @@ fun TaskListScreen(
                                     onClick   = { navController.navigate(Screen.TaskDetail.createRoute(task.id)) },
                                     onEdit    = { navController.navigate(Screen.EditTask.createRoute(task.id)) },
                                 )
-                                HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                             }
                             if (s.hasMore && searchQuery.isBlank()) {
                                 item {
@@ -266,7 +266,7 @@ private fun TaskRow(task: Task, onClick: () -> Unit, onEdit: () -> Unit) {
     Row(
         modifier          = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -281,13 +281,13 @@ private fun TaskRow(task: Task, onClick: () -> Unit, onEdit: () -> Unit) {
         Spacer(Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(task.subject, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = CrmOnSurface)
+            Text(task.subject, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(2.dp))
             if (task.dueDate.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CalendarToday, null, tint = CrmSubtext, modifier = Modifier.size(12.dp))
+                    Icon(Icons.Default.CalendarToday, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(task.dueDate, fontSize = 11.sp, color = CrmSubtext)
+                    Text(task.dueDate, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -302,7 +302,7 @@ private fun TaskRow(task: Task, onClick: () -> Unit, onEdit: () -> Unit) {
         }
 
         IconButton(onClick = onEdit) {
-            Icon(Icons.Default.Edit, "Edit", tint = CrmSubtext, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Edit, "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
     }
 }

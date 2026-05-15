@@ -209,19 +209,19 @@ fun EditDealScreen(
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
                         if (saving)
-                            CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                            CircularProgressIndicator(Modifier.size(16.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
                         else
-                            Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         if (deal == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Deal not found", color = CrmSubtext, modifier = Modifier.padding(16.dp))
+                Text("Deal not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
             }
             return@Scaffold
         }
@@ -233,7 +233,7 @@ fun EditDealScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
             SectionHeader("Key Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     EDTextField("Deal Name",    dealName,    "Deal Name")           { dealName = it }
                     EDDivider()
@@ -263,7 +263,7 @@ fun EditDealScreen(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Additional Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     EDDropdown("Stage",       stage,      options.stages,      optionsLoading) { stage = it }
                     EDDivider()
@@ -286,11 +286,11 @@ private fun EDTextField(label: String, value: String, placeholder: String, onVal
         modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
+        Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(130.dp))
         TextField(
             value         = value,
             onValueChange = onValueChange,
-            placeholder   = { Text(placeholder, color = CrmSubtext.copy(alpha = 0.7f), fontSize = 13.sp) },
+            placeholder   = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), fontSize = 13.sp) },
             singleLine    = true,
             modifier      = Modifier.weight(1f),
             colors        = TextFieldDefaults.colors(
@@ -319,9 +319,9 @@ private fun EDDropdown(label: String, value: String, options: List<String>, load
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
+            Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(130.dp))
             if (loading) {
-                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = CrmSubtext)
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 Text(
                     text     = value,
@@ -346,5 +346,5 @@ private fun EDDropdown(label: String, value: String, options: List<String>, load
 
 @Composable
 private fun EDDivider() {
-    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
 }

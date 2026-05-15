@@ -10,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,7 +37,7 @@ val bottomNavItems = listOf(
 @Composable
 fun CrmBottomBar(navController: NavController, currentRoute: String?) {
     NavigationBar(
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,   // was Color.White
         tonalElevation = 4.dp,
     ) {
         bottomNavItems.forEach { item ->
@@ -59,9 +58,9 @@ fun CrmBottomBar(navController: NavController, currentRoute: String?) {
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor   = CrmPrimary,
                     selectedTextColor   = CrmPrimary,
-                    unselectedIconColor = CrmSubtext,
-                    unselectedTextColor = CrmSubtext,
-                    indicatorColor      = Color.Transparent,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,  // was CrmSubtext
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,  // was CrmSubtext
+                    indicatorColor      = MaterialTheme.colorScheme.surfaceVariant,
                 )
             )
         }
@@ -81,7 +80,7 @@ fun ActivityTable(
             text       = title,
             fontWeight = FontWeight.SemiBold,
             fontSize   = 14.sp,
-            color      = CrmOnSurface,
+            color      = MaterialTheme.colorScheme.onSurface,   // was CrmOnSurface
             modifier   = Modifier.padding(bottom = 6.dp),
         )
         Surface(
@@ -90,15 +89,15 @@ fun ActivityTable(
             modifier       = Modifier.fillMaxWidth(),
         ) {
             Column {
-                // Header
+                // Header — primary color intentionally stays, it's brand not background
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(CrmTableHeader)
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
-                    Text("Time",     color = Color.White, fontWeight = FontWeight.Medium, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    Text("Subjects", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 13.sp, modifier = Modifier.weight(2f))
+                    Text("Time",     color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Medium, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("Subjects", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Medium, fontSize = 13.sp, modifier = Modifier.weight(2f))
                 }
                 // Body rows
                 if (rows.isEmpty()) {
@@ -106,7 +105,7 @@ fun ActivityTable(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(if (idx % 2 == 0) CrmRowAlt else Color.White)
+                                .background(if (idx % 2 == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)  // was CrmRowAlt / Color.White
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
                             Text("", modifier = Modifier.weight(1f))
@@ -118,7 +117,7 @@ fun ActivityTable(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(if (idx % 2 == 0) CrmRowAlt else Color.White)
+                                .background(if (idx % 2 == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)  // was CrmRowAlt / Color.White
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
                             Text(time,    fontSize = 12.sp, modifier = Modifier.weight(1f))
@@ -144,13 +143,13 @@ fun FormRow(label: String, value: String, modifier: Modifier = Modifier) {
         Text(
             text     = label,
             fontSize = 13.sp,
-            color    = CrmSubtext,
+            color    = MaterialTheme.colorScheme.onSurfaceVariant,  // was CrmSubtext
             modifier = Modifier.weight(1.2f),
         )
         Text(
             text     = value,
             fontSize = 13.sp,
-            color    = CrmOnSurface,
+            color    = MaterialTheme.colorScheme.onSurface,          // was CrmOnSurface
             modifier = Modifier.weight(2f),
         )
     }
@@ -163,12 +162,12 @@ fun SectionHeader(title: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CrmPrimary)
+            .background(MaterialTheme.colorScheme.primary)           // was CrmPrimary (same value, but now theme-aware)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Text(
             text       = title,
-            color      = Color.White,
+            color      = MaterialTheme.colorScheme.onPrimary,        // was Color.White
             fontWeight = FontWeight.SemiBold,
             fontSize   = 13.sp,
         )

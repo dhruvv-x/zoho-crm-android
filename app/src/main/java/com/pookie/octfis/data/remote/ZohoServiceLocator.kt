@@ -4,15 +4,18 @@ import android.content.Context
 
 object ZohoServiceLocator {
 
-    private lateinit var _tokenStore  : TokenStore
-    private lateinit var _authManager : ZohoAuthManager
-    private lateinit var _apiService  : ZohoApiService
+    private lateinit var appContext  : Context
+    private lateinit var _tokenStore : TokenStore
+    private lateinit var _authManager: ZohoAuthManager
+    private lateinit var _apiService : ZohoApiService
+
+    val themePrefs by lazy { ThemePreferenceManager(appContext) }
 
     fun init(context: Context) {
-        val app      = context.applicationContext
-        _tokenStore  = TokenStore(app)
-        _authManager = ZohoAuthManager(app, _tokenStore)
-        _apiService  = ZohoApiClient.create(_authManager)
+        appContext    = context.applicationContext
+        _tokenStore   = TokenStore(appContext)
+        _authManager  = ZohoAuthManager(appContext, _tokenStore)
+        _apiService   = ZohoApiClient.create(_authManager)
     }
 
     fun getTokenStore()  = _tokenStore

@@ -88,14 +88,14 @@ fun CallListScreen(
                 ) { Icon(Icons.Default.Add, "Create Call") }
             }
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
             Row(
                 modifier          = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -106,7 +106,7 @@ fun CallListScreen(
                     TextField(
                         value         = searchQuery,
                         onValueChange = { vm.setSearch(it) },
-                        placeholder   = { Text("Search calls…", fontSize = 14.sp, color = CrmSubtext) },
+                        placeholder   = { Text("Search calls…", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         singleLine    = true,
                         modifier      = Modifier.weight(1f).focusRequester(focusRequester),
                         colors        = TextFieldDefaults.colors(
@@ -120,7 +120,7 @@ fun CallListScreen(
                     )
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { vm.setSearch("") }) {
-                            Icon(Icons.Default.Close, "Clear", tint = CrmSubtext)
+                            Icon(Icons.Default.Close, "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 } else {
@@ -130,10 +130,10 @@ fun CallListScreen(
                     Text("Calls", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.weight(1f))
                     if (uiState is CallsUiState.Success) {
-                        Text("${(uiState as CallsUiState.Success).calls.size} loaded", fontSize = 11.sp, color = CrmSubtext)
+                        Text("${(uiState as CallsUiState.Success).calls.size} loaded", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { searchActive = true }) { Icon(Icons.Default.Search, "Search", tint = CrmSubtext) }
-                    IconButton(onClick = { vm.load() }) { Icon(Icons.Default.Refresh, "Refresh", tint = CrmSubtext) }
+                    IconButton(onClick = { searchActive = true }) { Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    IconButton(onClick = { vm.load() }) { Icon(Icons.Default.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
 
@@ -143,7 +143,7 @@ fun CallListScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = CrmPrimary)
                             Spacer(Modifier.height(12.dp))
-                            Text("Loading from Zoho CRM…", color = CrmSubtext, fontSize = 13.sp)
+                            Text("Loading from Zoho CRM…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         }
                     }
                 }
@@ -153,7 +153,7 @@ fun CallListScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text(s.message, color = CrmSubtext, fontSize = 13.sp)
+                            Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = { vm.load() }, colors = ButtonDefaults.buttonColors(containerColor = CrmPrimary)) {
                                 Text("Retry")
@@ -165,7 +165,7 @@ fun CallListScreen(
                 is CallsUiState.Success -> {
                     if (s.calls.isEmpty() && searchQuery.isNotBlank()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No results for \"$searchQuery\"", color = CrmSubtext, fontSize = 13.sp)
+                            Text("No results for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         }
                     } else {
                         LazyColumn(
@@ -180,7 +180,7 @@ fun CallListScreen(
                                     onClick  = { navController.navigate(Screen.CallDetail.createRoute(call.zohoId)) },
                                     onEdit   = { navController.navigate(Screen.EditCall.createRoute(call.zohoId)) },
                                 )
-                                HorizontalDivider(color = CrmDivider, thickness = 0.5.dp)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                             }
                             if (s.hasMore && searchQuery.isBlank()) {
                                 item {
@@ -245,7 +245,7 @@ private fun CallRow(call: CrmCall, onClick: () -> Unit, onEdit: () -> Unit) {
     Row(
         modifier          = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.background)
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -265,13 +265,13 @@ private fun CallRow(call: CrmCall, onClick: () -> Unit, onEdit: () -> Unit) {
         Spacer(Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(call.subject, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = CrmOnSurface)
+            Text(call.subject, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(2.dp))
             if (call.callStartTime.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Schedule, null, tint = CrmSubtext, modifier = Modifier.size(12.dp))
+                    Icon(Icons.Default.Schedule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(call.callStartTime.take(16).replace("T", " "), fontSize = 11.sp, color = CrmSubtext)
+                    Text(call.callStartTime.take(16).replace("T", " "), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -280,17 +280,17 @@ private fun CallRow(call: CrmCall, onClick: () -> Unit, onEdit: () -> Unit) {
                 }
                 if (call.duration.isNotEmpty()) {
                     Spacer(Modifier.width(6.dp))
-                    Text(call.duration, fontSize = 11.sp, color = CrmSubtext)
+                    Text(call.duration, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (call.status.isNotEmpty()) {
                     Spacer(Modifier.width(6.dp))
-                    Text("• ${call.status}", fontSize = 11.sp, color = CrmSubtext)
+                    Text("• ${call.status}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
 
         IconButton(onClick = onEdit) {
-            Icon(Icons.Default.Edit, "Edit", tint = CrmSubtext, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Edit, "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -359,14 +359,14 @@ fun CallDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         if (call == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Call not found", color = CrmSubtext, modifier = Modifier.padding(16.dp))
+                Text("Call not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
             }
             return@Scaffold
         }
@@ -385,22 +385,22 @@ fun CallDetailScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
             SectionHeader("Call Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     FormRow("Subject",    call.subject.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Call Type",  call.callType.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Status",     call.status.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Start Time", call.callStartTime.replace("T", " ").ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Duration",   call.duration.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Owner",      call.ownerName.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Contact",    call.contactName.ifEmpty { "—" })
-                    HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Related To", call.relatedTo.ifEmpty { "—" })
                 }
             }
@@ -408,7 +408,7 @@ fun CallDetailScreen(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Description")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 FormRow("Description", call.description.ifEmpty { "—" })
             }
 
@@ -469,18 +469,18 @@ fun CreateCallScreen(
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
+                        else Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             SectionHeader("Call Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     ActivityTextField("Subject",    subject,   "Enter call subject", required = true) { subject = it }
                     ActivityDivider()
@@ -504,7 +504,7 @@ fun CreateCallScreen(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Additional Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 ActivityTextField("Description", description, "Short description", multiline = true) { description = it }
             }
 
@@ -569,25 +569,25 @@ fun EditCallScreen(
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                        else Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        if (saving) CircularProgressIndicator(Modifier.size(16.dp), color = MaterialTheme.colorScheme.surface, strokeWidth = 2.dp)
+                        else Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         if (call == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Call not found", color = CrmSubtext, modifier = Modifier.padding(16.dp))
+                Text("Call not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
             }
             return@Scaffold
         }
 
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             SectionHeader("Call Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     ActivityTextField("Subject",    subject,   "Enter call subject", required = true) { subject = it }
                     ActivityDivider()
@@ -611,7 +611,7 @@ fun EditCallScreen(
             Spacer(Modifier.height(8.dp))
 
             SectionHeader("Additional Information")
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 ActivityTextField("Description", description, "Short description", multiline = true) { description = it }
             }
 

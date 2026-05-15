@@ -9,13 +9,23 @@ import androidx.navigation.navArgument
 import com.pookie.octfis.ui.screens.*
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(
+    navController : NavHostController,
+    onToggleTheme : () -> Unit,
+    isDark        : Boolean,
+) {
     NavHost(
         navController    = navController,
         startDestination = Screen.SignIn.route,
     ) {
-        composable(Screen.SignIn.route)     { SignInScreen(navController) }
-        composable(Screen.Dashboard.route)  { DashboardScreen(navController) }
+        composable(Screen.SignIn.route)    { SignInScreen(navController) }
+        composable(Screen.Dashboard.route) {
+            DashboardScreen(
+                navController  = navController,
+                onToggleTheme  = onToggleTheme,
+                isDark         = isDark,
+            )
+        }
 
         // ── Accounts ──────────────────────────────────────────────────────
         composable(Screen.Accounts.route)      { AccountsScreen(navController) }

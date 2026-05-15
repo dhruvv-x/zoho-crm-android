@@ -57,10 +57,10 @@ fun AccountDetailScreen(navController: NavController, zohoId: String) {
                         Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         when (val s = uiState) {
 
@@ -69,7 +69,7 @@ fun AccountDetailScreen(navController: NavController, zohoId: String) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = CrmPrimary)
                         Spacer(Modifier.height(12.dp))
-                        Text("Fetching from Zoho CRM…", color = CrmSubtext, fontSize = 13.sp)
+                        Text("Fetching from Zoho CRM…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                     }
                 }
             }
@@ -79,7 +79,7 @@ fun AccountDetailScreen(navController: NavController, zohoId: String) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(12.dp))
-                        Text(s.message, color = CrmSubtext, fontSize = 13.sp)
+                        Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         Spacer(Modifier.height(16.dp))
                         Button(
                             onClick = { vm.load() },
@@ -99,26 +99,26 @@ fun AccountDetailScreen(navController: NavController, zohoId: String) {
                         .verticalScroll(rememberScrollState()),
                 ) {
                     SectionHeader("Key Information")
-                    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                         Column {
                             FormRow("Account Name",  account.name.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Account No",    account.accountNo.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Phone",         account.phone.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Website",       account.website.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Industry",      account.industry.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("GST Treatment", account.gstTreatment.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("GSTIN",         account.gstin.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Lead Source",   account.leadSource.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Account Owner", account.accountOwner.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Description",   account.description.ifEmpty { "—" })
                         }
                     }
@@ -126,16 +126,16 @@ fun AccountDetailScreen(navController: NavController, zohoId: String) {
                     Spacer(Modifier.height(8.dp))
 
                     SectionHeader("Address")
-                    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                         Column {
                             FormRow("Billing Street",  account.billingStreet.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Billing City",    account.billingCity.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Billing State",   account.billingState.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Billing Code",    account.billingCode.ifEmpty { "—" })
-                            HorizontalDivider(color = CrmDivider, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Billing Country", account.billingCountry.ifEmpty { "—" })
                         }
                     }

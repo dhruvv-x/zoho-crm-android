@@ -58,13 +58,13 @@ fun CreateDealScreen(navController: NavController) {
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                        Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = CrmBackground,
+       containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -75,7 +75,7 @@ fun CreateDealScreen(navController: NavController) {
             // ── Key Information ───────────────────────────────────────────
             SectionHeader("Key Information")
 
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     DealFormField("Deal Name",     dealName,    "Deal Name")               { dealName = it }
                     DealDivider()
@@ -102,7 +102,7 @@ fun CreateDealScreen(navController: NavController) {
             // ── Additional Information ────────────────────────────────────
             SectionHeader("Additional Information")
 
-            Surface(modifier = Modifier.fillMaxWidth(), color = Color.White) {
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     DealDropdownField("Stage",      stage)      { stage = it }
                     DealDivider()

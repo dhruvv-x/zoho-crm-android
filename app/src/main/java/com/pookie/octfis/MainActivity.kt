@@ -6,6 +6,9 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.pookie.octfis.data.remote.AuthState
@@ -21,10 +24,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         Log.d("OctfisAuth", "onCreate — intent data: ${intent?.data}")
         handleIntent(intent)
+
+        val themePrefs = ZohoServiceLocator.themePrefs
+
         setContent {
-            OctfisCRMTheme {
+            val isDark by themePrefs.isDarkTheme.collectAsState(initial = false)
+            val scope  = rememberCoroutineScope()
+
+            OctfisCRMTheme(darkTheme = isDark) {
                 val navController = rememberNavController()
-                NavGraph(navController)
+                NavGraph(
+                    navController   = navController,
+                    onToggleTheme   = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
+                    isDark          = isDark,
+                )
             }
         }
     }
