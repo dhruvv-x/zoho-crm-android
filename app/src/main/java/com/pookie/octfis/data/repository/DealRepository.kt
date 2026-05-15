@@ -60,20 +60,45 @@ class DealRepository(private val api: ZohoApiService) {
             put("Deal_Name",    dealName)
             put("Stage",        stage.ifBlank { "-None-" })
             put("Closing_Date", closingDate)
-            if (accountName.isNotBlank())    put("Account_Name",           mapOf("name" to accountName))
-            if (contactName.isNotBlank())    put("Contact_Name",           mapOf("name" to contactName))
-            amount.toDoubleOrNull()?.let {   put("Amount", it) }
-            if (type.isNotBlank() && type != "-None-")           put("Type",          type)
-            if (email.isNotBlank())          put("Email",         email)
-            if (description.isNotBlank())    put("Description",   description)
+            if (accountName.isNotBlank())    put("Account_Name",            mapOf("name" to accountName))
+            if (contactName.isNotBlank())    put("Contact_Name",            mapOf("name" to contactName))
+            amount.toDoubleOrNull()?.let {   put("Amount",                  it) }
+            if (type.isNotBlank() && type != "-None-")          put("Type",          type)
+            if (email.isNotBlank())                              put("Email",         email)
+            if (description.isNotBlank())                        put("Description",   description)
             if (leadSource.isNotBlank() && leadSource != "-None-") put("Lead_Source", leadSource)
             if (leadSourceDrill.isNotBlank()) put("Lead_Source_Drill_Down", leadSourceDrill)
-            if (dealOwner.isNotBlank())      put("Owner",         mapOf("id" to dealOwner))
+            if (dealOwner.isNotBlank())       put("Owner",                  mapOf("id" to dealOwner))
         }
         val response = api.createDeal(mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
         if (result?.status != "success") error(result?.message ?: "Create failed")
-        result.details?.id ?: ""
+
+        val newZohoId = result?.details?.id
+            ?: error("No ID returned from Zoho")
+
+        // add to local cache
+        cache.add(
+            Deal(
+                id              = cache.size + 1,
+                zohoId          = newZohoId,
+                name            = dealName,
+                dealName        = dealName,
+                accountName     = accountName,
+                contactName     = contactName,
+                amount          = amount,
+                closingDate     = closingDate,
+                type            = type.ifEmpty { "-None-" },
+                email           = email,
+                dealOwner       = dealOwner.ifEmpty { "-None-" },
+                description     = description,
+                stage           = stage.ifEmpty { "-None-" },
+                leadSource      = leadSource.ifEmpty { "-None-" },
+                leadSourceDrill = leadSourceDrill,
+            )
+        )
+
+        newZohoId
     }
 
     suspend fun updateDeal(

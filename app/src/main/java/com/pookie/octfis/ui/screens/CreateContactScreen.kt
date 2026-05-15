@@ -47,21 +47,17 @@ fun CreateContactScreen(
     val optionsLoading by vm.optionsLoading.collectAsState()
     val createState    by vm.createState.collectAsState()
 
+    // Navigate back on success, show snackbar on error
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Navigate back after successful save
     LaunchedEffect(createState) {
-        if (createState is CreateContactState.Saved) {
-            vm.resetState()
-            navController.popBackStack()
-        }
-    }
-
-    // Show error in snackbar
-    LaunchedEffect(createState) {
-        if (createState is CreateContactState.Error) {
-            snackbarHostState.showSnackbar((createState as CreateContactState.Error).message)
-            vm.resetState()
+        when (val s = createState) {
+            is CreateContactState.Saved -> navController.popBackStack()
+            is CreateContactState.Error -> {
+                snackbarHostState.showSnackbar(s.message)
+                vm.resetState()
+            }
+            else -> Unit
         }
     }
 
@@ -92,6 +88,7 @@ fun CreateContactScreen(
                                 leadSource     = leadSource,
                                 description    = description,
                                 mailingStreet  = billingStreet,
+                                mailingStreet2 = billingStreet2,
                                 mailingCity    = billingCity,
                                 mailingState   = billingState,
                                 mailingZip     = billingCode,
@@ -103,14 +100,15 @@ fun CreateContactScreen(
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        if (isSaving)
+                        if (isSaving) {
                             CircularProgressIndicator(
-                                modifier    = Modifier.size(18.dp),
+                                modifier  = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color       = MaterialTheme.colorScheme.surface,
+                                color     = MaterialTheme.colorScheme.surface,
                             )
-                        else
+                        } else {
                             Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),

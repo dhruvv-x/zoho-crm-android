@@ -81,6 +81,7 @@ class CreateContactViewModel : ViewModel() {
         leadSource    : String,
         description   : String,
         mailingStreet : String,
+        mailingStreet2: String,
         mailingCity   : String,
         mailingState  : String,
         mailingZip    : String,
@@ -101,9 +102,12 @@ class CreateContactViewModel : ViewModel() {
                 title          = title,
                 department     = department,
                 contactOwner   = ownerEntry.first,
-                leadSource     = leadSource.takeIf { it != "-None-" } ?: "",
+                leadSource     = leadSource,
                 description    = description,
-                mailingStreet  = mailingStreet,
+                mailingStreet  = listOfNotNull(
+                    mailingStreet.ifBlank { null },
+                    mailingStreet2.ifBlank { null }
+                ).joinToString("\n"),
                 mailingCity    = mailingCity,
                 mailingState   = mailingState,
                 mailingZip     = mailingZip,

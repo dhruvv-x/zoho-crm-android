@@ -62,26 +62,53 @@ class ContactRepository(private val api: ZohoApiService) {
         mailingCountry: String,
     ): Result<String> = runCatching {
         val record = buildMap<String, Any> {
-            put("First_Name",  firstName)
-            put("Last_Name",   lastName)
-            put("Phone",       phone)
-            put("Email",       email)
-            put("Title",       title)
-            put("Department",  department)
-            put("Lead_Source", leadSource)
-            put("Description", description)
-            put("Mailing_Street",  mailingStreet)
-            put("Mailing_City",    mailingCity)
-            put("Mailing_State",   mailingState)
-            put("Mailing_Zip",     mailingZip)
-            put("Mailing_Country", mailingCountry)
-            if (accountName.isNotBlank())  put("Account_Name", mapOf("name" to accountName))
-            if (contactOwner.isNotBlank()) put("Owner", mapOf("id" to contactOwner))
+            put("Last_Name", lastName)
+            if (firstName.isNotBlank())      put("First_Name",      firstName)
+            if (phone.isNotBlank())          put("Phone",            phone)
+            if (email.isNotBlank())          put("Email",            email)
+            if (title.isNotBlank())          put("Title",            title)
+            if (department.isNotBlank())     put("Department",       department)
+            if (leadSource.isNotBlank() && leadSource != "-None-") put("Lead_Source", leadSource)
+            if (description.isNotBlank())    put("Description",      description)
+            if (mailingStreet.isNotBlank())  put("Mailing_Street",   mailingStreet)
+            if (mailingCity.isNotBlank())    put("Mailing_City",     mailingCity)
+            if (mailingState.isNotBlank())   put("Mailing_State",    mailingState)
+            if (mailingZip.isNotBlank())     put("Mailing_Zip",      mailingZip)
+            if (mailingCountry.isNotBlank()) put("Mailing_Country",  mailingCountry)
+            if (accountName.isNotBlank())    put("Account_Name",     mapOf("name" to accountName))
+            if (contactOwner.isNotBlank())   put("Owner",            mapOf("id" to contactOwner))
         }
         val response = api.createContact(mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
         if (result?.status != "success") error(result?.message ?: "Create failed")
-        result.details?.id ?: ""
+
+        val newZohoId = result?.details?.id
+            ?: error("No ID returned from Zoho")
+
+        // add to local cache
+        cache.add(
+            Contact(
+                id             = cache.size + 1,
+                zohoId         = newZohoId,
+                firstName      = firstName,
+                lastName       = lastName,
+                fullName       = "$firstName $lastName".trim(),
+                phone          = phone,
+                email          = email,
+                accountName    = accountName,
+                title          = title,
+                department     = department,
+                leadSource     = leadSource,
+                description    = description,
+                mailingStreet  = mailingStreet,
+                mailingCity    = mailingCity,
+                mailingState   = mailingState,
+                mailingZip     = mailingZip,
+                mailingCountry = mailingCountry,
+            )
+        )
+
+        newZohoId
     }
 
     suspend fun updateContact(
@@ -128,20 +155,20 @@ class ContactRepository(private val api: ZohoApiService) {
         val idx = cache.indexOfFirst { it.id == contactId }
         if (idx >= 0) {
             cache[idx] = cache[idx].copy(
-                firstName     = firstName,
-                lastName      = lastName,
-                fullName      = "$firstName $lastName".trim(),
-                phone         = phone,
-                email         = email,
-                accountName   = accountName,
-                title         = title,
-                department    = department,
-                leadSource    = leadSource,
-                description   = description,
-                mailingStreet = mailingStreet,
-                mailingCity   = mailingCity,
-                mailingState  = mailingState,
-                mailingZip    = mailingZip,
+                firstName      = firstName,
+                lastName       = lastName,
+                fullName       = "$firstName $lastName".trim(),
+                phone          = phone,
+                email          = email,
+                accountName    = accountName,
+                title          = title,
+                department     = department,
+                leadSource     = leadSource,
+                description    = description,
+                mailingStreet  = mailingStreet,
+                mailingCity    = mailingCity,
+                mailingState   = mailingState,
+                mailingZip     = mailingZip,
                 mailingCountry = mailingCountry,
             )
         }
