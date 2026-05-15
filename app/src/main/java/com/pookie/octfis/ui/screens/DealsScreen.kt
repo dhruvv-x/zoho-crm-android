@@ -31,6 +31,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.pookie.octfis.data.model.Deal
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.CrmBottomBar
+import com.pookie.octfis.ui.components.CrmFilterSheet
+import com.pookie.octfis.ui.components.FilterChipRow
 import com.pookie.octfis.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,12 +41,16 @@ fun DealsScreen(
     navController: NavController,
     vm: DealsViewModel = viewModel(),
 ) {
-    val navBackStack by navController.currentBackStackEntryAsState()
-    val currentRoute  = navBackStack?.destination?.route
-    val uiState      by vm.uiState.collectAsState()
-    val searchQuery  by vm.searchQuery.collectAsState()
-    val listState     = rememberLazyListState()
-    var searchActive  by remember { mutableStateOf(false) }
+    val navBackStack  by navController.currentBackStackEntryAsState()
+    val currentRoute   = navBackStack?.destination?.route
+    val uiState       by vm.uiState.collectAsState()
+    val searchQuery   by vm.searchQuery.collectAsState()
+    val filterState   by vm.filterState.collectAsState()
+    val stages        by vm.stages.collectAsState()
+    val accountNames  by vm.accountNames.collectAsState()
+    val listState      = rememberLazyListState()
+    var searchActive   by remember { mutableStateOf(false) }
+    var filterOpen     by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val isRefreshing   = uiState is DealsUiState.Loading
 
@@ -58,6 +64,41 @@ fun DealsScreen(
     LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
     LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
 
+    if (filterOpen) {
+        CrmFilterSheet(
+            title     = "Filter Deals",
+            onDismiss = { filterOpen = false },
+            onClear   = { vm.clearFilter(); filterOpen = false },
+        ) {
+            if (stages.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Stage",
+                    options  = stages,
+                    selected = filterState.stage,
+                    onSelect = { vm.setFilter(filterState.copy(stage = it)) },
+                )
+            }
+            if (accountNames.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Account",
+                    options  = accountNames,
+                    selected = filterState.accountName,
+                    onSelect = { vm.setFilter(filterState.copy(accountName = it)) },
+                )
+            }
+            // Closing Date filter
+            FilterChipRow(
+                label    = "Closing Date",
+                options  = ClosingDateFilter.values().map { it.label },
+                selected = filterState.closingDate.label,
+                onSelect = { label ->
+                    val picked = ClosingDateFilter.values().firstOrNull { it.label == label } ?: ClosingDateFilter.ALL
+                    vm.setFilter(filterState.copy(closingDate = if (filterState.closingDate == picked) ClosingDateFilter.ALL else picked))
+                },
+            )
+        }
+    }
+
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
         floatingActionButton = {
@@ -70,7 +111,7 @@ fun DealsScreen(
                 ) { Icon(Icons.Default.Add, "Create Deal") }
             }
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
@@ -106,9 +147,13 @@ fun DealsScreen(
                         }
                     }
                 } else {
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
-                    Spacer(Modifier.width(12.dp))
+                    IconButton(onClick = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        }
+                    }) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = CrmOnSurface)
+                    }
                     Text("Deals", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.weight(1f))
                     if (uiState is DealsUiState.Success) {
@@ -120,6 +165,21 @@ fun DealsScreen(
                     }
                     IconButton(onClick = { searchActive = true }) {
                         Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box {
+                        IconButton(onClick = { filterOpen = true }) {
+                            Icon(Icons.Default.FilterList, "Filter", tint = if (filterState.isActive) CrmPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (filterState.isActive) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(CrmPrimary)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-6).dp, y = 6.dp)
+                            )
+                        }
                     }
                     IconButton(onClick = { vm.load() }) {
                         Icon(Icons.Default.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -156,9 +216,9 @@ fun DealsScreen(
                         }
                     }
                     is DealsUiState.Success -> {
-                        if (s.deals.isEmpty() && searchQuery.isNotBlank()) {
+                        if (s.deals.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("No results for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text("No results found", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                         } else {
                             LazyColumn(
@@ -172,7 +232,7 @@ fun DealsScreen(
                                     }
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                                 }
-                                if (s.hasMore && searchQuery.isBlank()) {
+                                if (s.hasMore && searchQuery.isBlank() && !filterState.isActive) {
                                     item {
                                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)

@@ -30,6 +30,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.pookie.octfis.data.model.Account
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.CrmBottomBar
+import com.pookie.octfis.ui.components.CrmFilterSheet
+import com.pookie.octfis.ui.components.FilterChipRow
 import com.pookie.octfis.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,12 +40,16 @@ fun AccountsScreen(
     navController: NavController,
     vm: AccountsViewModel = viewModel(),
 ) {
-    val navBackStack by navController.currentBackStackEntryAsState()
-    val currentRoute  = navBackStack?.destination?.route
-    val uiState      by vm.uiState.collectAsState()
-    val searchQuery  by vm.searchQuery.collectAsState()
-    val listState     = rememberLazyListState()
-    var searchActive  by remember { mutableStateOf(false) }
+    val navBackStack  by navController.currentBackStackEntryAsState()
+    val currentRoute   = navBackStack?.destination?.route
+    val uiState       by vm.uiState.collectAsState()
+    val searchQuery   by vm.searchQuery.collectAsState()
+    val filterState   by vm.filterState.collectAsState()
+    val industries    by vm.industries.collectAsState()
+    val leadSources   by vm.leadSources.collectAsState()
+    val listState      = rememberLazyListState()
+    var searchActive   by remember { mutableStateOf(false) }
+    var filterOpen     by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val isRefreshing   = uiState is AccountsUiState.Loading
 
@@ -57,6 +63,32 @@ fun AccountsScreen(
     LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
     LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
 
+    // Filter sheet
+    if (filterOpen) {
+        CrmFilterSheet(
+            title    = "Filter Accounts",
+            onDismiss = { filterOpen = false },
+            onClear   = { vm.clearFilter(); filterOpen = false },
+        ) {
+            if (industries.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Industry",
+                    options  = industries,
+                    selected = filterState.industry,
+                    onSelect = { vm.setFilter(filterState.copy(industry = it)) },
+                )
+            }
+            if (leadSources.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Lead Source",
+                    options  = leadSources,
+                    selected = filterState.leadSource,
+                    onSelect = { vm.setFilter(filterState.copy(leadSource = it)) },
+                )
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
         floatingActionButton = {
@@ -69,7 +101,7 @@ fun AccountsScreen(
                 ) { Icon(Icons.Default.Add, "Create Account") }
             }
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
@@ -106,9 +138,14 @@ fun AccountsScreen(
                         }
                     }
                 } else {
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
-                    Spacer(Modifier.width(12.dp))
+                    // ← Back arrow instead of hamburger
+                    IconButton(onClick = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        }
+                    }) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = CrmOnSurface)
+                    }
                     Text("Accounts", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.weight(1f))
                     if (uiState is AccountsUiState.Success) {
@@ -120,6 +157,22 @@ fun AccountsScreen(
                     }
                     IconButton(onClick = { searchActive = true }) {
                         Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    // Filter icon with badge
+                    Box {
+                        IconButton(onClick = { filterOpen = true }) {
+                            Icon(Icons.Default.FilterList, "Filter", tint = if (filterState.isActive) CrmPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (filterState.isActive) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(CrmPrimary)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-6).dp, y = 6.dp)
+                            )
+                        }
                     }
                     IconButton(onClick = { vm.load() }) {
                         Icon(Icons.Default.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -156,9 +209,9 @@ fun AccountsScreen(
                         }
                     }
                     is AccountsUiState.Success -> {
-                        if (s.accounts.isEmpty() && searchQuery.isNotBlank()) {
+                        if (s.accounts.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("No results for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text("No results found", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                         } else {
                             LazyColumn(
@@ -172,7 +225,7 @@ fun AccountsScreen(
                                     }
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                                 }
-                                if (s.hasMore && searchQuery.isBlank()) {
+                                if (s.hasMore && searchQuery.isBlank() && !filterState.isActive) {
                                     item {
                                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)

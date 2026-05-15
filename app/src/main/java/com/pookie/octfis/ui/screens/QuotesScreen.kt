@@ -31,6 +31,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.pookie.octfis.data.model.Quote
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.CrmBottomBar
+import com.pookie.octfis.ui.components.CrmFilterSheet
+import com.pookie.octfis.ui.components.FilterChipRow
 import com.pookie.octfis.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,12 +41,16 @@ fun QuotesScreen(
     navController: NavController,
     vm: QuotesViewModel = viewModel(),
 ) {
-    val navBackStack by navController.currentBackStackEntryAsState()
-    val currentRoute  = navBackStack?.destination?.route
-    val uiState      by vm.uiState.collectAsState()
-    val searchQuery  by vm.searchQuery.collectAsState()
-    val listState     = rememberLazyListState()
-    var searchActive  by remember { mutableStateOf(false) }
+    val navBackStack  by navController.currentBackStackEntryAsState()
+    val currentRoute   = navBackStack?.destination?.route
+    val uiState       by vm.uiState.collectAsState()
+    val searchQuery   by vm.searchQuery.collectAsState()
+    val filterState   by vm.filterState.collectAsState()
+    val quoteStages   by vm.quoteStages.collectAsState()
+    val accountNames  by vm.accountNames.collectAsState()
+    val listState      = rememberLazyListState()
+    var searchActive   by remember { mutableStateOf(false) }
+    var filterOpen     by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val isRefreshing   = uiState is QuotesUiState.Loading
 
@@ -58,6 +64,40 @@ fun QuotesScreen(
     LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
     LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
 
+    if (filterOpen) {
+        CrmFilterSheet(
+            title     = "Filter Quotes",
+            onDismiss = { filterOpen = false },
+            onClear   = { vm.clearFilter(); filterOpen = false },
+        ) {
+            if (quoteStages.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Quote Stage",
+                    options  = quoteStages,
+                    selected = filterState.quoteStage,
+                    onSelect = { vm.setFilter(filterState.copy(quoteStage = it)) },
+                )
+            }
+            if (accountNames.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Account",
+                    options  = accountNames,
+                    selected = filterState.accountName,
+                    onSelect = { vm.setFilter(filterState.copy(accountName = it)) },
+                )
+            }
+            FilterChipRow(
+                label    = "Valid Until",
+                options  = ValidityDateFilter.values().map { it.label },
+                selected = filterState.validityDate.label,
+                onSelect = { label ->
+                    val picked = ValidityDateFilter.values().firstOrNull { it.label == label } ?: ValidityDateFilter.ALL
+                    vm.setFilter(filterState.copy(validityDate = if (filterState.validityDate == picked) ValidityDateFilter.ALL else picked))
+                },
+            )
+        }
+    }
+
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
         floatingActionButton = {
@@ -70,7 +110,7 @@ fun QuotesScreen(
                 ) { Icon(Icons.Default.Add, "Create Quote") }
             }
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
@@ -106,9 +146,13 @@ fun QuotesScreen(
                         }
                     }
                 } else {
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
-                    Spacer(Modifier.width(12.dp))
+                    IconButton(onClick = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        }
+                    }) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = CrmOnSurface)
+                    }
                     Text("Quotes", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.weight(1f))
                     if (uiState is QuotesUiState.Success) {
@@ -120,6 +164,21 @@ fun QuotesScreen(
                     }
                     IconButton(onClick = { searchActive = true }) {
                         Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box {
+                        IconButton(onClick = { filterOpen = true }) {
+                            Icon(Icons.Default.FilterList, "Filter", tint = if (filterState.isActive) CrmPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (filterState.isActive) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(CrmPrimary)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-6).dp, y = 6.dp)
+                            )
+                        }
                     }
                     IconButton(onClick = { vm.load() }) {
                         Icon(Icons.Default.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -156,9 +215,9 @@ fun QuotesScreen(
                         }
                     }
                     is QuotesUiState.Success -> {
-                        if (s.quotes.isEmpty() && searchQuery.isNotBlank()) {
+                        if (s.quotes.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("No results for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text("No results found", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                         } else {
                             LazyColumn(
@@ -172,7 +231,7 @@ fun QuotesScreen(
                                     }
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                                 }
-                                if (s.hasMore && searchQuery.isBlank()) {
+                                if (s.hasMore && searchQuery.isBlank() && !filterState.isActive) {
                                     item {
                                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)

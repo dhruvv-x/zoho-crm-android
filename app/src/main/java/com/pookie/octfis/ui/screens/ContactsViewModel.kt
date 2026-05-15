@@ -16,6 +16,13 @@ sealed class ContactsUiState {
     data class Error(val message: String) : ContactsUiState()
 }
 
+data class ContactFilterState(
+    val leadSource  : String = "",
+    val accountName : String = "",
+) {
+    val isActive get() = leadSource.isNotEmpty() || accountName.isNotEmpty()
+}
+
 class ContactsViewModel : ViewModel() {
 
     private val repo = ContactRepository(ZohoServiceLocator.getApiService())
@@ -25,6 +32,15 @@ class ContactsViewModel : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _filterState = MutableStateFlow(ContactFilterState())
+    val filterState: StateFlow<ContactFilterState> = _filterState.asStateFlow()
+
+    private val _leadSources   = MutableStateFlow<List<String>>(emptyList())
+    val leadSources: StateFlow<List<String>> = _leadSources.asStateFlow()
+
+    private val _accountNames  = MutableStateFlow<List<String>>(emptyList())
+    val accountNames: StateFlow<List<String>> = _accountNames.asStateFlow()
 
     private val allContacts = mutableListOf<Contact>()
     private var currentPage  = 1
@@ -49,22 +65,40 @@ class ContactsViewModel : ViewModel() {
 
     fun setSearch(query: String) {
         _searchQuery.value = query
+        recompute()
+    }
+
+    fun setFilter(filter: ContactFilterState) {
+        _filterState.value = filter
+        recompute()
+    }
+
+    fun clearFilter() {
+        _filterState.value = ContactFilterState()
+        recompute()
+    }
+
+    private fun recompute() {
         val current = _uiState.value
         if (current is ContactsUiState.Success) {
-            _uiState.value = current.copy(contacts = filter(allContacts, query))
+            _uiState.value = current.copy(contacts = applyAll(allContacts))
         }
     }
 
-    private fun filter(list: List<Contact>, query: String): List<Contact> {
-        if (query.isBlank()) return list
-        val q = query.trim().lowercase()
-        return list.filter {
-            it.fullName.lowercase().contains(q) ||
-                    it.phone.lowercase().contains(q) ||
-                    it.mobile.lowercase().contains(q) ||
-                    it.email.lowercase().contains(q) ||
-                    it.accountName.lowercase().contains(q)
-        }
+    private fun applyAll(list: List<Contact>): List<Contact> {
+        val q = _searchQuery.value.trim().lowercase()
+        val f = _filterState.value
+        return list
+            .filter { c ->
+                if (q.isBlank()) true
+                else c.fullName.lowercase().contains(q) ||
+                        c.phone.lowercase().contains(q) ||
+                        c.mobile.lowercase().contains(q) ||
+                        c.email.lowercase().contains(q) ||
+                        c.accountName.lowercase().contains(q)
+            }
+            .filter { c -> if (f.leadSource.isBlank())  true else c.leadSource  == f.leadSource }
+            .filter { c -> if (f.accountName.isBlank()) true else c.accountName == f.accountName }
     }
 
     private suspend fun fetchPage(page: Int) {
@@ -73,7 +107,9 @@ class ContactsViewModel : ViewModel() {
             onSuccess = { (newItems, hasMore) ->
                 allContacts.addAll(newItems)
                 currentPage    = page
-                _uiState.value = ContactsUiState.Success(filter(allContacts, _searchQuery.value), hasMore)
+                _leadSources.value  = allContacts.map { it.leadSource }.filter { it.isNotBlank() && it != "-None-" }.distinct().sorted()
+                _accountNames.value = allContacts.map { it.accountName }.filter { it.isNotBlank() }.distinct().sorted()
+                _uiState.value = ContactsUiState.Success(applyAll(allContacts), hasMore)
             },
             onFailure = { e ->
                 _uiState.value = ContactsUiState.Error(e.message ?: "Unknown error")

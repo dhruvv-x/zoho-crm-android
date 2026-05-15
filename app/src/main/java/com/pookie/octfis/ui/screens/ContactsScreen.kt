@@ -30,6 +30,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.pookie.octfis.data.model.Contact
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.CrmBottomBar
+import com.pookie.octfis.ui.components.CrmFilterSheet
+import com.pookie.octfis.ui.components.FilterChipRow
 import com.pookie.octfis.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,12 +40,16 @@ fun ContactsScreen(
     navController: NavController,
     vm: ContactsViewModel = viewModel(),
 ) {
-    val navBackStack by navController.currentBackStackEntryAsState()
-    val currentRoute  = navBackStack?.destination?.route
-    val uiState      by vm.uiState.collectAsState()
-    val searchQuery  by vm.searchQuery.collectAsState()
-    val listState     = rememberLazyListState()
-    var searchActive  by remember { mutableStateOf(false) }
+    val navBackStack  by navController.currentBackStackEntryAsState()
+    val currentRoute   = navBackStack?.destination?.route
+    val uiState       by vm.uiState.collectAsState()
+    val searchQuery   by vm.searchQuery.collectAsState()
+    val filterState   by vm.filterState.collectAsState()
+    val leadSources   by vm.leadSources.collectAsState()
+    val accountNames  by vm.accountNames.collectAsState()
+    val listState      = rememberLazyListState()
+    var searchActive   by remember { mutableStateOf(false) }
+    var filterOpen     by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val isRefreshing   = uiState is ContactsUiState.Loading
 
@@ -57,6 +63,31 @@ fun ContactsScreen(
     LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
     LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
 
+    if (filterOpen) {
+        CrmFilterSheet(
+            title     = "Filter Contacts",
+            onDismiss = { filterOpen = false },
+            onClear   = { vm.clearFilter(); filterOpen = false },
+        ) {
+            if (leadSources.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Lead Source",
+                    options  = leadSources,
+                    selected = filterState.leadSource,
+                    onSelect = { vm.setFilter(filterState.copy(leadSource = it)) },
+                )
+            }
+            if (accountNames.isNotEmpty()) {
+                FilterChipRow(
+                    label    = "Account",
+                    options  = accountNames,
+                    selected = filterState.accountName,
+                    onSelect = { vm.setFilter(filterState.copy(accountName = it)) },
+                )
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = { CrmBottomBar(navController, currentRoute) },
         floatingActionButton = {
@@ -69,7 +100,7 @@ fun ContactsScreen(
                 ) { Icon(Icons.Default.Add, "Create Contact") }
             }
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
@@ -105,9 +136,13 @@ fun ContactsScreen(
                         }
                     }
                 } else {
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.Menu, "Menu", tint = CrmOnSurface)
-                    Spacer(Modifier.width(12.dp))
+                    IconButton(onClick = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        }
+                    }) {
+                        Icon(Icons.Default.ArrowBack, "Back", tint = CrmOnSurface)
+                    }
                     Text("Contacts", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Spacer(Modifier.weight(1f))
                     if (uiState is ContactsUiState.Success) {
@@ -119,6 +154,21 @@ fun ContactsScreen(
                     }
                     IconButton(onClick = { searchActive = true }) {
                         Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Box {
+                        IconButton(onClick = { filterOpen = true }) {
+                            Icon(Icons.Default.FilterList, "Filter", tint = if (filterState.isActive) CrmPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (filterState.isActive) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(CrmPrimary)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-6).dp, y = 6.dp)
+                            )
+                        }
                     }
                     IconButton(onClick = { vm.load() }) {
                         Icon(Icons.Default.Refresh, "Refresh", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -155,9 +205,9 @@ fun ContactsScreen(
                         }
                     }
                     is ContactsUiState.Success -> {
-                        if (s.contacts.isEmpty() && searchQuery.isNotBlank()) {
+                        if (s.contacts.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("No results for \"$searchQuery\"", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Text("No results found", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                         } else {
                             LazyColumn(
@@ -171,7 +221,7 @@ fun ContactsScreen(
                                     }
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                                 }
-                                if (s.hasMore && searchQuery.isBlank()) {
+                                if (s.hasMore && searchQuery.isBlank() && !filterState.isActive) {
                                     item {
                                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)
