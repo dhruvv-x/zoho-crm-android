@@ -27,14 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// ── Picklist options ──────────────────────────────────────────────────────────
 
-data class DealPicklistOptions(
-    val types       : List<String>              = listOf("-None-"),
-    val stages      : List<String>              = listOf("-None-"),
-    val leadSources : List<String>              = listOf("-None-"),
-    val owners      : List<Pair<String, String>> = listOf(Pair("", "-None-")),
-)
 
 // ── Save state ────────────────────────────────────────────────────────────────
 

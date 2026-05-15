@@ -43,6 +43,9 @@ interface ZohoApiService {
         @Query("sort_order") sortOrder: String = "desc",
     ): ContactsResponse
 
+    @POST("Contacts")
+    suspend fun createContact(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
+
     @PUT("Contacts/{id}")
     suspend fun updateContact(
         @Path("id") id: String,
@@ -58,6 +61,9 @@ interface ZohoApiService {
         @Query("sort_by")    sortBy: String = "Modified_Time",
         @Query("sort_order") sortOrder: String = "desc",
     ): DealsResponse
+
+    @POST("Deals")
+    suspend fun createDeal(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
 
     @PUT("Deals/{id}")
     suspend fun updateDeal(

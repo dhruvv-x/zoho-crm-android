@@ -44,6 +44,46 @@ class ContactRepository(private val api: ZohoApiService) {
             Pair(contacts, hasMore)
         }
 
+    suspend fun createContact(
+        firstName     : String,
+        lastName      : String,
+        phone         : String,
+        email         : String,
+        accountName   : String,
+        title         : String,
+        department    : String,
+        contactOwner  : String,
+        leadSource    : String,
+        description   : String,
+        mailingStreet : String,
+        mailingCity   : String,
+        mailingState  : String,
+        mailingZip    : String,
+        mailingCountry: String,
+    ): Result<String> = runCatching {
+        val record = buildMap<String, Any> {
+            put("First_Name",  firstName)
+            put("Last_Name",   lastName)
+            put("Phone",       phone)
+            put("Email",       email)
+            put("Title",       title)
+            put("Department",  department)
+            put("Lead_Source", leadSource)
+            put("Description", description)
+            put("Mailing_Street",  mailingStreet)
+            put("Mailing_City",    mailingCity)
+            put("Mailing_State",   mailingState)
+            put("Mailing_Zip",     mailingZip)
+            put("Mailing_Country", mailingCountry)
+            if (accountName.isNotBlank())  put("Account_Name", mapOf("name" to accountName))
+            if (contactOwner.isNotBlank()) put("Owner", mapOf("id" to contactOwner))
+        }
+        val response = api.createContact(mapOf("data" to listOf(record)))
+        val result   = response.data?.firstOrNull()
+        if (result?.status != "success") error(result?.message ?: "Create failed")
+        result.details?.id ?: ""
+    }
+
     suspend fun updateContact(
         zohoId       : String,
         contactId    : Int,

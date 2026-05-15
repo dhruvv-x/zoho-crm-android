@@ -42,6 +42,40 @@ class DealRepository(private val api: ZohoApiService) {
             Pair(deals, hasMore)
         }
 
+    suspend fun createDeal(
+        dealName       : String,
+        accountName    : String,
+        contactName    : String,
+        amount         : String,
+        closingDate    : String,
+        type           : String,
+        email          : String,
+        dealOwner      : String,
+        description    : String,
+        stage          : String,
+        leadSource     : String,
+        leadSourceDrill: String,
+    ): Result<String> = runCatching {
+        val record = buildMap<String, Any> {
+            put("Deal_Name",    dealName)
+            put("Stage",        stage.ifBlank { "-None-" })
+            put("Closing_Date", closingDate)
+            if (accountName.isNotBlank())    put("Account_Name",           mapOf("name" to accountName))
+            if (contactName.isNotBlank())    put("Contact_Name",           mapOf("name" to contactName))
+            amount.toDoubleOrNull()?.let {   put("Amount", it) }
+            if (type.isNotBlank() && type != "-None-")           put("Type",          type)
+            if (email.isNotBlank())          put("Email",         email)
+            if (description.isNotBlank())    put("Description",   description)
+            if (leadSource.isNotBlank() && leadSource != "-None-") put("Lead_Source", leadSource)
+            if (leadSourceDrill.isNotBlank()) put("Lead_Source_Drill_Down", leadSourceDrill)
+            if (dealOwner.isNotBlank())      put("Owner",         mapOf("id" to dealOwner))
+        }
+        val response = api.createDeal(mapOf("data" to listOf(record)))
+        val result   = response.data?.firstOrNull()
+        if (result?.status != "success") error(result?.message ?: "Create failed")
+        result.details?.id ?: ""
+    }
+
     suspend fun updateDeal(
         zohoId         : String,
         dealName       : String,

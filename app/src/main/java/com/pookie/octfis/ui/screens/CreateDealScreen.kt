@@ -15,14 +15,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateDealScreen(navController: NavController) {
-
+fun CreateDealScreen(
+    navController: NavController,
+    vm: CreateDealViewModel = viewModel(),
+) {
     var dealName        by remember { mutableStateOf("") }
     var accountName     by remember { mutableStateOf("") }
     var contactName     by remember { mutableStateOf("") }
@@ -30,13 +33,36 @@ fun CreateDealScreen(navController: NavController) {
     var closingDate     by remember { mutableStateOf("") }
     var type            by remember { mutableStateOf("-None-") }
     var email           by remember { mutableStateOf("") }
-    var dealOwner       by remember { mutableStateOf("-None-") }
+    var selectedOwner   by remember { mutableStateOf(Pair("", "-None-")) }
     var description     by remember { mutableStateOf("") }
     var stage           by remember { mutableStateOf("-None-") }
     var leadSource      by remember { mutableStateOf("-None-") }
     var leadSourceDrill by remember { mutableStateOf("") }
 
+    val options        by vm.options.collectAsState()
+    val optionsLoading by vm.optionsLoading.collectAsState()
+    val createState    by vm.createState.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(createState) {
+        if (createState is CreateDealState.Saved) {
+            vm.resetState()
+            navController.popBackStack()
+        }
+    }
+
+    LaunchedEffect(createState) {
+        if (createState is CreateDealState.Error) {
+            snackbarHostState.showSnackbar((createState as CreateDealState.Error).message)
+            vm.resetState()
+        }
+    }
+
+    val isSaving = createState is CreateDealState.Saving
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -53,18 +79,41 @@ fun CreateDealScreen(navController: NavController) {
                 },
                 actions = {
                     Button(
-                        onClick  = { navController.popBackStack() },
+                        onClick = {
+                            vm.save(
+                                dealName        = dealName,
+                                accountName     = accountName,
+                                contactName     = contactName,
+                                amount          = amount,
+                                closingDate     = closingDate,
+                                type            = type,
+                                email           = email,
+                                ownerEntry      = selectedOwner,
+                                description     = description,
+                                stage           = stage,
+                                leadSource      = leadSource,
+                                leadSourceDrill = leadSourceDrill,
+                            )
+                        },
+                        enabled  = !isSaving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
+                        if (isSaving)
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color       = MaterialTheme.colorScheme.surface,
+                            )
+                        else
+                            Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -77,23 +126,28 @@ fun CreateDealScreen(navController: NavController) {
 
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    DealFormField("Deal Name",     dealName,    "Deal Name")               { dealName = it }
+                    DealFormField("Deal Name",    dealName,    "Deal Name")               { dealName = it }
                     DealDivider()
-                    DealFormField("Account Name",  accountName, "Enter Company name")      { accountName = it }
+                    DealFormField("Account Name", accountName, "Enter Company name")      { accountName = it }
                     DealDivider()
-                    DealFormField("Contact Name",  contactName, "Enter Customer Name")     { contactName = it }
+                    DealFormField("Contact Name", contactName, "Enter Customer Name")     { contactName = it }
                     DealDivider()
-                    DealFormField("Amount",        amount,      "Enter Deal Amount")       { amount = it }
+                    DealFormField("Amount",       amount,      "Enter Deal Amount")       { amount = it }
                     DealDivider()
-                    DealFormField("Closing Date",  closingDate, "Enter Deal Closing Date") { closingDate = it }
+                    DealFormField("Closing Date", closingDate, "YYYY-MM-DD")              { closingDate = it }
                     DealDivider()
-                    DealDropdownField("Type",       type)       { type = it }
+                    DealPicklistField("Type", type, options.types, optionsLoading)        { type = it }
                     DealDivider()
-                    DealFormField("Email",         email,       "Enter Email ID")          { email = it }
+                    DealFormField("Email",        email,       "Enter Email ID")          { email = it }
                     DealDivider()
-                    DealDropdownField("Deal Owner", dealOwner)  { dealOwner = it }
+                    DealPicklistField(
+                        label   = "Deal Owner",
+                        value   = selectedOwner.second,
+                        options = options.owners.map { it.second },
+                        loading = optionsLoading,
+                    ) { name -> selectedOwner = options.owners.firstOrNull { it.second == name } ?: Pair("", name) }
                     DealDivider()
-                    DealFormField("Description",   description, "Short description")       { description = it }
+                    DealFormField("Description",  description, "Short description")       { description = it }
                 }
             }
 
@@ -104,9 +158,9 @@ fun CreateDealScreen(navController: NavController) {
 
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    DealDropdownField("Stage",      stage)      { stage = it }
+                    DealPicklistField("Stage",       stage,      options.stages,      optionsLoading) { stage = it }
                     DealDivider()
-                    DealDropdownField("Lead Source", leadSource) { leadSource = it }
+                    DealPicklistField("Lead Source",  leadSource, options.leadSources, optionsLoading) { leadSource = it }
                     DealDivider()
                     DealFormField("Lead Source Drill", leadSourceDrill, "Enter Source Reference") { leadSourceDrill = it }
                 }
@@ -158,35 +212,50 @@ private fun DealFormField(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DealDropdownField(
-    label        : String,
-    value        : String,
-    onValueChange: (String) -> Unit,
+private fun DealPicklistField(
+    label   : String,
+    value   : String,
+    options : List<String>,
+    loading : Boolean,
+    onSelect: (String) -> Unit,
 ) {
-    Row(
-        modifier          = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded         = expanded,
+        onExpandedChange = { if (!loading) expanded = it },
+        modifier         = Modifier.fillMaxWidth(),
     ) {
-        Text(
-            text     = label,
-            fontSize = 13.sp,
-            color    = CrmSubtext,
-            modifier = Modifier.width(130.dp),
-        )
-        Text(
-            text     = value,
-            fontSize = 13.sp,
-            color    = CrmOnSurface,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(
-            imageVector        = Icons.Default.ArrowDropDown,
-            contentDescription = null,
-            tint               = CrmSubtext,
-        )
+        Row(
+            modifier          = Modifier
+                .fillMaxWidth()
+                .menuAnchor()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = CrmSubtext)
+            } else {
+                Text(
+                    text     = value,
+                    fontSize = 13.sp,
+                    color    = if (value == "-None-") CrmSubtext else CrmOnSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = CrmSubtext)
+            }
+        }
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text    = { Text(option, fontSize = 14.sp) },
+                    onClick = { onSelect(option); expanded = false },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
     }
 }
 

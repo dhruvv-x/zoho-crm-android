@@ -45,8 +45,30 @@ fun CreateContactScreen(
 
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
+    val createState    by vm.createState.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Navigate back after successful save
+    LaunchedEffect(createState) {
+        if (createState is CreateContactState.Saved) {
+            vm.resetState()
+            navController.popBackStack()
+        }
+    }
+
+    // Show error in snackbar
+    LaunchedEffect(createState) {
+        if (createState is CreateContactState.Error) {
+            snackbarHostState.showSnackbar((createState as CreateContactState.Error).message)
+            vm.resetState()
+        }
+    }
+
+    val isSaving = createState is CreateContactState.Saving
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Create Contact", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
@@ -57,18 +79,44 @@ fun CreateContactScreen(
                 },
                 actions = {
                     Button(
-                        onClick  = { navController.popBackStack() },
+                        onClick = {
+                            vm.save(
+                                firstName      = firstName,
+                                lastName       = lastName,
+                                phone          = phone,
+                                email          = email,
+                                accountName    = accountName,
+                                title          = title,
+                                department     = department,
+                                ownerEntry     = selectedOwner,
+                                leadSource     = leadSource,
+                                description    = description,
+                                mailingStreet  = billingStreet,
+                                mailingCity    = billingCity,
+                                mailingState   = billingState,
+                                mailingZip     = billingCode,
+                                mailingCountry = billingCountry,
+                            )
+                        },
+                        enabled  = !isSaving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
+                        if (isSaving)
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color       = MaterialTheme.colorScheme.surface,
+                            )
+                        else
+                            Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
