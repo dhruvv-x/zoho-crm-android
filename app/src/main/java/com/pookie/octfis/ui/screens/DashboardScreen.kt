@@ -49,9 +49,10 @@ fun DashboardScreen(
     val uiState by vm.uiState.collectAsState()
     val scope = rememberCoroutineScope()
 
-    val callCount    = (uiState as? DashboardUiState.Success)?.data?.calls?.size ?: 0
-    val meetingCount = (uiState as? DashboardUiState.Success)?.data?.meetings?.size ?: 0
-    val taskCount    = (uiState as? DashboardUiState.Success)?.data?.tasks?.size ?: 0
+    // Summary counts always reflect today's real data
+    val todayCallCount    = (uiState as? DashboardUiState.Success)?.data?.todayCalls?.size ?: 0
+    val todayMeetingCount = (uiState as? DashboardUiState.Success)?.data?.todayMeetings?.size ?: 0
+    val todayTaskCount    = (uiState as? DashboardUiState.Success)?.data?.todayTasks?.size ?: 0
 
     Scaffold(
         bottomBar      = { CrmBottomBar(navController, currentRoute) },
@@ -90,9 +91,7 @@ fun DashboardScreen(
                     )
                 }
                 IconButton(onClick = {
-                    scope.launch {
-                        ZohoServiceLocator.getTokenStore().clear()
-                    }
+                    scope.launch { ZohoServiceLocator.getTokenStore().clear() }
                     navController.navigate(Screen.SignIn.route) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -101,18 +100,20 @@ fun DashboardScreen(
                 }
             }
 
-            // ── Summary Cards ─────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(CrmPrimary)
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SummaryCard("Calls",    "$callCount",    Icons.Default.Call,    Modifier.weight(1f))
-                SummaryCard("Meetings", "$meetingCount", Icons.Default.Groups,  Modifier.weight(1f))
-                SummaryCard("Tasks",    "$taskCount",    Icons.Default.TaskAlt, Modifier.weight(1f))
+            // ── Summary Cards — only on Today tab ─────────────────────────
+            if (selectedTab == DashTab.TodayActivity) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CrmPrimary)
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SummaryCard("Calls",    "$todayCallCount",    Icons.Default.Call,    Modifier.weight(1f))
+                    SummaryCard("Meetings", "$todayMeetingCount", Icons.Default.Groups,  Modifier.weight(1f))
+                    SummaryCard("Tasks",    "$todayTaskCount",    Icons.Default.TaskAlt, Modifier.weight(1f))
+                }
             }
 
             // ── Tab Row ───────────────────────────────────────────────────
@@ -156,10 +157,7 @@ fun DashboardScreen(
             // ── Content ───────────────────────────────────────────────────
             when (val s = uiState) {
                 is DashboardUiState.Loading -> {
-                    Box(
-                        modifier         = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = CrmPrimary)
                             Spacer(Modifier.height(12.dp))
@@ -169,19 +167,15 @@ fun DashboardScreen(
                 }
 
                 is DashboardUiState.Error -> {
-                    Box(
-                        modifier         = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.CloudOff, null, tint = CrmError, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(12.dp))
                             Text(s.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             Spacer(Modifier.height(16.dp))
-                            Button(
-                                onClick = { vm.load() },
-                                colors  = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
-                            ) { Text("Retry") }
+                            Button(onClick = { vm.load() }, colors = ButtonDefaults.buttonColors(containerColor = CrmPrimary)) {
+                                Text("Retry")
+                            }
                         }
                     }
                 }
@@ -198,40 +192,52 @@ fun DashboardScreen(
                         when (selectedTab) {
                             DashTab.TodayActivity -> {
                                 ProperTable(
-                                    "My Calls",
-                                    listOf("Time", "Subject"),
-                                    data.calls.map { listOf(formatTime(it.startTime), it.subject) }
+                                    title      = "My Calls",
+                                    headers    = listOf("Time", "Subject"),
+                                    rows       = data.todayCalls.map { listOf(formatTime(it.startTime), it.subject) },
+                                    rowIds     = data.todayCalls.map { it.id },
+                                    onRowClick = { id -> navController.navigate(Screen.CallDetail.createRoute(id)) },
                                 )
                                 ProperTable(
-                                    "My Meetings",
-                                    listOf("Time", "Subject"),
-                                    data.meetings.map { listOf(formatTime(it.startDateTime), it.title) }
+                                    title      = "My Meetings",
+                                    headers    = listOf("Time", "Subject"),
+                                    rows       = data.todayMeetings.map { listOf(formatTime(it.startDateTime), it.title) },
+                                    rowIds     = data.todayMeetings.map { it.id },
+                                    onRowClick = { id -> navController.navigate(Screen.MeetingDetail.createRoute(id)) },
                                 )
                                 ProperTable(
-                                    "My Tasks",
-                                    listOf("Due Date", "Subject"),
-                                    data.tasks.map { listOf(it.dueDate, it.subject) }
+                                    title      = "My Tasks",
+                                    headers    = listOf("Due Date", "Subject"),
+                                    rows       = data.todayTasks.map { listOf(it.dueDate, it.subject) },
+                                    rowIds     = data.todayTasks.map { it.id },
+                                    onRowClick = { id -> navController.navigate(Screen.TaskDetail.createRoute(id)) },
                                 )
                             }
                             DashTab.Calls -> {
                                 ProperTable(
-                                    "All Calls",
-                                    listOf("Time", "Subject"),
-                                    data.calls.map { listOf(formatTime(it.startTime), it.subject) }
+                                    title      = "All Calls",
+                                    headers    = listOf("Time", "Subject"),
+                                    rows       = data.allCalls.map { listOf(formatTime(it.startTime), it.subject) },
+                                    rowIds     = data.allCalls.map { it.id },
+                                    onRowClick = { id -> navController.navigate(Screen.CallDetail.createRoute(id)) },
                                 )
                             }
                             DashTab.Meetings -> {
                                 ProperTable(
-                                    "All Meetings",
-                                    listOf("Time", "Subject"),
-                                    data.meetings.map { listOf(formatTime(it.startDateTime), it.title) }
+                                    title      = "All Meetings",
+                                    headers    = listOf("Time", "Subject"),
+                                    rows       = data.allMeetings.map { listOf(formatTime(it.startDateTime), it.title) },
+                                    rowIds     = data.allMeetings.map { it.id },
+                                    onRowClick = { id -> navController.navigate(Screen.MeetingDetail.createRoute(id)) },
                                 )
                             }
                             DashTab.Task -> {
                                 ProperTable(
-                                    "All Tasks",
-                                    listOf("Due Date", "Subject"),
-                                    data.tasks.map { listOf(it.dueDate, it.subject) }
+                                    title      = "All Tasks",
+                                    headers    = listOf("Due Date", "Subject"),
+                                    rows       = data.allTasks.map { listOf(it.dueDate, it.subject) },
+                                    rowIds     = data.allTasks.map { it.id },
+                                    onRowClick = { id -> navController.navigate(Screen.TaskDetail.createRoute(id)) },
                                 )
                             }
                         }
@@ -242,16 +248,16 @@ fun DashboardScreen(
     }
 }
 
+// ── formatTime ────────────────────────────────────────────────────────────────
 private fun formatTime(raw: String): String {
     if (raw.isBlank()) return "—"
-    return try {
-        val t = raw.substringAfter("T").take(5)
-        if (t.length == 5) t else raw.take(10)
-    } catch (e: Exception) { raw.take(10) }
+    val tIndex = raw.indexOf('T')
+    if (tIndex == -1) return "—"
+    val timePart = raw.substring(tIndex + 1).take(5)
+    return if (timePart.length == 5) timePart else "—"
 }
 
 // ── Summary Card ──────────────────────────────────────────────────────────────
-
 @Composable
 private fun SummaryCard(
     label   : String,
@@ -262,30 +268,29 @@ private fun SummaryCard(
     Card(
         modifier  = modifier,
         shape     = RoundedCornerShape(12.dp),
-        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.15f)),
+        colors    = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.2f)),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(
-            modifier            = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 8.dp),
+            modifier            = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-            Text(count, color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text(label, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f), fontSize = 11.sp)
+            Text(count, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(label, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
         }
     }
 }
 
 // ── Proper Table ──────────────────────────────────────────────────────────────
-
 @Composable
 private fun ProperTable(
-    title  : String,
-    headers: List<String>,
-    rows   : List<List<String>>,
+    title      : String,
+    headers    : List<String>,
+    rows       : List<List<String>>,
+    rowIds     : List<String> = emptyList(),
+    onRowClick : ((String) -> Unit)? = null,
 ) {
     Column {
         Row(
@@ -312,41 +317,26 @@ private fun ProperTable(
                                 .then(if (index > 0) Modifier.border(0.5.dp, Color.White.copy(alpha = 0.3f)) else Modifier)
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
-                            Text(header, color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(header, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         }
                     }
                 }
 
                 if (rows.isEmpty()) {
-                    repeat(3) { rowIdx ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(if (rowIdx % 2 == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
-                                .border(0.5.dp, MaterialTheme.colorScheme.outline),
-                        ) {
-                            headers.forEachIndexed { colIdx, _ ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(if (colIdx == 0) 1f else 2f)
-                                        .then(if (colIdx > 0) Modifier.border(0.5.dp, CrmDivider) else Modifier)
-                                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                                ) { Text("—", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                            }
-                        }
-                    }
                     Box(
-                        modifier         = Modifier.fillMaxWidth().background(CrmBackground).padding(vertical = 12.dp),
+                        modifier         = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("No records found", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     }
                 } else {
                     rows.forEachIndexed { rowIdx, row ->
+                        val rowId = rowIds.getOrNull(rowIdx).orEmpty()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(if (rowIdx % 2 == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface),
+                                .background(if (rowIdx % 2 == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface)
+                                .then(if (onRowClick != null && rowId.isNotEmpty()) Modifier.clickable { onRowClick(rowId) } else Modifier),
                         ) {
                             row.forEachIndexed { colIdx, cell ->
                                 Box(
@@ -354,7 +344,9 @@ private fun ProperTable(
                                         .weight(if (colIdx == 0) 1f else 2f)
                                         .then(if (colIdx > 0) Modifier.border(0.5.dp, CrmDivider) else Modifier)
                                         .padding(horizontal = 12.dp, vertical = 12.dp),
-                                ) { Text(cell, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) }
+                                ) {
+                                    Text(cell, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                                }
                             }
                         }
                         if (rowIdx < rows.lastIndex)

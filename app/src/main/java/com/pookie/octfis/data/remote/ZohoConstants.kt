@@ -10,9 +10,9 @@ object ZohoConstants {
                 "ZohoCRM.modules.contacts.ALL," +
                 "ZohoCRM.modules.deals.ALL," +
                 "ZohoCRM.modules.quotes.ALL," +
-                "ZohoCRM.modules.Tasks.READ," +
-                "ZohoCRM.modules.Events.READ," +
-                "ZohoCRM.modules.Calls.READ," +
+                "ZohoCRM.modules.Tasks.ALL," +
+                "ZohoCRM.modules.Events.ALL," +
+                "ZohoCRM.modules.Calls.ALL," +
                 "ZohoCRM.settings.fields.READ," +
                 "ZohoCRM.users.READ"
 

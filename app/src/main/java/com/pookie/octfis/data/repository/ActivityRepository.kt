@@ -4,17 +4,28 @@ import com.pookie.octfis.data.model.ActivityCall
 import com.pookie.octfis.data.model.ActivityMeeting
 import com.pookie.octfis.data.model.ActivityTask
 import com.pookie.octfis.data.remote.ZohoApiService
+import java.time.LocalDate
 
 data class DashboardData(
-    val tasks    : List<ActivityTask>,
-    val meetings : List<ActivityMeeting>,
-    val calls    : List<ActivityCall>,
+    // Today tab — filtered by today's date + current user
+    val todayTasks    : List<ActivityTask>,
+    val todayMeetings : List<ActivityMeeting>,
+    val todayCalls    : List<ActivityCall>,
+    // Calls / Meetings / Tasks tabs — all records, no filter
+    val allTasks      : List<ActivityTask>,
+    val allMeetings   : List<ActivityMeeting>,
+    val allCalls      : List<ActivityCall>,
 )
 
 class ActivityRepository(private val api: ZohoApiService) {
 
     suspend fun getDashboardData(): Result<DashboardData> = runCatching {
-        val tasks = api.getTasks().data?.map {
+        val today         = LocalDate.now().toString()
+        val currentUserId = api.getUsers("CurrentUser").users?.firstOrNull()?.id.orEmpty()
+
+        // ── Tasks — fetch once, split in memory ───────────────────────────
+        val allTasksRaw = api.getTasks().data ?: emptyList()
+        val allTasks = allTasksRaw.map {
             ActivityTask(
                 id       = it.id,
                 subject  = it.subject.orEmpty().ifEmpty { "(No Subject)" },
@@ -22,18 +33,28 @@ class ActivityRepository(private val api: ZohoApiService) {
                 status   = it.status.orEmpty(),
                 priority = it.priority.orEmpty(),
             )
-        } ?: emptyList()
+        }
+        val todayTasks = allTasksRaw
+            .filter { it.owner?.id == currentUserId && it.dueDate?.take(10) == today }
+            .map { raw -> allTasks.first { it.id == raw.id } }
 
-        val meetings = api.getEvents().data?.map {
+        // ── Meetings — fetch once, split in memory ────────────────────────
+        val allMeetingsRaw = api.getEvents().data ?: emptyList()
+        val allMeetings = allMeetingsRaw.map {
             ActivityMeeting(
                 id            = it.id,
                 title         = it.title.orEmpty().ifEmpty { "(No Title)" },
                 startDateTime = it.startDateTime.orEmpty(),
                 endDateTime   = it.endDateTime.orEmpty(),
             )
-        } ?: emptyList()
+        }
+        val todayMeetings = allMeetingsRaw
+            .filter { it.owner?.id == currentUserId && it.startDateTime?.take(10) == today }
+            .map { raw -> allMeetings.first { it.id == raw.id } }
 
-        val calls = api.getCalls().data?.map {
+        // ── Calls — fetch once, split in memory ───────────────────────────
+        val allCallsRaw = api.getCalls().data ?: emptyList()
+        val allCalls = allCallsRaw.map {
             ActivityCall(
                 id        = it.id,
                 subject   = it.subject.orEmpty().ifEmpty { "(No Subject)" },
@@ -42,8 +63,18 @@ class ActivityRepository(private val api: ZohoApiService) {
                 callType  = it.callType.orEmpty(),
                 status    = it.status.orEmpty(),
             )
-        } ?: emptyList()
+        }
+        val todayCalls = allCallsRaw
+            .filter { it.owner?.id == currentUserId && it.callStartTime?.take(10) == today }
+            .map { raw -> allCalls.first { it.id == raw.id } }
 
-        DashboardData(tasks, meetings, calls)
+        DashboardData(
+            todayTasks    = todayTasks,
+            todayMeetings = todayMeetings,
+            todayCalls    = todayCalls,
+            allTasks      = allTasks,
+            allMeetings   = allMeetings,
+            allCalls      = allCalls,
+        )
     }
 }
