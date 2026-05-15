@@ -75,6 +75,15 @@ interface ZohoApiService {
         @Query("sort_order") sortOrder: String = "desc",
     ): QuotesResponse
 
+    @GET("Quotes/{id}")
+    suspend fun getQuoteById(
+        @Path("id") id: String,
+        @Query("fields") fields: String = "Subject,Account_Name,Contact_Name,Quote_Stage,Valid_Till,Description,Grand_Total,Sub_Total,Discount,Tax,Quote_Owner,Product_Details",
+    ): QuotesResponse
+
+    @POST("Quotes")
+    suspend fun createQuote(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
+
     @PUT("Quotes/{id}")
     suspend fun updateQuote(
         @Path("id") id: String,

@@ -27,7 +27,9 @@ import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -136,18 +138,20 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
                             isSaving = true
                             scope.launch {
                                 val repo = QuoteRepository(ZohoServiceLocator.getApiService())
-                                repo.updateQuote(
-                                    zohoId      = original.zohoId,
-                                    subject     = subject,
-                                    quoteStage  = quoteStage,
-                                    validUntil  = validUntil,
-                                    description = description,
-                                    items       = items.toList(),
-                                ).onSuccess {
-                                    navController.popBackStack()
-                                }.onFailure { e ->
-                                    saveError = e.message ?: "Save failed"
+                                val result: Result<Unit> = withContext(Dispatchers.IO) {
+                                    repo.updateQuote(
+                                        zohoId      = original.zohoId,
+                                        subject     = subject,
+                                        quoteStage  = quoteStage,
+                                        validUntil  = validUntil,
+                                        description = description,
+                                        items       = items.toList(),
+                                    )
                                 }
+                                result.fold(
+                                    onSuccess = { navController.popBackStack() },
+                                    onFailure = { e -> saveError = e.message ?: "Save failed" },
+                                )
                                 isSaving = false
                             }
                         },
@@ -168,7 +172,7 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
                 ) { Text(msg) }
             }
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),

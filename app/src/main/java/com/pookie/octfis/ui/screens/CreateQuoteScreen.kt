@@ -20,13 +20,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.pookie.octfis.data.model.Quote
 import com.pookie.octfis.data.model.QuoteItem
+import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.data.repository.QuoteRepository
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +45,9 @@ fun CreateQuoteScreen(navController: NavController) {
     var showDatePicker by remember { mutableStateOf(false) }
     var showItemDialog by remember { mutableStateOf(false) }
     var editingIndex   by remember { mutableStateOf<Int?>(null) }
+    var isSaving       by remember { mutableStateOf(false) }
+    var saveError      by remember { mutableStateOf<String?>(null) }
+    val scope          = rememberCoroutineScope()
 
     val stageOptions = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
     val items = remember { mutableStateListOf<QuoteItem>() }
@@ -115,35 +121,45 @@ fun CreateQuoteScreen(navController: NavController) {
                 actions = {
                     Button(
                         onClick = {
-                            val subTotal = items.sumOf { it.price * it.quantity }
-                            val newId    = (QuoteRepository.cache.maxOfOrNull { it.id } ?: 0) + 1
-                            QuoteRepository.cache.add(
-                                Quote(
-                                    id          = newId,
-                                    zohoId      = "",
-                                    name        = subject.ifEmpty { "(No Subject)" },
-                                    subject     = subject,
-                                    accountName = accountName,
-                                    contactName = contactName,
-                                    validUntil  = validUntil,
-                                    quoteStage  = quoteStage,
-                                    description = description,
-                                    subTotal    = subTotal,
-                                    grandTotal  = subTotal,
-                                    items       = items.toList(),
+                            isSaving = true
+                            scope.launch {
+                                val repo = QuoteRepository(ZohoServiceLocator.getApiService())
+                                val result: Result<Unit> = withContext(Dispatchers.IO) {
+                                    repo.createQuote(
+                                        subject     = subject,
+                                        accountName = accountName,
+                                        contactName = contactName,
+                                        quoteStage  = quoteStage,
+                                        validUntil  = validUntil,
+                                        description = description,
+                                        items       = items.toList(),
+                                    )
+                                }
+                                result.fold(
+                                    onSuccess = { navController.popBackStack() },
+                                    onFailure = { e -> saveError = e.message ?: "Save failed" },
                                 )
-                            )
-                            navController.popBackStack()
+                                isSaving = false
+                            }
                         },
+                        enabled  = !isSaving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
-                    ) { Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold) }
+                    ) { Text(if (isSaving) "Saving…" else "Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = {
+            saveError?.let { msg ->
+                Snackbar(
+                    action = { TextButton(onClick = { saveError = null }) { Text("OK") } },
+                    modifier = Modifier.padding(8.dp),
+                ) { Text(msg) }
+            }
+        },
     ) { padding ->
         Column(
             modifier = Modifier

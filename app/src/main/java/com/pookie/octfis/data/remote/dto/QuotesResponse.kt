@@ -8,19 +8,20 @@ data class QuotesResponse(
 )
 
 data class ZohoQuote(
-    @SerializedName("id")             val id: String,
-    @SerializedName("Subject")        val subject: String?,
-    @SerializedName("Account_Name")   val accountName: ZohoQuoteAccount?,
-    @SerializedName("Contact_Name")   val contactName: ZohoQuoteContact?,
-    @SerializedName("Quote_Stage")    val quoteStage: String?,
-    @SerializedName("Valid_Till")     val validUntil: String?,
-    @SerializedName("Description")    val description: String?,
-    @SerializedName("Grand_Total")    val grandTotal: Double?,
-    @SerializedName("Sub_Total")      val subTotal: Double?,
-    @SerializedName("Discount")       val discount: Double?,
-    @SerializedName("Tax")            val tax: Double?,
-    @SerializedName("Quote_Owner")    val quoteOwner: ZohoOwner?,
-    @SerializedName("Quoted_Items")   val quotedItems: List<ZohoQuotedItem>?,
+    @SerializedName("id")               val id: String,
+    @SerializedName("Subject")          val subject: String?,
+    @SerializedName("Account_Name")     val accountName: ZohoQuoteAccount?,
+    @SerializedName("Contact_Name")     val contactName: ZohoQuoteContact?,
+    @SerializedName("Quote_Stage")      val quoteStage: String?,
+    @SerializedName("Valid_Till")       val validUntil: String?,
+    @SerializedName("Description")      val description: String?,
+    @SerializedName("Grand_Total")      val grandTotal: Double?,
+    @SerializedName("Sub_Total")        val subTotal: Double?,
+    @SerializedName("Discount")         val discount: Double?,
+    @SerializedName("Tax")              val tax: Double?,
+    @SerializedName("Quote_Owner")      val quoteOwner: ZohoOwner?,
+    // Zoho CRM v2/v3 returns line items under "Product_Details"
+    @SerializedName("Product_Details")  val quotedItems: List<ZohoQuotedItem>?,
 )
 
 data class ZohoQuoteAccount(
@@ -33,15 +34,20 @@ data class ZohoQuoteContact(
     @SerializedName("id")   val id: String?,
 )
 
+// Matches Zoho CRM v2/v3 Product_Details item structure
 data class ZohoQuotedItem(
-    @SerializedName("product")     val product: ZohoProduct?,
-    @SerializedName("quantity")    val quantity: Double?,
-    @SerializedName("unit_price")  val unitPrice: Double?,
-    @SerializedName("total")       val total: Double?,
-    @SerializedName("description") val description: String?,
+    @SerializedName("product")          val product: ZohoProduct?,
+    @SerializedName("quantity")         val quantity: Double?,
+    @SerializedName("unit_price")       val unitPrice: Double?,
+    @SerializedName("total")            val total: Double?,
+    @SerializedName("net_total")        val netTotal: Double?,
+    @SerializedName("description")      val description: String?,
+    @SerializedName("discount")         val discount: Double?,
+    @SerializedName("product_discount") val productDiscount: Double?,
 )
 
 data class ZohoProduct(
-    @SerializedName("name") val name: String?,
-    @SerializedName("id")   val id: String?,
+    @SerializedName("name")         val name: String?,
+    @SerializedName("id")           val id: String?,
+    @SerializedName("Product_Code") val code: String?,
 )
