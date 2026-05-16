@@ -15,8 +15,10 @@ import com.pookie.octfis.data.remote.AuthState
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.navigation.NavGraph
 import com.pookie.octfis.ui.theme.OctfisCRMTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
