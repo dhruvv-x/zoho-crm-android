@@ -32,9 +32,6 @@ fun NavGraph(
 
         // ══════════════════════════════════════════════════════════════════════
         // UNIFIED DYNAMIC ENGINE
-        // All bottom-nav module taps land on ModuleList.
-        // ModuleList → ModuleDetail (Day 8) or ModuleEdit.
-        // ModuleCreate / ModuleEdit are generic for every module.
         // ══════════════════════════════════════════════════════════════════════
 
         // ── List ──────────────────────────────────────────────────────────────
@@ -48,8 +45,7 @@ fun NavGraph(
                 moduleName     = module,
                 showBackButton = true,
                 onRecordClick  = { zohoId ->
-                    // Day 8: swap ModuleEdit → ModuleDetail once detail screen exists
-                    navController.navigate(Screen.ModuleEdit.createRoute(module, zohoId))
+                    navController.navigate(Screen.ModuleDetail.createRoute(module, zohoId))
                 },
             )
         }
@@ -84,7 +80,7 @@ fun NavGraph(
             )
         }
 
-        // ── Detail (Day 8 replaces body with RecordDetailScreenEntry) ─────────
+        // ── Detail ✅ ─────────────────────────────────────────────────────────
         composable(
             route     = Screen.ModuleDetail.route,
             arguments = listOf(
@@ -94,7 +90,7 @@ fun NavGraph(
         ) { back ->
             val module   = back.arguments?.getString("moduleName") ?: return@composable
             val recordId = back.arguments?.getString("recordId")   ?: return@composable
-            RecordFormScreenEntry(
+            RecordDetailScreenEntry(
                 navController = navController,
                 moduleName    = module,
                 recordId      = recordId,
@@ -103,10 +99,6 @@ fun NavGraph(
 
         // ══════════════════════════════════════════════════════════════════════
         // DYNAMIC BOTTOM NAV FALLBACK ROUTES
-        // CrmBottomBar navigates to module/{name}/list for dynamic modules.
-        // These 4 named routes are kept ONLY as legacy targets for old deep-links
-        // and for the Dashboard's hardcoded nav items in case ModuleEngine fails.
-        // They all now use RecordListScreenEntry (dynamic) — no more static screens.
         // ══════════════════════════════════════════════════════════════════════
 
         composable("accounts") {
@@ -115,7 +107,7 @@ fun NavGraph(
                 moduleName     = "Accounts",
                 showBackButton = false,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.ModuleEdit.createRoute("Accounts", zohoId))
+                    navController.navigate(Screen.ModuleDetail.createRoute("Accounts", zohoId))
                 },
             )
         }
@@ -126,7 +118,7 @@ fun NavGraph(
                 moduleName     = "Contacts",
                 showBackButton = false,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.ModuleEdit.createRoute("Contacts", zohoId))
+                    navController.navigate(Screen.ModuleDetail.createRoute("Contacts", zohoId))
                 },
             )
         }
@@ -137,7 +129,7 @@ fun NavGraph(
                 moduleName     = "Deals",
                 showBackButton = false,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.ModuleEdit.createRoute("Deals", zohoId))
+                    navController.navigate(Screen.ModuleDetail.createRoute("Deals", zohoId))
                 },
             )
         }
@@ -148,15 +140,13 @@ fun NavGraph(
                 moduleName     = "Quotes",
                 showBackButton = false,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.ModuleEdit.createRoute("Quotes", zohoId))
+                    navController.navigate(Screen.ModuleDetail.createRoute("Quotes", zohoId))
                 },
             )
         }
 
         // ══════════════════════════════════════════════════════════════════════
         // LEGACY STATIC ROUTES — kept alive, not deleted
-        // Individual detail / edit / create screens still work if navigated to
-        // directly. Remove only after Day 8 detail screen is verified.
         // ══════════════════════════════════════════════════════════════════════
 
         composable(Screen.CreateAccount.route) { CreateAccountScreen(navController) }
@@ -271,7 +261,7 @@ fun NavGraph(
                 moduleName     = module,
                 showBackButton = true,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.ModuleEdit.createRoute(module, zohoId))
+                    navController.navigate(Screen.ModuleDetail.createRoute(module, zohoId))
                 },
             )
         }

@@ -177,7 +177,6 @@ interface ZohoApiService {
     @GET("settings/fields")
     suspend fun getFields(@Query("module") module: String): FieldsResponse
 
-    // Literal path — must stay ABOVE the @GET("{module}") wildcard
     @GET("settings/modules")
     suspend fun getModules(): ModulesResponse
 
@@ -219,4 +218,15 @@ interface ZohoApiService {
         @Path("module") module: String,
         @Path("id")     id    : String,
     ): CreateRecordResponse
+
+    // ── Related records ───────────────────────────────────────────────────────
+    // Nullable return — Zoho returns empty body when no related records exist
+    @GET("{parentModule}/{parentId}/{relatedModule}")
+    suspend fun listRelatedRecords(
+        @Path("parentModule")  parentModule : String,
+        @Path("parentId")      parentId     : String,
+        @Path("relatedModule") relatedModule: String,
+        @Query("page")         page         : Int = 1,
+        @Query("per_page")     perPage      : Int = 10,
+    ): Map<String, @JvmSuppressWildcards Any>?
 }

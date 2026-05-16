@@ -18,10 +18,6 @@ class ZohoRecordRepository @Inject constructor(
 
     // ── List ──────────────────────────────────────────────────────────────────
 
-    /**
-     * Returns a page of raw records.
-     * Zoho list response: { "data": [ { "id": "…", "Name": "…", … } ], "info": { "more_records": true } }
-     */
     suspend fun listRecords(
         module   : String,
         page     : Int    = 1,
@@ -35,16 +31,46 @@ class ZohoRecordRepository @Inject constructor(
         val dataList = response["data"] as? List<Map<String, Any?>> ?: emptyList()
 
         @Suppress("UNCHECKED_CAST")
-        val info     = response["info"] as? Map<String, Any?>
-        val hasMore  = (info?.get("more_records") as? Boolean) ?: false
+        val info    = response["info"] as? Map<String, Any?>
+        val hasMore = (info?.get("more_records") as? Boolean) ?: false
 
-        val records  = dataList.map { raw ->
+        val records = dataList.map { raw ->
             RawRecord(
                 id     = raw["id"]?.toString() ?: "",
                 fields = raw,
             )
         }
         Result.success(records to hasMore)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    // ── Related records ───────────────────────────────────────────────────────
+
+    suspend fun listRelatedRecords(
+        parentModule : String,
+        parentId     : String,
+        relatedModule: String,
+        perPage      : Int = 10,
+    ): Result<List<RawRecord>> = try {
+        val response = api.listRelatedRecords(
+            parentModule  = parentModule,
+            parentId      = parentId,
+            relatedModule = relatedModule,
+            perPage       = perPage,
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        val dataList = response
+            ?.get("data") as? List<Map<String, Any?>> ?: emptyList()
+
+        val records = dataList.map { raw ->
+            RawRecord(
+                id     = raw["id"]?.toString() ?: "",
+                fields = raw,
+            )
+        }
+        Result.success(records)
     } catch (e: Exception) {
         Result.failure(e)
     }
