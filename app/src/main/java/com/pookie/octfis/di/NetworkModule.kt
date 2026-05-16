@@ -5,6 +5,7 @@ import com.pookie.octfis.data.remote.TokenStore
 import com.pookie.octfis.data.remote.ZohoApiClient
 import com.pookie.octfis.data.remote.ZohoApiService
 import com.pookie.octfis.data.remote.ZohoAuthManager
+import com.pookie.octfis.engine.metadata.MetadataEngine
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,4 +33,9 @@ object NetworkModule {
     @Singleton
     fun provideZohoApiService(authManager: ZohoAuthManager): ZohoApiService =
         ZohoApiClient.create(authManager)
+
+    @Provides
+    @Singleton
+    fun provideMetadataEngine(api: ZohoApiService): MetadataEngine =
+        MetadataEngine(api)
 }
