@@ -18,17 +18,92 @@ fun NavGraph(
         navController    = navController,
         startDestination = Screen.SignIn.route,
     ) {
-        composable(Screen.SignIn.route)    { SignInScreen(navController) }
+
+        // ── Auth ──────────────────────────────────────────────────────────────
+        composable(Screen.SignIn.route) { SignInScreen(navController) }
         composable(Screen.Dashboard.route) {
             DashboardScreen(
-                navController  = navController,
-                onToggleTheme  = onToggleTheme,
-                isDark         = isDark,
+                navController = navController,
+                onToggleTheme = onToggleTheme,
+                isDark        = isDark,
             )
         }
 
-        // ── Accounts ──────────────────────────────────────────────────────
-        composable(Screen.Accounts.route) {
+        // ══════════════════════════════════════════════════════════════════════
+        // UNIFIED DYNAMIC ENGINE — one composable handles every module
+        // Route: module/{moduleName}/list|create|edit/{recordId}
+        // ══════════════════════════════════════════════════════════════════════
+
+        // ── List ──────────────────────────────────────────────────────────────
+        composable(
+            route     = Screen.ModuleList.route,
+            arguments = listOf(navArgument("moduleName") { type = NavType.StringType }),
+        ) { back ->
+            val module = back.arguments?.getString("moduleName") ?: return@composable
+            RecordListScreenEntry(
+                navController  = navController,
+                moduleName     = module,
+                showBackButton = true,
+                onRecordClick  = { zohoId ->
+                    navController.navigate(Screen.ModuleEdit.createRoute(module, zohoId))
+                },
+            )
+        }
+
+        // ── Create ────────────────────────────────────────────────────────────
+        composable(
+            route     = Screen.ModuleCreate.route,
+            arguments = listOf(navArgument("moduleName") { type = NavType.StringType }),
+        ) { back ->
+            val module = back.arguments?.getString("moduleName") ?: return@composable
+            RecordFormScreenEntry(
+                navController = navController,
+                moduleName    = module,
+                recordId      = null,
+            )
+        }
+
+        // ── Edit ──────────────────────────────────────────────────────────────
+        composable(
+            route     = Screen.ModuleEdit.route,
+            arguments = listOf(
+                navArgument("moduleName") { type = NavType.StringType },
+                navArgument("recordId")   { type = NavType.StringType },
+            ),
+        ) { back ->
+            val module   = back.arguments?.getString("moduleName") ?: return@composable
+            val recordId = back.arguments?.getString("recordId")   ?: return@composable
+            RecordFormScreenEntry(
+                navController = navController,
+                moduleName    = module,
+                recordId      = recordId,
+            )
+        }
+
+        // ── Detail (placeholder — Day 8 replaces this) ────────────────────────
+        composable(
+            route     = Screen.ModuleDetail.route,
+            arguments = listOf(
+                navArgument("moduleName") { type = NavType.StringType },
+                navArgument("recordId")   { type = NavType.StringType },
+            ),
+        ) { back ->
+            val module   = back.arguments?.getString("moduleName") ?: return@composable
+            val recordId = back.arguments?.getString("recordId")   ?: return@composable
+            // Day 8 will replace this with RecordDetailScreenEntry
+            RecordFormScreenEntry(
+                navController = navController,
+                moduleName    = module,
+                recordId      = recordId,
+            )
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // BOTTOM NAV TARGETS — each tab now uses unified ModuleList route
+        // ══════════════════════════════════════════════════════════════════════
+
+        // Accounts tab → unified list
+        composable("accounts") {
             RecordListScreenEntry(
                 navController  = navController,
                 moduleName     = "Accounts",
@@ -39,6 +114,30 @@ fun NavGraph(
                 },
             )
         }
+
+        // Contacts tab → unified list
+        composable("contacts") {
+            RecordListScreenEntry(
+                navController  = navController,
+                moduleName     = "Contacts",
+                primaryField   = "Full_Name",
+                secondaryField = "Email",
+                onRecordClick  = { zohoId ->
+                    navController.navigate(Screen.ContactDetail.createRoute(zohoId.toIntOrNull() ?: 0))
+                },
+            )
+        }
+
+        // Deals tab → still uses old screen (not yet migrated)
+        composable("deals") { DealsScreen(navController) }
+
+        // Quotes tab → still uses old screen (not yet migrated)
+        composable("quotes") { QuotesScreen(navController) }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // LEGACY STATIC ROUTES — kept alive until dynamic replacements verified
+        // ══════════════════════════════════════════════════════════════════════
+
         composable(Screen.CreateAccount.route) { CreateAccountScreen(navController) }
         composable(
             route     = Screen.AccountDetail.route,
@@ -53,18 +152,6 @@ fun NavGraph(
             EditAccountScreen(navController, back.arguments?.getString("zohoId") ?: "")
         }
 
-        // ── Contacts ──────────────────────────────────────────────────────
-        composable(Screen.Contacts.route) {
-            RecordListScreenEntry(
-                navController  = navController,
-                moduleName     = "Contacts",
-                primaryField   = "Full_Name",
-                secondaryField = "Email",
-                onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.ContactDetail.createRoute(zohoId.toIntOrNull() ?: 0))
-                },
-            )
-        }
         composable(Screen.CreateContact.route) { CreateContactScreen(navController) }
         composable(
             route     = Screen.ContactDetail.route,
@@ -79,8 +166,6 @@ fun NavGraph(
             EditContactScreen(navController, back.arguments?.getInt("contactId") ?: 0)
         }
 
-        // ── Deals ─────────────────────────────────────────────────────────
-        composable(Screen.Deals.route)      { DealsScreen(navController) }
         composable(Screen.CreateDeal.route) { CreateDealScreen(navController) }
         composable(
             route     = Screen.DealDetail.route,
@@ -95,8 +180,6 @@ fun NavGraph(
             EditDealScreen(navController, back.arguments?.getInt("dealId") ?: 0)
         }
 
-        // ── Quotes ────────────────────────────────────────────────────────
-        composable(Screen.Quotes.route)      { QuotesScreen(navController) }
         composable(Screen.CreateQuote.route) { CreateQuoteScreen(navController) }
         composable(
             route     = Screen.QuoteDetail.route,
@@ -111,8 +194,7 @@ fun NavGraph(
             EditQuoteScreen(navController, back.arguments?.getInt("quoteId") ?: 0)
         }
 
-        // ── Tasks ─────────────────────────────────────────────────────────
-        composable(Screen.Tasks.route)      { TaskListScreen(navController) }
+        composable("tasks") { TaskListScreen(navController) }
         composable(Screen.CreateTask.route) { CreateTaskScreen(navController) }
         composable(
             route     = Screen.TaskDetail.route,
@@ -127,8 +209,7 @@ fun NavGraph(
             EditTaskScreen(navController, back.arguments?.getString("taskId") ?: "")
         }
 
-        // ── Meetings ──────────────────────────────────────────────────────
-        composable(Screen.Meetings.route)      { MeetingListScreen(navController) }
+        composable("meetings") { MeetingListScreen(navController) }
         composable(Screen.CreateMeeting.route) { CreateMeetingScreen(navController) }
         composable(
             route     = Screen.MeetingDetail.route,
@@ -143,8 +224,7 @@ fun NavGraph(
             EditMeetingScreen(navController, back.arguments?.getString("meetingId") ?: "")
         }
 
-        // ── Calls ─────────────────────────────────────────────────────────
-        composable(Screen.Calls.route)      { CallListScreen(navController) }
+        composable("calls") { CallListScreen(navController) }
         composable(Screen.CreateCall.route) { CreateCallScreen(navController) }
         composable(
             route     = Screen.CallDetail.route,
@@ -159,7 +239,7 @@ fun NavGraph(
             EditCallScreen(navController, back.arguments?.getString("callId") ?: "")
         }
 
-        // ── Dynamic Engine Routes ──────────────────────────────────────────
+        // ── Legacy dynamic routes (backward compat) ───────────────────────────
         composable(
             route     = Screen.DynamicList.route,
             arguments = listOf(navArgument("module") { type = NavType.StringType }),
@@ -170,7 +250,7 @@ fun NavGraph(
                 moduleName     = module,
                 showBackButton = true,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.DynamicEdit.createRoute(module, zohoId))
+                    navController.navigate(Screen.ModuleEdit.createRoute(module, zohoId))
                 },
             )
         }

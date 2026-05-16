@@ -30,10 +30,10 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem("Home",     Icons.Default.Home,      Screen.Dashboard.route),
-    BottomNavItem("Accounts", Icons.Default.Business,  Screen.Accounts.route),
-    BottomNavItem("Contacts", Icons.Default.Contacts,  Screen.Contacts.route),
-    BottomNavItem("Deals",    Icons.Default.Handshake, Screen.Deals.route),
-    BottomNavItem("Quotes",   Icons.Default.Receipt,   Screen.Quotes.route),
+    BottomNavItem("Accounts", Icons.Default.Business,  "accounts"),
+    BottomNavItem("Contacts", Icons.Default.Contacts,  "contacts"),
+    BottomNavItem("Deals",    Icons.Default.Handshake, "deals"),
+    BottomNavItem("Quotes",   Icons.Default.Receipt,   "quotes"),
 )
 
 @Composable
