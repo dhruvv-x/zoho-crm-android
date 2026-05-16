@@ -25,7 +25,7 @@ class MeetingRepository(private val api: ZohoApiService) {
     )
 
     suspend fun getMeetings(page: Int = 1): Result<Pair<List<Meeting>, Boolean>> = runCatching {
-        val r = api.getEvents(page = page, perPage = 50)
+        val r = api.getEvents(page = page, perPage = 50, sortOrder = "desc")
         val items = r.data?.map { map(it) } ?: emptyList()
         if (page == 1) cache.clear()
         cache.addAll(items)
