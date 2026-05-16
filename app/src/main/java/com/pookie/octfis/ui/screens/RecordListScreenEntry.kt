@@ -1,3 +1,4 @@
+// ui/screens/RecordListScreenEntry.kt
 package com.pookie.octfis.ui.screens
 
 import androidx.compose.runtime.Composable
@@ -6,6 +7,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.engine.list.RecordListViewModel
+import com.pookie.octfis.util.ConnectivityObserver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -23,18 +25,20 @@ fun RecordListScreenEntry(
     val viewModel = remember(moduleName) { holder.factory.create(moduleName) }
 
     RecordListScreen(
-        navController  = navController,
-        moduleName     = moduleName,
-        viewModel      = viewModel,
-        primaryField   = primaryField,
-        secondaryField = secondaryField,
-        avatarField    = avatarField,
-        showBackButton = showBackButton,
-        onRecordClick  = onRecordClick,
+        navController        = navController,
+        moduleName           = moduleName,
+        viewModel            = viewModel,
+        connectivityObserver = holder.connectivityObserver,
+        primaryField         = primaryField,
+        secondaryField       = secondaryField,
+        avatarField          = avatarField,
+        showBackButton       = showBackButton,
+        onRecordClick        = onRecordClick,
     )
 }
 
 @HiltViewModel
 class RecordListViewModelFactoryHolder @Inject constructor(
-    val factory: RecordListViewModel.Factory,
+    val factory              : RecordListViewModel.Factory,
+    val connectivityObserver : ConnectivityObserver,
 ) : ViewModel()

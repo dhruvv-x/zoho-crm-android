@@ -1,6 +1,9 @@
 // ui/screens/RecordListScreen.kt
 package com.pookie.octfis.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -36,6 +39,7 @@ import com.pookie.octfis.engine.list.RecordListSkeleton
 import com.pookie.octfis.engine.list.RecordListUiState
 import com.pookie.octfis.engine.list.RecordListViewModel
 import com.pookie.octfis.navigation.Screen
+import com.pookie.octfis.util.ConnectivityObserver
 
 // ── Error classifier ──────────────────────────────────────────────────────────
 
@@ -81,7 +85,7 @@ private fun errorDisplay(kind: ErrorKind): ErrorDisplay = when (kind) {
     )
 }
 
-// ── Shared error state UI ─────────────────────────────────────────────────────
+// ── Error state ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun ErrorState(
@@ -131,20 +135,48 @@ private fun ErrorState(
     }
 }
 
+// ── Offline banner ────────────────────────────────────────────────────────────
+
+@Composable
+internal fun OfflineBanner(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF59E0B))   // amber-400
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector        = Icons.Default.WifiOff,
+            contentDescription = null,
+            tint               = Color.White,
+            modifier           = Modifier.size(14.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text  = "You're offline — showing cached data",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White,
+        )
+    }
+}
+
 // ── RecordListScreen ──────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordListScreen(
-    navController  : NavController,
-    moduleName     : String,
-    viewModel      : RecordListViewModel,
-    primaryField   : String  = "Name",
-    secondaryField : String? = null,
-    avatarField    : String? = null,
-    avatarColor    : Color   = MaterialTheme.colorScheme.primary,
-    onRecordClick  : (zohoId: String) -> Unit = {},
-    showBackButton : Boolean = false,
+    navController        : NavController,
+    moduleName           : String,
+    viewModel            : RecordListViewModel,
+    connectivityObserver : ConnectivityObserver,
+    primaryField         : String  = "Name",
+    secondaryField       : String? = null,
+    avatarField          : String? = null,
+    avatarColor          : Color   = MaterialTheme.colorScheme.primary,
+    onRecordClick        : (zohoId: String) -> Unit = {},
+    showBackButton       : Boolean = false,
 ) {
     val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
@@ -159,6 +191,9 @@ fun RecordListScreen(
     val listState      = rememberLazyListState()
     var searchActive   by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
+
+    // Offline state — starts true to avoid flicker on first frame
+    val isOnline by connectivityObserver.isOnline.collectAsStateWithLifecycle(initialValue = true)
 
     val isRefreshing = uiState is RecordListUiState.Loading &&
             (uiState as? RecordListUiState.Success)?.records?.isNotEmpty() == true
@@ -179,62 +214,71 @@ fun RecordListScreen(
 
     Scaffold(
         topBar = {
-            if (searchActive) {
-                TopAppBar(
-                    title = {
-                        TextField(
-                            value         = searchQuery,
-                            onValueChange = { viewModel.setSearch(it) },
-                            placeholder   = { Text("Search $moduleName…") },
-                            singleLine    = true,
-                            modifier      = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(focusRequester),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor   = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                focusedIndicatorColor   = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                            ),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch  = { }),
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            searchActive = false
-                            viewModel.setSearch("")
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search")
-                        }
-                    },
-                )
-            } else {
-                TopAppBar(
-                    title = { Text(moduleName) },
-                    navigationIcon = if (showBackButton) {
-                        {
-                            IconButton(onClick = { navController.popBackStack() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+            Column {
+                if (searchActive) {
+                    TopAppBar(
+                        title = {
+                            TextField(
+                                value         = searchQuery,
+                                onValueChange = { viewModel.setSearch(it) },
+                                placeholder   = { Text("Search $moduleName…") },
+                                singleLine    = true,
+                                modifier      = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequester),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor   = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor   = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                ),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch  = { }),
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                searchActive = false
+                                viewModel.setSearch("")
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search")
                             }
-                        }
-                    } else ({}),
-                    actions = {
-                        // Retry icon in top bar when errored — quick one-tap access
-                        if (uiState is RecordListUiState.Error) {
-                            IconButton(onClick = { viewModel.refresh() }) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Retry")
+                        },
+                    )
+                } else {
+                    TopAppBar(
+                        title = { Text(moduleName) },
+                        navigationIcon = if (showBackButton) {
+                            {
+                                IconButton(onClick = { navController.popBackStack() }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                                }
                             }
-                        }
-                        IconButton(onClick = { searchActive = true }) {
-                            Icon(Icons.Default.Search, contentDescription = "Search")
-                        }
-                    },
-                )
+                        } else ({}),
+                        actions = {
+                            if (uiState is RecordListUiState.Error) {
+                                IconButton(onClick = { viewModel.refresh() }) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Retry")
+                                }
+                            }
+                            IconButton(onClick = { searchActive = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "Search")
+                            }
+                        },
+                    )
+                }
+
+                // Offline banner animates below the top bar
+                AnimatedVisibility(
+                    visible = !isOnline,
+                    enter   = expandVertically(),
+                    exit    = shrinkVertically(),
+                ) {
+                    OfflineBanner()
+                }
             }
         },
         floatingActionButton = {
-            // Hide FAB when errored — retry first
             if (uiState !is RecordListUiState.Error) {
                 FloatingActionButton(
                     onClick = {

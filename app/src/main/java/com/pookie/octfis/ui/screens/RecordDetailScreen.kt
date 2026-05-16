@@ -1,6 +1,9 @@
 // ui/screens/RecordDetailScreen.kt
 package com.pookie.octfis.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -33,8 +36,9 @@ import com.pookie.octfis.engine.metadata.FieldMetadata
 import com.pookie.octfis.engine.metadata.FieldType
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.theme.*
+import com.pookie.octfis.util.ConnectivityObserver
 
-// ── Error classifier (mirrors RecordListScreen) ───────────────────────────────
+// ── Error classifier ──────────────────────────────────────────────────────────
 
 private enum class DetailErrorKind { NETWORK, AUTH, UNKNOWN }
 
@@ -131,40 +135,53 @@ private fun DetailErrorState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordDetailScreen(
-    navController   : NavController,
-    moduleName      : String,
-    recordId        : String,
-    viewModelFactory: RecordDetailViewModel.Factory,
-    repository      : ZohoRecordRepository,
+    navController        : NavController,
+    moduleName           : String,
+    recordId             : String,
+    viewModelFactory     : RecordDetailViewModel.Factory,
+    repository           : ZohoRecordRepository,
+    connectivityObserver : ConnectivityObserver,
 ) {
     val viewModel = remember(moduleName, recordId) {
         viewModelFactory.create(moduleName, recordId)
     }
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState  by viewModel.uiState.collectAsStateWithLifecycle()
+    val isOnline by connectivityObserver.isOnline.collectAsStateWithLifecycle(initialValue = true)
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text     = moduleName,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    if (uiState is DetailUiState.Error) {
-                        IconButton(onClick = { viewModel.refresh() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Retry")
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text     = moduleName,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
-                    }
-                },
-            )
+                    },
+                    actions = {
+                        if (uiState is DetailUiState.Error) {
+                            IconButton(onClick = { viewModel.refresh() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Retry")
+                            }
+                        }
+                    },
+                )
+
+                // Offline banner
+                AnimatedVisibility(
+                    visible = !isOnline,
+                    enter   = expandVertically(),
+                    exit    = shrinkVertically(),
+                ) {
+                    OfflineBanner()
+                }
+            }
         },
         floatingActionButton = {
             if (uiState is DetailUiState.Success) {
