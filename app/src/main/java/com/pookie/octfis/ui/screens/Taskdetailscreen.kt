@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -16,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.pookie.octfis.data.repository.TaskRepository
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
@@ -28,8 +28,12 @@ fun TaskDetailScreen(
     navController: NavController,
     taskId: String,
     vm: TasksViewModel = viewModel(),
+    detailVm: TaskDetailViewModel = viewModel(factory = TaskDetailViewModel.Factory(taskId)),
 ) {
-    val task = TaskRepository.cache.firstOrNull { it.id == taskId }
+    // FIX: Use TaskDetailViewModel (fetches from API) instead of cache lookup
+    val detailState by detailVm.uiState.collectAsState()
+    val task = (detailState as? TaskDetailUiState.Success)?.task
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     val actionState by vm.actionState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -48,7 +52,7 @@ fun TaskDetailScreen(
             title   = { Text("Delete Task?") },
             text    = { Text("\"${task?.subject}\" will be permanently deleted from Zoho CRM.") },
             confirmButton = {
-                TextButton(onClick = { showDeleteDialog = false; task?.let { vm.deleteTask(it.id) } }) {
+                TextButton(onClick = { showDeleteDialog = false; task?.let { vm.deleteTask(it.zohoId) } }) {
                     Text("Delete", color = CrmError)
                 }
             },
@@ -87,17 +91,31 @@ fun TaskDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        if (task == null) {
+
+        // Loading state
+        if (detailState is TaskDetailUiState.Loading) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CrmPrimary)
+            }
+            return@Scaffold
+        }
+
+        // Error state
+        if (detailState is TaskDetailUiState.Error || task == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Task not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                Text(
+                    text = (detailState as? TaskDetailUiState.Error)?.message ?: "Task not found",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp)
+                )
             }
             return@Scaffold
         }
 
         if (actionState is TaskActionState.Working) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = CrmPrimary)
             }
             return@Scaffold

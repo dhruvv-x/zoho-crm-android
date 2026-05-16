@@ -32,8 +32,12 @@ fun MeetingDetailScreen(
     navController: NavController,
     meetingId: String,
     vm: MeetingsViewModel = viewModel(),
+    detailVm: MeetingDetailViewModel = viewModel(factory = MeetingDetailViewModel.Factory(meetingId)),
 ) {
-    val meeting = MeetingRepository.cache.firstOrNull { it.id == meetingId }
+    // FIX: Use MeetingDetailViewModel (fetches from API) instead of cache lookup
+    val detailState by detailVm.uiState.collectAsState()
+    val meeting = (detailState as? MeetingDetailUiState.Success)?.meeting
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     val actionState by vm.actionState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -52,7 +56,7 @@ fun MeetingDetailScreen(
             title   = { Text("Delete Meeting?") },
             text    = { Text("\"${meeting?.title}\" will be permanently deleted from Zoho CRM.") },
             confirmButton = {
-                TextButton(onClick = { showDeleteDialog = false; meeting?.let { vm.deleteMeeting(it.id) } }) {
+                TextButton(onClick = { showDeleteDialog = false; meeting?.let { vm.deleteMeeting(it.zohoId) } }) {
                     Text("Delete", color = CrmError)
                 }
             },
@@ -91,11 +95,25 @@ fun MeetingDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        if (meeting == null) {
+
+        // Loading state
+        if (detailState is MeetingDetailUiState.Loading) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CrmPrimary)
+            }
+            return@Scaffold
+        }
+
+        // Error state
+        if (detailState is MeetingDetailUiState.Error || meeting == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Meeting not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                Text(
+                    text = (detailState as? MeetingDetailUiState.Error)?.message ?: "Meeting not found",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp)
+                )
             }
             return@Scaffold
         }
@@ -124,7 +142,7 @@ fun MeetingDetailScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Location",    meeting.location.ifEmpty { "—" })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Owner",       meeting.owner.ifEmpty { "—" })
+                    FormRow("Owner",       meeting.ownerName.ifEmpty { "—" })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Participants", meeting.participants.ifEmpty { "—" })
                 }
@@ -198,7 +216,7 @@ fun CreateMeetingScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             SectionHeader("Meeting Information")
@@ -242,14 +260,14 @@ fun EditMeetingScreen(
     meetingId: String,
     vm: MeetingFormViewModel = viewModel(),
 ) {
-    val meeting = MeetingRepository.cache.firstOrNull { it.id == meetingId }
+    val meeting = MeetingRepository.cache.firstOrNull { it.zohoId == meetingId }
 
     var title         by remember { mutableStateOf(meeting?.title ?: "") }
     var startDateTime by remember { mutableStateOf(meeting?.startDateTime ?: "") }
     var endDateTime   by remember { mutableStateOf(meeting?.endDateTime ?: "") }
     var location      by remember { mutableStateOf(meeting?.location ?: "") }
     var description   by remember { mutableStateOf(meeting?.description ?: "") }
-    var selectedOwner by remember { mutableStateOf(Pair("", meeting?.owner ?: "-None-")) }
+    var selectedOwner by remember { mutableStateOf(Pair("", meeting?.ownerName ?: "-None-")) }
 
     val saveState      by vm.saveState.collectAsState()
     val owners         by vm.owners.collectAsState()
@@ -279,7 +297,7 @@ fun EditMeetingScreen(
                     Button(
                         onClick  = {
                             if (!saving && meeting != null)
-                                vm.update(meeting.id, title, startDateTime, endDateTime, location, description, selectedOwner.first)
+                                vm.update(meeting.zohoId, title, startDateTime, endDateTime, location, description, selectedOwner.first)
                         },
                         enabled  = !saving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
@@ -293,7 +311,7 @@ fun EditMeetingScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         if (meeting == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
