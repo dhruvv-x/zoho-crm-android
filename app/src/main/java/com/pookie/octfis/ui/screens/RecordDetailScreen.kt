@@ -16,7 +16,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +33,100 @@ import com.pookie.octfis.engine.metadata.FieldMetadata
 import com.pookie.octfis.engine.metadata.FieldType
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.theme.*
+
+// ── Error classifier (mirrors RecordListScreen) ───────────────────────────────
+
+private enum class DetailErrorKind { NETWORK, AUTH, UNKNOWN }
+
+private fun classifyDetailError(message: String): DetailErrorKind = when {
+    message.contains("Unable to resolve host", ignoreCase = true) ||
+            message.contains("failed to connect",      ignoreCase = true) ||
+            message.contains("timeout",                ignoreCase = true) ||
+            message.contains("SocketTimeout",          ignoreCase = true) ||
+            message.contains("UnknownHost",            ignoreCase = true) ||
+            message.contains("Network",                ignoreCase = true) -> DetailErrorKind.NETWORK
+
+    message.contains("401", ignoreCase = true) ||
+            message.contains("403", ignoreCase = true) ||
+            message.contains("unauthorized", ignoreCase = true) ||
+            message.contains("token",        ignoreCase = true) -> DetailErrorKind.AUTH
+
+    else -> DetailErrorKind.UNKNOWN
+}
+
+private data class DetailErrorDisplay(
+    val icon    : ImageVector,
+    val title   : String,
+    val subtitle: String,
+)
+
+private fun detailErrorDisplay(kind: DetailErrorKind): DetailErrorDisplay = when (kind) {
+    DetailErrorKind.NETWORK -> DetailErrorDisplay(
+        icon     = Icons.Default.WifiOff,
+        title    = "No connection",
+        subtitle = "Check your internet and try again.",
+    )
+    DetailErrorKind.AUTH -> DetailErrorDisplay(
+        icon     = Icons.Default.Lock,
+        title    = "Session expired",
+        subtitle = "Your session has expired. Please sign in again.",
+    )
+    DetailErrorKind.UNKNOWN -> DetailErrorDisplay(
+        icon     = Icons.Default.ErrorOutline,
+        title    = "Something went wrong",
+        subtitle = "We couldn't load this record. Please try again.",
+    )
+}
+
+@Composable
+private fun DetailErrorState(
+    message : String,
+    onRetry : () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val kind    = classifyDetailError(message)
+    val display = detailErrorDisplay(kind)
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier            = Modifier.padding(horizontal = 32.dp),
+        ) {
+            Icon(
+                imageVector        = display.icon,
+                contentDescription = null,
+                tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier           = Modifier.size(56.dp),
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text      = display.title,
+                style     = MaterialTheme.typography.titleMedium,
+                color     = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text      = display.subtitle,
+                style     = MaterialTheme.typography.bodySmall,
+                color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = onRetry) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier           = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Retry")
+            }
+        }
+    }
+}
+
+// ── RecordDetailScreen ────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,27 +192,13 @@ fun RecordDetailScreen(
             }
 
             is DetailUiState.Error -> {
-                Box(
-                    modifier         = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector        = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint               = MaterialTheme.colorScheme.error,
-                            modifier           = Modifier.size(48.dp),
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text  = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = { viewModel.refresh() }) { Text("Retry") }
-                    }
-                }
+                DetailErrorState(
+                    message  = state.message,
+                    onRetry  = { viewModel.refresh() },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                )
             }
 
             is DetailUiState.Success -> {
@@ -319,11 +401,9 @@ private fun DetailFieldRow(
 
 private fun formatFieldValue(field: FieldMetadata, raw: Any?): String {
     if (raw == null) return ""
-    // Hide raw map objects that aren't lookup/owner (e.g. Layout field)
     if (raw is Map<*, *> &&
         field.type != FieldType.LOOKUP &&
         field.type != FieldType.OWNER) return ""
-    // Hide empty collections (e.g. Tag = [])
     if (raw is List<*> &&
         field.type != FieldType.MULTI_SELECT) return ""
     return when (field.type) {

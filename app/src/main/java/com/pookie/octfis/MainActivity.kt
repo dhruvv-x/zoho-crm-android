@@ -6,14 +6,19 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.pookie.octfis.data.remote.AuthState
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.navigation.NavGraph
+import com.pookie.octfis.ui.components.OfflineBanner
+import com.pookie.octfis.ui.components.rememberIsOnline
 import com.pookie.octfis.ui.theme.OctfisCRMTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -30,16 +35,26 @@ class MainActivity : ComponentActivity() {
         val themePrefs = ZohoServiceLocator.themePrefs
 
         setContent {
-            val isDark by themePrefs.isDarkTheme.collectAsState(initial = false)
-            val scope  = rememberCoroutineScope()
+            val isDark   by themePrefs.isDarkTheme.collectAsState(initial = false)
+            val scope    = rememberCoroutineScope()
+            val isOnline by rememberIsOnline()
 
             OctfisCRMTheme(darkTheme = isDark) {
-                val navController = rememberNavController()
-                NavGraph(
-                    navController   = navController,
-                    onToggleTheme   = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
-                    isDark          = isDark,
-                )
+                Column(modifier = Modifier.fillMaxSize()) {
+
+                    // ── Offline banner — always rendered at the top ────────────
+                    // Slides in/out automatically when connectivity changes.
+                    // Placed before NavGraph so it sits above all screens.
+                    OfflineBanner(isOnline = isOnline)
+
+                    // ── Main nav graph ─────────────────────────────────────────
+                    val navController = rememberNavController()
+                    NavGraph(
+                        navController = navController,
+                        onToggleTheme = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
+                        isDark        = isDark,
+                    )
+                }
             }
         }
     }

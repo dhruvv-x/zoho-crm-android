@@ -22,34 +22,125 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pookie.octfis.data.repository.RawRecord
+import com.pookie.octfis.engine.list.RecordListSkeleton
 import com.pookie.octfis.engine.list.RecordListUiState
 import com.pookie.octfis.engine.list.RecordListViewModel
 import com.pookie.octfis.navigation.Screen
 
-/**
- * Generic record list screen — works for any Zoho module.
- *
- * [primaryField] and [secondaryField] are *hint overrides*.
- * When left as their defaults ("Name" / null) the ViewModel's
- * auto-resolved field names are used instead, so callers that
- * don't know the module's field names still get correct output.
- */
+// ── Error classifier ──────────────────────────────────────────────────────────
+
+private enum class ErrorKind { NETWORK, AUTH, UNKNOWN }
+
+private fun classifyError(message: String): ErrorKind = when {
+    message.contains("Unable to resolve host", ignoreCase = true) ||
+            message.contains("failed to connect",      ignoreCase = true) ||
+            message.contains("timeout",                ignoreCase = true) ||
+            message.contains("SocketTimeout",          ignoreCase = true) ||
+            message.contains("UnknownHost",            ignoreCase = true) ||
+            message.contains("Network",                ignoreCase = true) -> ErrorKind.NETWORK
+
+    message.contains("401", ignoreCase = true) ||
+            message.contains("403", ignoreCase = true) ||
+            message.contains("unauthorized", ignoreCase = true) ||
+            message.contains("token",        ignoreCase = true) -> ErrorKind.AUTH
+
+    else -> ErrorKind.UNKNOWN
+}
+
+private data class ErrorDisplay(
+    val icon    : ImageVector,
+    val title   : String,
+    val subtitle: String,
+)
+
+private fun errorDisplay(kind: ErrorKind): ErrorDisplay = when (kind) {
+    ErrorKind.NETWORK -> ErrorDisplay(
+        icon     = Icons.Default.WifiOff,
+        title    = "No connection",
+        subtitle = "Check your internet and try again.",
+    )
+    ErrorKind.AUTH -> ErrorDisplay(
+        icon     = Icons.Default.Lock,
+        title    = "Session expired",
+        subtitle = "Your session has expired. Please sign in again.",
+    )
+    ErrorKind.UNKNOWN -> ErrorDisplay(
+        icon     = Icons.Default.ErrorOutline,
+        title    = "Something went wrong",
+        subtitle = "We couldn't load this data. Please try again.",
+    )
+}
+
+// ── Shared error state UI ─────────────────────────────────────────────────────
+
+@Composable
+private fun ErrorState(
+    message : String,
+    onRetry : () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val kind    = classifyError(message)
+    val display = errorDisplay(kind)
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier            = Modifier.padding(horizontal = 32.dp),
+        ) {
+            Icon(
+                imageVector        = display.icon,
+                contentDescription = null,
+                tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier           = Modifier.size(56.dp),
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text      = display.title,
+                style     = MaterialTheme.typography.titleMedium,
+                color     = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text      = display.subtitle,
+                style     = MaterialTheme.typography.bodySmall,
+                color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = onRetry) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier           = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Retry")
+            }
+        }
+    }
+}
+
+// ── RecordListScreen ──────────────────────────────────────────────────────────
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordListScreen(
     navController  : NavController,
     moduleName     : String,
     viewModel      : RecordListViewModel,
-    primaryField   : String  = "Name",      // hint — overridden by VM auto-resolve unless caller changed it
-    secondaryField : String? = null,         // hint — overridden by VM auto-resolve unless caller changed it
+    primaryField   : String  = "Name",
+    secondaryField : String? = null,
     avatarField    : String? = null,
     avatarColor    : Color   = MaterialTheme.colorScheme.primary,
     onRecordClick  : (zohoId: String) -> Unit = {},
@@ -58,23 +149,20 @@ fun RecordListScreen(
     val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
-    // ── Resolved display fields ────────────────────────────────────────────
-    // If the caller passed a non-default primaryField, use it.
-    // Otherwise use the ViewModel's auto-resolved field (derived from metadata).
     val vmPrimary   by viewModel.primaryField.collectAsStateWithLifecycle()
     val vmSecondary by viewModel.secondaryField.collectAsStateWithLifecycle()
 
-    val resolvedPrimary   = if (primaryField   != "Name") primaryField   else vmPrimary
-    val resolvedSecondary = if (secondaryField  != null)  secondaryField  else vmSecondary
+    val resolvedPrimary   = if (primaryField  != "Name") primaryField  else vmPrimary
+    val resolvedSecondary = if (secondaryField != null)  secondaryField else vmSecondary
     val resolvedAvatar    = avatarField ?: resolvedPrimary
 
     val listState      = rememberLazyListState()
     var searchActive   by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
 
-    val isRefreshing = uiState is RecordListUiState.Loading
+    val isRefreshing = uiState is RecordListUiState.Loading &&
+            (uiState as? RecordListUiState.Success)?.records?.isNotEmpty() == true
 
-    // Infinite scroll trigger
     val nearBottom by remember {
         derivedStateOf {
             val last  = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -109,7 +197,7 @@ fun RecordListScreen(
                                 unfocusedIndicatorColor = Color.Transparent,
                             ),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch  = { /* keep open */ }),
+                            keyboardActions = KeyboardActions(onSearch  = { }),
                         )
                     },
                     navigationIcon = {
@@ -117,7 +205,7 @@ fun RecordListScreen(
                             searchActive = false
                             viewModel.setSearch("")
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close search")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close search")
                         }
                     },
                 )
@@ -132,6 +220,12 @@ fun RecordListScreen(
                         }
                     } else ({}),
                     actions = {
+                        // Retry icon in top bar when errored — quick one-tap access
+                        if (uiState is RecordListUiState.Error) {
+                            IconButton(onClick = { viewModel.refresh() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Retry")
+                            }
+                        }
                         IconButton(onClick = { searchActive = true }) {
                             Icon(Icons.Default.Search, contentDescription = "Search")
                         }
@@ -140,12 +234,15 @@ fun RecordListScreen(
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    navController.navigate(Screen.ModuleCreate.createRoute(moduleName))
-                },
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add $moduleName")
+            // Hide FAB when errored — retry first
+            if (uiState !is RecordListUiState.Error) {
+                FloatingActionButton(
+                    onClick = {
+                        navController.navigate(Screen.ModuleCreate.createRoute(moduleName))
+                    },
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add $moduleName")
+                }
             }
         },
     ) { padding ->
@@ -160,30 +257,15 @@ fun RecordListScreen(
             when (val state = uiState) {
 
                 is RecordListUiState.Loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    RecordListSkeleton(rowCount = 12)
                 }
 
                 is RecordListUiState.Error -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector        = Icons.Default.Warning,
-                                contentDescription = null,
-                                tint               = MaterialTheme.colorScheme.error,
-                                modifier           = Modifier.size(48.dp),
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                text  = state.message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Button(onClick = { viewModel.refresh() }) { Text("Retry") }
-                        }
-                    }
+                    ErrorState(
+                        message  = state.message,
+                        onRetry  = { viewModel.refresh() },
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
 
                 is RecordListUiState.Success -> {
@@ -191,7 +273,7 @@ fun RecordListScreen(
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
-                                    imageVector        = Icons.Default.List,
+                                    imageVector        = Icons.Default.Inbox,
                                     contentDescription = null,
                                     modifier           = Modifier.size(64.dp),
                                     tint               = MaterialTheme.colorScheme.outlineVariant,
