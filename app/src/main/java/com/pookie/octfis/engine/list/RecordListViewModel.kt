@@ -38,11 +38,23 @@ class RecordListViewModel @AssistedInject constructor(
     val uiState: StateFlow<RecordListUiState> = _uiState.asStateFlow()
 
     private val _fields = MutableStateFlow<List<FieldMetadata>>(emptyList())
-    /** Metadata fields — used by the list screen to decide which columns to show. */
     val fields: StateFlow<List<FieldMetadata>> = _fields.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /**
+     * The api_name of the field used as the primary (title) line in each row.
+     * Resolved automatically from metadata — no hardcoding at call-sites.
+     */
+    private val _primaryField = MutableStateFlow("Name")
+    val primaryField: StateFlow<String> = _primaryField.asStateFlow()
+
+    /**
+     * The api_name of the field used as the subtitle line (nullable = no subtitle).
+     */
+    private val _secondaryField = MutableStateFlow<String?>(null)
+    val secondaryField: StateFlow<String?> = _secondaryField.asStateFlow()
 
     // Internal pagination state
     private val allRecords  = mutableListOf<RawRecord>()
@@ -61,7 +73,7 @@ class RecordListViewModel @AssistedInject constructor(
             metadataEngine.getModuleMetadata(moduleName)
                 .onSuccess { meta ->
                     _fields.value = meta
-                    // Reset and fetch page 1
+                    resolveDisplayFields(meta)
                     allRecords.clear()
                     currentPage = 1
                     fetchPage(1)
@@ -69,6 +81,77 @@ class RecordListViewModel @AssistedInject constructor(
                 .onFailure { e ->
                     _uiState.value = RecordListUiState.Error("Failed to load fields: ${e.message}")
                 }
+        }
+    }
+
+    /**
+     * Picks the best primary + secondary field from Zoho metadata.
+     *
+     * Priority for PRIMARY:
+     *  1. Known name fields for common modules (Account_Name, Full_Name, Subject…)
+     *  2. Any field whose api_name ends with "_Name"
+     *  3. First text-like field in sequence order
+     *
+     * Priority for SECONDARY:
+     *  1. Known secondary fields per module (Phone, Email, Amount…)
+     *  2. First text-like field after primary
+     */
+    private fun resolveDisplayFields(meta: List<FieldMetadata>) {
+        val apiNames = meta.map { it.apiName }.toSet()
+
+        // ── Primary ───────────────────────────────────────────────────────
+        val knownPrimary = when (moduleName) {
+            "Accounts"    -> "Account_Name"
+            "Contacts"    -> "Full_Name"
+            "Leads"       -> "Full_Name"
+            "Deals",
+            "Potentials"  -> "Deal_Name"
+            "Quotes"      -> "Subject"
+            "SalesOrders" -> "Subject"
+            "Invoices"    -> "Subject"
+            "PurchaseOrders" -> "Subject"
+            "Products"    -> "Product_Name"
+            "Campaigns"   -> "Campaign_Name"
+            "Cases"       -> "Subject"
+            "Solutions"   -> "Solution_Title"
+            "Vendors"     -> "Vendor_Name"
+            "Tasks"       -> "Subject"
+            "Events"      -> "Event_Title"
+            else          -> null
+        }
+
+        _primaryField.value = when {
+            knownPrimary != null && knownPrimary in apiNames -> knownPrimary
+            "Name" in apiNames -> "Name"
+            else -> meta.firstOrNull { it.apiName.endsWith("_Name") }?.apiName
+                ?: meta.firstOrNull()?.apiName
+                ?: "Name"
+        }
+
+        // ── Secondary ─────────────────────────────────────────────────────
+        val knownSecondary = when (moduleName) {
+            "Accounts"    -> "Phone"
+            "Contacts"    -> "Email"
+            "Leads"       -> "Email"
+            "Deals",
+            "Potentials"  -> "Amount"
+            "Quotes"      -> "Grand_Total"
+            "SalesOrders" -> "Grand_Total"
+            "Invoices"    -> "Grand_Total"
+            "Products"    -> "Unit_Price"
+            "Campaigns"   -> "Status"
+            "Cases"       -> "Status"
+            "Tasks"       -> "Due_Date"
+            "Events"      -> "Start_DateTime"
+            else          -> null
+        }
+
+        _secondaryField.value = when {
+            knownSecondary != null && knownSecondary in apiNames -> knownSecondary
+            else -> meta
+                .filter { it.apiName != _primaryField.value }
+                .firstOrNull()
+                ?.apiName
         }
     }
 

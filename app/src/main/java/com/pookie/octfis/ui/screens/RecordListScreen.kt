@@ -32,36 +32,41 @@ import androidx.navigation.NavController
 import com.pookie.octfis.data.repository.RawRecord
 import com.pookie.octfis.engine.list.RecordListUiState
 import com.pookie.octfis.engine.list.RecordListViewModel
-import com.pookie.octfis.engine.metadata.FieldMetadata
 import com.pookie.octfis.navigation.Screen
 
 /**
  * Generic record list screen — works for any Zoho module.
  *
- * @param moduleName        Zoho API module name, e.g. "Accounts", "Contacts"
- * @param primaryField      apiName of the field shown as the list item title (default "Name")
- * @param secondaryField    apiName of the field shown as subtitle (optional)
- * @param avatarField       apiName used to generate avatar initials (defaults to primaryField)
- * @param avatarColor       background color for the avatar circle
- * @param onRecordClick     called with the record's zohoId when a row is tapped
- * @param showBackButton    show ← arrow in the TopAppBar
+ * [primaryField] and [secondaryField] are *hint overrides*.
+ * When left as their defaults ("Name" / null) the ViewModel's
+ * auto-resolved field names are used instead, so callers that
+ * don't know the module's field names still get correct output.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordListScreen(
-    navController   : NavController,
-    moduleName      : String,
-    viewModel       : RecordListViewModel,
-    primaryField    : String           = "Name",
-    secondaryField  : String?          = null,
-    avatarField     : String?          = null,
-    avatarColor     : Color            = MaterialTheme.colorScheme.primary,
-    onRecordClick   : (zohoId: String) -> Unit = {},
-    showBackButton  : Boolean          = false,
+    navController  : NavController,
+    moduleName     : String,
+    viewModel      : RecordListViewModel,
+    primaryField   : String  = "Name",      // hint — overridden by VM auto-resolve unless caller changed it
+    secondaryField : String? = null,         // hint — overridden by VM auto-resolve unless caller changed it
+    avatarField    : String? = null,
+    avatarColor    : Color   = MaterialTheme.colorScheme.primary,
+    onRecordClick  : (zohoId: String) -> Unit = {},
+    showBackButton : Boolean = false,
 ) {
     val uiState     by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val fields      by viewModel.fields.collectAsStateWithLifecycle()
+
+    // ── Resolved display fields ────────────────────────────────────────────
+    // If the caller passed a non-default primaryField, use it.
+    // Otherwise use the ViewModel's auto-resolved field (derived from metadata).
+    val vmPrimary   by viewModel.primaryField.collectAsStateWithLifecycle()
+    val vmSecondary by viewModel.secondaryField.collectAsStateWithLifecycle()
+
+    val resolvedPrimary   = if (primaryField   != "Name") primaryField   else vmPrimary
+    val resolvedSecondary = if (secondaryField  != null)  secondaryField  else vmSecondary
+    val resolvedAvatar    = avatarField ?: resolvedPrimary
 
     val listState      = rememberLazyListState()
     var searchActive   by remember { mutableStateOf(false) }
@@ -87,7 +92,6 @@ fun RecordListScreen(
     Scaffold(
         topBar = {
             if (searchActive) {
-                // ── Search bar ────────────────────────────────────────────
                 TopAppBar(
                     title = {
                         TextField(
@@ -98,7 +102,7 @@ fun RecordListScreen(
                             modifier      = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(focusRequester),
-                            colors        = TextFieldDefaults.colors(
+                            colors = TextFieldDefaults.colors(
                                 focusedContainerColor   = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
                                 focusedIndicatorColor   = Color.Transparent,
@@ -118,7 +122,6 @@ fun RecordListScreen(
                     },
                 )
             } else {
-                // ── Normal bar ────────────────────────────────────────────
                 TopAppBar(
                     title = { Text(moduleName) },
                     navigationIcon = if (showBackButton) {
@@ -139,7 +142,7 @@ fun RecordListScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    navController.navigate(Screen.DynamicCreate.createRoute(moduleName))
+                    navController.navigate(Screen.ModuleCreate.createRoute(moduleName))
                 },
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add $moduleName")
@@ -166,10 +169,10 @@ fun RecordListScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
-                                imageVector = Icons.Default.Warning,
+                                imageVector        = Icons.Default.Warning,
                                 contentDescription = null,
-                                tint   = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(48.dp),
+                                tint               = MaterialTheme.colorScheme.error,
+                                modifier           = Modifier.size(48.dp),
                             )
                             Spacer(Modifier.height(12.dp))
                             Text(
@@ -178,9 +181,7 @@ fun RecordListScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = { viewModel.refresh() }) {
-                                Text("Retry")
-                            }
+                            Button(onClick = { viewModel.refresh() }) { Text("Retry") }
                         }
                     }
                 }
@@ -190,10 +191,10 @@ fun RecordListScreen(
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
-                                    imageVector = Icons.Default.List,
+                                    imageVector        = Icons.Default.List,
                                     contentDescription = null,
-                                    modifier = Modifier.size(64.dp),
-                                    tint     = MaterialTheme.colorScheme.outlineVariant,
+                                    modifier           = Modifier.size(64.dp),
+                                    tint               = MaterialTheme.colorScheme.outlineVariant,
                                 )
                                 Spacer(Modifier.height(12.dp))
                                 Text(
@@ -205,8 +206,8 @@ fun RecordListScreen(
                         }
                     } else {
                         LazyColumn(
-                            state         = listState,
-                            modifier      = Modifier.fillMaxSize(),
+                            state          = listState,
+                            modifier       = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(vertical = 8.dp),
                         ) {
                             itemsIndexed(
@@ -214,12 +215,12 @@ fun RecordListScreen(
                                 key   = { _, r -> r.id },
                             ) { _, record ->
                                 RecordListItem(
-                                    record        = record,
-                                    primaryField  = primaryField,
-                                    secondaryField = secondaryField,
-                                    avatarField   = avatarField ?: primaryField,
-                                    avatarColor   = avatarColor,
-                                    onClick       = { onRecordClick(record.id) },
+                                    record         = record,
+                                    primaryField   = resolvedPrimary,
+                                    secondaryField = resolvedSecondary,
+                                    avatarField    = resolvedAvatar,
+                                    avatarColor    = avatarColor,
+                                    onClick        = { onRecordClick(record.id) },
                                 )
                                 HorizontalDivider(
                                     modifier  = Modifier.padding(start = 72.dp),
@@ -231,7 +232,7 @@ fun RecordListScreen(
                             if (state.hasMore) {
                                 item {
                                     Box(
-                                        modifier        = Modifier
+                                        modifier         = Modifier
                                             .fillMaxWidth()
                                             .padding(16.dp),
                                         contentAlignment = Alignment.Center,
@@ -278,18 +279,17 @@ private fun RecordListItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Avatar circle
         Box(
-            modifier        = Modifier
+            modifier         = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(avatarColor),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text      = initials,
-                color     = Color.White,
-                fontSize  = 16.sp,
+                text       = initials,
+                color      = Color.White,
+                fontSize   = 16.sp,
                 fontWeight = FontWeight.Bold,
             )
         }
@@ -298,11 +298,11 @@ private fun RecordListItem(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text      = primary,
-                style     = MaterialTheme.typography.bodyLarge,
+                text       = primary,
+                style      = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                maxLines  = 1,
-                overflow  = TextOverflow.Ellipsis,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
             )
             if (secondary != null) {
                 Spacer(Modifier.height(2.dp))
@@ -317,9 +317,9 @@ private fun RecordListItem(
         }
 
         Icon(
-            imageVector     = Icons.Default.ChevronRight,
+            imageVector        = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint            = MaterialTheme.colorScheme.outlineVariant,
+            tint               = MaterialTheme.colorScheme.outlineVariant,
         )
     }
 }

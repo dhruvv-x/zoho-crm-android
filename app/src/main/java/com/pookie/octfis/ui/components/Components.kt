@@ -1,3 +1,4 @@
+// ui/components/Components.kt
 package com.pookie.octfis.ui.components
 
 import androidx.compose.foundation.background
@@ -8,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,11 +17,164 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
+import com.pookie.octfis.engine.module.ActiveModule
+import com.pookie.octfis.engine.module.ModuleEngine
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.theme.*
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-// ─── Bottom Nav ───────────────────────────────────────────────────────────────
+// ─── NavBar ViewModel ─────────────────────────────────────────────────────────
+
+/**
+ * Thin @HiltViewModel that owns the ModuleEngine call.
+ * Lives as long as the nav host — survives recomposition.
+ * On success: emits the ordered ActiveModule list.
+ * On failure: emits null → CrmBottomBar falls back to hardcoded tabs.
+ */
+@HiltViewModel
+class NavBarViewModel @Inject constructor(
+    private val moduleEngine: ModuleEngine,
+) : ViewModel() {
+
+    private val _modules = MutableStateFlow<List<ActiveModule>?>(null)
+    val modules: StateFlow<List<ActiveModule>?> = _modules
+
+    init {
+        viewModelScope.launch {
+            moduleEngine.getActiveModules()
+                .onSuccess { _modules.value = it }
+            // on failure leave null → fallback nav renders
+        }
+    }
+}
+
+// ─── Fallback static items (used when API hasn't loaded yet / fails) ──────────
+
+private val fallbackNavModules = listOf(
+    ActiveModule("Accounts", "Accounts", "Account",  1),
+    ActiveModule("Contacts", "Contacts", "Contact",  2),
+    ActiveModule("Deals",    "Deals",    "Deal",     3),
+    ActiveModule("Quotes",   "Quotes",   "Quote",    4),
+)
+
+// ─── Icon mapping ─────────────────────────────────────────────────────────────
+
+private fun moduleIcon(apiName: String): ImageVector = when (apiName) {
+    "Accounts"      -> Icons.Default.Business
+    "Contacts"      -> Icons.Default.Contacts
+    "Deals",
+    "Potentials"    -> Icons.Default.Handshake
+    "Quotes"        -> Icons.Default.Receipt
+    "Leads"         -> Icons.Default.PersonAdd
+    "Products"      -> Icons.Default.Inventory
+    "Invoices"      -> Icons.Default.Description
+    "PurchaseOrders"-> Icons.Default.ShoppingCart
+    "SalesOrders"   -> Icons.Default.ShoppingBag
+    "Campaigns"     -> Icons.Default.Campaign
+    "Cases"         -> Icons.Default.SupportAgent
+    "Solutions"     -> Icons.Default.Lightbulb
+    "Vendors"       -> Icons.Default.Store
+    else            -> Icons.Default.Folder
+}
+
+// ─── Route helper ─────────────────────────────────────────────────────────────
+
+/**
+ * Maps a module's apiName to its bottom-nav route string.
+ * Uses the unified ModuleList pattern — no hardcoded per-module routes.
+ */
+private fun moduleRoute(apiName: String): String =
+    Screen.ModuleList.createRoute(apiName)
+
+// ─── CrmBottomBar ─────────────────────────────────────────────────────────────
+
+/**
+ * Signature intentionally unchanged — all 9 existing call-sites compile as-is.
+ *
+ * Behaviour:
+ *  1. Home tab is always pinned at position 0.
+ *  2. Up to [ModuleEngine.MAX_NAV_TABS - 1] (= 4) dynamic module tabs follow,
+ *     ordered by Zoho's sequence_number.
+ *  3. While the API call is in-flight (modules == null) the fallback list
+ *     renders so the nav is never empty or invisible.
+ *  4. If the API call fails, modules stays null → fallback list is shown
+ *     indefinitely (zero regression from old behaviour).
+ */
+@Composable
+fun CrmBottomBar(
+    navController: NavController,
+    currentRoute : String?,
+    vm           : NavBarViewModel = hiltViewModel(),
+) {
+    val dynamicModules by vm.modules.collectAsState()
+
+    // Resolve the tab list — always has Home + up to 4 module tabs
+    val moduleList = (dynamicModules ?: fallbackNavModules)
+        .take(ModuleEngine.MAX_NAV_TABS - 1)   // cap at 4 module tabs
+
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp,
+    ) {
+        // ── Home (pinned) ──────────────────────────────────────────────────
+        val homeRoute = Screen.Dashboard.route
+        NavigationBarItem(
+            selected = currentRoute == homeRoute,
+            onClick  = {
+                if (currentRoute != homeRoute) {
+                    navController.navigate(homeRoute) {
+                        popUpTo(homeRoute) { saveState = true }
+                        launchSingleTop = true
+                        restoreState    = true
+                    }
+                }
+            },
+            icon   = { Icon(Icons.Default.Home, contentDescription = "Home") },
+            label  = { Text("Home", fontSize = 10.sp) },
+            colors = navItemColors(),
+        )
+
+        // ── Dynamic module tabs ────────────────────────────────────────────
+        moduleList.forEach { module ->
+            val route    = moduleRoute(module.apiName)
+            val selected = currentRoute == route
+            NavigationBarItem(
+                selected = selected,
+                onClick  = {
+                    if (currentRoute != route) {
+                        navController.navigate(route) {
+                            popUpTo(Screen.Dashboard.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState    = true
+                        }
+                    }
+                },
+                icon  = { Icon(moduleIcon(module.apiName), contentDescription = module.pluralLabel) },
+                label = { Text(module.pluralLabel, fontSize = 10.sp, maxLines = 1) },
+                colors = navItemColors(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun navItemColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor   = CrmPrimary,
+    selectedTextColor   = CrmPrimary,
+    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    indicatorColor      = MaterialTheme.colorScheme.surfaceVariant,
+)
+
+// ─── BottomNavItem — kept for any code that still references it ───────────────
 
 data class BottomNavItem(
     val label : String,
@@ -28,46 +182,15 @@ data class BottomNavItem(
     val route : String,
 )
 
+// bottomNavItems is kept so any remaining import references compile.
+// CrmBottomBar no longer uses it — it drives from ActiveModule instead.
 val bottomNavItems = listOf(
     BottomNavItem("Home",     Icons.Default.Home,      Screen.Dashboard.route),
-    BottomNavItem("Accounts", Icons.Default.Business,  "accounts"),
-    BottomNavItem("Contacts", Icons.Default.Contacts,  "contacts"),
-    BottomNavItem("Deals",    Icons.Default.Handshake, "deals"),
-    BottomNavItem("Quotes",   Icons.Default.Receipt,   "quotes"),
+    BottomNavItem("Accounts", Icons.Default.Business,  Screen.ModuleList.createRoute("Accounts")),
+    BottomNavItem("Contacts", Icons.Default.Contacts,  Screen.ModuleList.createRoute("Contacts")),
+    BottomNavItem("Deals",    Icons.Default.Handshake, Screen.ModuleList.createRoute("Deals")),
+    BottomNavItem("Quotes",   Icons.Default.Receipt,   Screen.ModuleList.createRoute("Quotes")),
 )
-
-@Composable
-fun CrmBottomBar(navController: NavController, currentRoute: String?) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 4.dp,
-    ) {
-        bottomNavItems.forEach { item ->
-            val selected = currentRoute == item.route
-            NavigationBarItem(
-                selected = selected,
-                onClick  = {
-                    if (currentRoute != item.route) {
-                        navController.navigate(item.route) {
-                            popUpTo(Screen.Dashboard.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState    = true
-                        }
-                    }
-                },
-                icon  = { Icon(item.icon, contentDescription = item.label) },
-                label = { Text(item.label, fontSize = 10.sp) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor   = CrmPrimary,
-                    selectedTextColor   = CrmPrimary,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    indicatorColor      = MaterialTheme.colorScheme.surfaceVariant,
-                )
-            )
-        }
-    }
-}
 
 // ─── Filter Bottom Sheet ──────────────────────────────────────────────────────
 

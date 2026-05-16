@@ -1,3 +1,4 @@
+// di/NetworkModule.kt
 package com.pookie.octfis.di
 
 import android.content.Context
@@ -7,6 +8,7 @@ import com.pookie.octfis.data.remote.ZohoApiService
 import com.pookie.octfis.data.remote.ZohoAuthManager
 import com.pookie.octfis.data.repository.ZohoRecordRepository
 import com.pookie.octfis.engine.metadata.MetadataEngine
+import com.pookie.octfis.engine.module.ModuleEngine
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,6 +41,11 @@ object NetworkModule {
     @Singleton
     fun provideMetadataEngine(api: ZohoApiService): MetadataEngine =
         MetadataEngine(api)
+
+    @Provides
+    @Singleton
+    fun provideModuleEngine(api: ZohoApiService): ModuleEngine =
+        ModuleEngine(api)
 
     @Provides
     @Singleton

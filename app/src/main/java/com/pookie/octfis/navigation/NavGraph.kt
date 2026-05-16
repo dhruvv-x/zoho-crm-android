@@ -1,3 +1,4 @@
+// navigation/NavGraph.kt
 package com.pookie.octfis.navigation
 
 import androidx.compose.runtime.Composable
@@ -30,8 +31,10 @@ fun NavGraph(
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // UNIFIED DYNAMIC ENGINE — one composable handles every module
-        // Route: module/{moduleName}/list|create|edit/{recordId}
+        // UNIFIED DYNAMIC ENGINE
+        // All bottom-nav module taps land on ModuleList.
+        // ModuleList → ModuleDetail (Day 8) or ModuleEdit.
+        // ModuleCreate / ModuleEdit are generic for every module.
         // ══════════════════════════════════════════════════════════════════════
 
         // ── List ──────────────────────────────────────────────────────────────
@@ -45,6 +48,7 @@ fun NavGraph(
                 moduleName     = module,
                 showBackButton = true,
                 onRecordClick  = { zohoId ->
+                    // Day 8: swap ModuleEdit → ModuleDetail once detail screen exists
                     navController.navigate(Screen.ModuleEdit.createRoute(module, zohoId))
                 },
             )
@@ -80,7 +84,7 @@ fun NavGraph(
             )
         }
 
-        // ── Detail (placeholder — Day 8 replaces this) ────────────────────────
+        // ── Detail (Day 8 replaces body with RecordDetailScreenEntry) ─────────
         composable(
             route     = Screen.ModuleDetail.route,
             arguments = listOf(
@@ -90,7 +94,6 @@ fun NavGraph(
         ) { back ->
             val module   = back.arguments?.getString("moduleName") ?: return@composable
             val recordId = back.arguments?.getString("recordId")   ?: return@composable
-            // Day 8 will replace this with RecordDetailScreenEntry
             RecordFormScreenEntry(
                 navController = navController,
                 moduleName    = module,
@@ -99,43 +102,61 @@ fun NavGraph(
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // BOTTOM NAV TARGETS — each tab now uses unified ModuleList route
+        // DYNAMIC BOTTOM NAV FALLBACK ROUTES
+        // CrmBottomBar navigates to module/{name}/list for dynamic modules.
+        // These 4 named routes are kept ONLY as legacy targets for old deep-links
+        // and for the Dashboard's hardcoded nav items in case ModuleEngine fails.
+        // They all now use RecordListScreenEntry (dynamic) — no more static screens.
         // ══════════════════════════════════════════════════════════════════════
 
-        // Accounts tab → unified list
         composable("accounts") {
             RecordListScreenEntry(
                 navController  = navController,
                 moduleName     = "Accounts",
-                primaryField   = "Account_Name",
-                secondaryField = "Phone",
+                showBackButton = false,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.AccountDetail.createRoute(zohoId))
+                    navController.navigate(Screen.ModuleEdit.createRoute("Accounts", zohoId))
                 },
             )
         }
 
-        // Contacts tab → unified list
         composable("contacts") {
             RecordListScreenEntry(
                 navController  = navController,
                 moduleName     = "Contacts",
-                primaryField   = "Full_Name",
-                secondaryField = "Email",
+                showBackButton = false,
                 onRecordClick  = { zohoId ->
-                    navController.navigate(Screen.ContactDetail.createRoute(zohoId.toIntOrNull() ?: 0))
+                    navController.navigate(Screen.ModuleEdit.createRoute("Contacts", zohoId))
                 },
             )
         }
 
-        // Deals tab → still uses old screen (not yet migrated)
-        composable("deals") { DealsScreen(navController) }
+        composable("deals") {
+            RecordListScreenEntry(
+                navController  = navController,
+                moduleName     = "Deals",
+                showBackButton = false,
+                onRecordClick  = { zohoId ->
+                    navController.navigate(Screen.ModuleEdit.createRoute("Deals", zohoId))
+                },
+            )
+        }
 
-        // Quotes tab → still uses old screen (not yet migrated)
-        composable("quotes") { QuotesScreen(navController) }
+        composable("quotes") {
+            RecordListScreenEntry(
+                navController  = navController,
+                moduleName     = "Quotes",
+                showBackButton = false,
+                onRecordClick  = { zohoId ->
+                    navController.navigate(Screen.ModuleEdit.createRoute("Quotes", zohoId))
+                },
+            )
+        }
 
         // ══════════════════════════════════════════════════════════════════════
-        // LEGACY STATIC ROUTES — kept alive until dynamic replacements verified
+        // LEGACY STATIC ROUTES — kept alive, not deleted
+        // Individual detail / edit / create screens still work if navigated to
+        // directly. Remove only after Day 8 detail screen is verified.
         // ══════════════════════════════════════════════════════════════════════
 
         composable(Screen.CreateAccount.route) { CreateAccountScreen(navController) }

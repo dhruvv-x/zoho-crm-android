@@ -177,6 +177,10 @@ interface ZohoApiService {
     @GET("settings/fields")
     suspend fun getFields(@Query("module") module: String): FieldsResponse
 
+    // Literal path — must stay ABOVE the @GET("{module}") wildcard
+    @GET("settings/modules")
+    suspend fun getModules(): ModulesResponse
+
     @GET("users")
     suspend fun getUsers(@Query("type") type: String = "AllUsers"): UsersResponse
 
