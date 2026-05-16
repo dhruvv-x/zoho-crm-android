@@ -68,6 +68,9 @@ sealed class Screen(val route: String) {
     }
 
     // ── Dynamic Engine Routes ──────────────────────────────────────────────
+    object DynamicList : Screen("dynamic_list/{module}") {
+        fun createRoute(module: String) = "dynamic_list/$module"
+    }
     object DynamicCreate : Screen("dynamic_create/{module}") {
         fun createRoute(module: String) = "dynamic_create/$module"
     }

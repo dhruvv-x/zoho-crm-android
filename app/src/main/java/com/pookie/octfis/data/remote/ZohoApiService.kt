@@ -1,3 +1,4 @@
+// data/remote/ZohoApiService.kt
 package com.pookie.octfis.data.remote
 
 import com.pookie.octfis.data.remote.dto.*
@@ -179,7 +180,16 @@ interface ZohoApiService {
     @GET("users")
     suspend fun getUsers(@Query("type") type: String = "AllUsers"): UsersResponse
 
-// ── Generic dynamic endpoints ─────────────────────────────────────────────
+    // ── Generic dynamic endpoints ─────────────────────────────────────────────
+
+    @GET("{module}")
+    suspend fun listRecords(
+        @Path("module")      module   : String,
+        @Query("page")       page     : Int    = 1,
+        @Query("per_page")   perPage  : Int    = 50,
+        @Query("sort_by")    sortBy   : String = "Modified_Time",
+        @Query("sort_order") sortOrder: String = "desc",
+    ): Map<String, @JvmSuppressWildcards Any>
 
     @POST("{module}")
     suspend fun createRecord(
@@ -190,18 +200,19 @@ interface ZohoApiService {
     @PUT("{module}/{id}")
     suspend fun updateRecord(
         @Path("module") module: String,
-        @Path("id") id: String,
+        @Path("id")     id    : String,
         @Body body: Map<String, @JvmSuppressWildcards Any>,
     ): CreateRecordResponse
 
     @GET("{module}/{id}")
     suspend fun getRecord(
         @Path("module") module: String,
-        @Path("id") id: String,
+        @Path("id")     id    : String,
     ): Map<String, @JvmSuppressWildcards Any>
 
     @DELETE("{module}/{id}")
     suspend fun deleteRecord(
         @Path("module") module: String,
-        @Path("id") id: String,
-    ): CreateRecordResponse}
+        @Path("id")     id    : String,
+    ): CreateRecordResponse
+}

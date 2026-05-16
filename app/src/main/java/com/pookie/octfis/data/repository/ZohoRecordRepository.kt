@@ -1,16 +1,58 @@
+// data/repository/ZohoRecordRepository.kt
 package com.pookie.octfis.data.repository
 
 import com.pookie.octfis.data.remote.ZohoApiService
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Raw record from a generic list — id + all field values as strings/any. */
+data class RawRecord(
+    val id    : String,
+    val fields: Map<String, Any?>,
+)
+
 @Singleton
 class ZohoRecordRepository @Inject constructor(
     private val api: ZohoApiService,
 ) {
 
+    // ── List ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns a page of raw records.
+     * Zoho list response: { "data": [ { "id": "…", "Name": "…", … } ], "info": { "more_records": true } }
+     */
+    suspend fun listRecords(
+        module   : String,
+        page     : Int    = 1,
+        perPage  : Int    = 50,
+        sortBy   : String = "Modified_Time",
+        sortOrder: String = "desc",
+    ): Result<Pair<List<RawRecord>, Boolean>> = try {
+        val response = api.listRecords(module, page, perPage, sortBy, sortOrder)
+
+        @Suppress("UNCHECKED_CAST")
+        val dataList = response["data"] as? List<Map<String, Any?>> ?: emptyList()
+
+        @Suppress("UNCHECKED_CAST")
+        val info     = response["info"] as? Map<String, Any?>
+        val hasMore  = (info?.get("more_records") as? Boolean) ?: false
+
+        val records  = dataList.map { raw ->
+            RawRecord(
+                id     = raw["id"]?.toString() ?: "",
+                fields = raw,
+            )
+        }
+        Result.success(records to hasMore)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    // ── Create ────────────────────────────────────────────────────────────────
+
     suspend fun createRecord(
-        module: String,
+        module : String,
         payload: Map<String, Any>,
     ): Result<String> = try {
         val body   = mapOf("data" to listOf(payload))
@@ -23,9 +65,11 @@ class ZohoRecordRepository @Inject constructor(
         Result.failure(e)
     }
 
+    // ── Update ────────────────────────────────────────────────────────────────
+
     suspend fun updateRecord(
-        module: String,
-        id: String,
+        module : String,
+        id     : String,
         payload: Map<String, Any>,
     ): Result<String> = try {
         val body   = mapOf("data" to listOf(payload))
@@ -38,9 +82,11 @@ class ZohoRecordRepository @Inject constructor(
         Result.failure(e)
     }
 
+    // ── Get single ────────────────────────────────────────────────────────────
+
     suspend fun getRecord(
         module: String,
-        id: String,
+        id    : String,
     ): Result<Map<String, Any>> = try {
         val response = api.getRecord(module, id)
         @Suppress("UNCHECKED_CAST")
@@ -52,9 +98,11 @@ class ZohoRecordRepository @Inject constructor(
         Result.failure(e)
     }
 
+    // ── Delete ────────────────────────────────────────────────────────────────
+
     suspend fun deleteRecord(
         module: String,
-        id: String,
+        id    : String,
     ): Result<Unit> = try {
         api.deleteRecord(module, id)
         Result.success(Unit)

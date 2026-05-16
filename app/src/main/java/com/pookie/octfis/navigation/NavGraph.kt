@@ -28,7 +28,17 @@ fun NavGraph(
         }
 
         // ── Accounts ──────────────────────────────────────────────────────
-        composable(Screen.Accounts.route)      { AccountsScreen(navController) }
+        composable(Screen.Accounts.route) {
+            RecordListScreenEntry(
+                navController  = navController,
+                moduleName     = "Accounts",
+                primaryField   = "Account_Name",
+                secondaryField = "Phone",
+                onRecordClick  = { zohoId ->
+                    navController.navigate(Screen.AccountDetail.createRoute(zohoId))
+                },
+            )
+        }
         composable(Screen.CreateAccount.route) { CreateAccountScreen(navController) }
         composable(
             route     = Screen.AccountDetail.route,
@@ -44,7 +54,17 @@ fun NavGraph(
         }
 
         // ── Contacts ──────────────────────────────────────────────────────
-        composable(Screen.Contacts.route)      { ContactsScreen(navController) }
+        composable(Screen.Contacts.route) {
+            RecordListScreenEntry(
+                navController  = navController,
+                moduleName     = "Contacts",
+                primaryField   = "Full_Name",
+                secondaryField = "Email",
+                onRecordClick  = { zohoId ->
+                    navController.navigate(Screen.ContactDetail.createRoute(zohoId.toIntOrNull() ?: 0))
+                },
+            )
+        }
         composable(Screen.CreateContact.route) { CreateContactScreen(navController) }
         composable(
             route     = Screen.ContactDetail.route,
@@ -140,6 +160,21 @@ fun NavGraph(
         }
 
         // ── Dynamic Engine Routes ──────────────────────────────────────────
+        composable(
+            route     = Screen.DynamicList.route,
+            arguments = listOf(navArgument("module") { type = NavType.StringType }),
+        ) { back ->
+            val module = back.arguments?.getString("module") ?: return@composable
+            RecordListScreenEntry(
+                navController  = navController,
+                moduleName     = module,
+                showBackButton = true,
+                onRecordClick  = { zohoId ->
+                    navController.navigate(Screen.DynamicEdit.createRoute(module, zohoId))
+                },
+            )
+        }
+
         composable(
             route     = Screen.DynamicCreate.route,
             arguments = listOf(navArgument("module") { type = NavType.StringType }),
