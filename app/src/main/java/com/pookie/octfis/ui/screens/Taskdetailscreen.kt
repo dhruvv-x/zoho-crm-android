@@ -30,7 +30,6 @@ fun TaskDetailScreen(
     vm: TasksViewModel = viewModel(),
     detailVm: TaskDetailViewModel = viewModel(factory = TaskDetailViewModel.Factory(taskId)),
 ) {
-    // FIX: Use TaskDetailViewModel (fetches from API) instead of cache lookup
     val detailState by detailVm.uiState.collectAsState()
     val task = (detailState as? TaskDetailUiState.Success)?.task
 
@@ -80,7 +79,7 @@ fun TaskDetailScreen(
                 },
                 actions = {
                     if (task != null) {
-                        IconButton(onClick = { navController.navigate(Screen.EditTask.createRoute(taskId)) }) {
+                        IconButton(onClick = { navController.navigate(Screen.DynamicEdit.createRoute("Tasks", taskId)) }) {
                             Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                         }
                         IconButton(onClick = { showDeleteDialog = true }) {
@@ -94,7 +93,6 @@ fun TaskDetailScreen(
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
 
-        // Loading state
         if (detailState is TaskDetailUiState.Loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = CrmPrimary)
@@ -102,7 +100,6 @@ fun TaskDetailScreen(
             return@Scaffold
         }
 
-        // Error state
         if (detailState is TaskDetailUiState.Error || task == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
                 Text(

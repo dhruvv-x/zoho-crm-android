@@ -138,5 +138,34 @@ fun NavGraph(
         ) { back ->
             EditCallScreen(navController, back.arguments?.getString("callId") ?: "")
         }
+
+        // ── Dynamic Engine Routes ──────────────────────────────────────────
+        composable(
+            route     = Screen.DynamicCreate.route,
+            arguments = listOf(navArgument("module") { type = NavType.StringType }),
+        ) { back ->
+            val module = back.arguments?.getString("module") ?: return@composable
+            RecordFormScreenEntry(
+                navController = navController,
+                moduleName    = module,
+                recordId      = null,
+            )
+        }
+
+        composable(
+            route     = Screen.DynamicEdit.route,
+            arguments = listOf(
+                navArgument("module")   { type = NavType.StringType },
+                navArgument("recordId") { type = NavType.StringType },
+            ),
+        ) { back ->
+            val module   = back.arguments?.getString("module")   ?: return@composable
+            val recordId = back.arguments?.getString("recordId") ?: return@composable
+            RecordFormScreenEntry(
+                navController = navController,
+                moduleName    = module,
+                recordId      = recordId,
+            )
+        }
     }
 }

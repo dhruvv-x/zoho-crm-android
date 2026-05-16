@@ -178,4 +178,30 @@ interface ZohoApiService {
 
     @GET("users")
     suspend fun getUsers(@Query("type") type: String = "AllUsers"): UsersResponse
-}
+
+// ── Generic dynamic endpoints ─────────────────────────────────────────────
+
+    @POST("{module}")
+    suspend fun createRecord(
+        @Path("module") module: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+    ): CreateRecordResponse
+
+    @PUT("{module}/{id}")
+    suspend fun updateRecord(
+        @Path("module") module: String,
+        @Path("id") id: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+    ): CreateRecordResponse
+
+    @GET("{module}/{id}")
+    suspend fun getRecord(
+        @Path("module") module: String,
+        @Path("id") id: String,
+    ): Map<String, @JvmSuppressWildcards Any>
+
+    @DELETE("{module}/{id}")
+    suspend fun deleteRecord(
+        @Path("module") module: String,
+        @Path("id") id: String,
+    ): CreateRecordResponse}

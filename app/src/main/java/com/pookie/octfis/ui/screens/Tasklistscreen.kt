@@ -71,14 +71,14 @@ fun TaskListScreen(
         floatingActionButton = {
             if (!searchActive) {
                 FloatingActionButton(
-                    onClick        = { navController.navigate(Screen.CreateTask.route) },
+                    onClick        = { navController.navigate(Screen.DynamicCreate.createRoute("Tasks")) },
                     containerColor = CrmPrimary,
                     contentColor   = Color.White,
                     shape          = CircleShape,
                 ) { Icon(Icons.Default.Add, "Create Task") }
             }
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
@@ -178,7 +178,7 @@ fun TaskListScreen(
                                     task      = task,
                                     onDelete  = { vm.deleteTask(task.id) },
                                     onClick   = { navController.navigate(Screen.TaskDetail.createRoute(task.id)) },
-                                    onEdit    = { navController.navigate(Screen.EditTask.createRoute(task.id)) },
+                                    onEdit    = { navController.navigate(Screen.DynamicEdit.createRoute("Tasks", task.id)) },
                                 )
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                             }

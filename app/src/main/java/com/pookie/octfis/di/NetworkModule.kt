@@ -5,6 +5,7 @@ import com.pookie.octfis.data.remote.TokenStore
 import com.pookie.octfis.data.remote.ZohoApiClient
 import com.pookie.octfis.data.remote.ZohoApiService
 import com.pookie.octfis.data.remote.ZohoAuthManager
+import com.pookie.octfis.data.repository.ZohoRecordRepository
 import com.pookie.octfis.engine.metadata.MetadataEngine
 import dagger.Module
 import dagger.Provides
@@ -38,4 +39,9 @@ object NetworkModule {
     @Singleton
     fun provideMetadataEngine(api: ZohoApiService): MetadataEngine =
         MetadataEngine(api)
+
+    @Provides
+    @Singleton
+    fun provideZohoRecordRepository(api: ZohoApiService): ZohoRecordRepository =
+        ZohoRecordRepository(api)
 }

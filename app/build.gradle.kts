@@ -74,4 +74,5 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     debugImplementation(libs.androidx.ui.tooling)
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
 }
