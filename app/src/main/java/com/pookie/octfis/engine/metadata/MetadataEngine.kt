@@ -2,6 +2,8 @@
 package com.pookie.octfis.engine.metadata
 
 import com.pookie.octfis.data.remote.ZohoApiService
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,8 +17,34 @@ class MetadataEngine @Inject constructor(
         cache[module]?.let { return Result.success(it) }
 
         return try {
-            val response = api.getFields(module)
-            val fields = response.fields
+            // ── Parallel fetch: fields + layouts ─────────────────────────────
+            val (fieldsResponse, sectionMap) = coroutineScope {
+                val fieldsDeferred  = async { api.getFields(module) }
+                val layoutsDeferred = async {
+                    runCatching { api.getLayouts(module) }.getOrNull()
+                }
+
+                val fields  = fieldsDeferred.await()
+                val layouts = layoutsDeferred.await()
+
+                // Build apiName → sectionName from the first active layout
+                // (status == 0 means active in Zoho; fallback to first layout)
+                val activeLayout = layouts?.layouts
+                    ?.firstOrNull { it.status == 0 }
+                    ?: layouts?.layouts?.firstOrNull()
+
+                val map = mutableMapOf<String, String>()
+                activeLayout?.sections?.forEach { section ->
+                    section.fields?.forEach { layoutField ->
+                        map[layoutField.apiName] = section.name
+                    }
+                }
+
+                fields to map
+            }
+
+            // ── Build FieldMetadata list ──────────────────────────────────────
+            val fields = fieldsResponse.fields
                 ?.map { zohoField ->
                     FieldMetadata(
                         apiName        = zohoField.apiName,
@@ -29,22 +57,19 @@ class MetadataEngine @Inject constructor(
                         readOnly       = zohoField.readOnly,
                         maxLength      = zohoField.length,
                         sequence       = zohoField.sequenceNumber,
-                        sectionName    = "Details",
+                        sectionName    = sectionMap[zohoField.apiName] ?: "Details",
                         pickListValues = zohoField.pickListValues ?: emptyList(),
                         lookupModule   = zohoField.lookup?.module,
+                        defaultValue   = zohoField.defaultValue,
                         tooltip        = zohoField.tooltip?.name,
                     )
                 }
-                // FIXED: only skip purely cosmetic read-only non-mandatory fields
-                // (formula fields, auto-number, system timestamps).
-                // Mandatory read-only fields (Owner, some lookups) are kept so
-                // the form can display and pre-fill them in edit mode.
                 ?.filter { field ->
                     when {
-                        field.type == FieldType.FORMULA  -> false   // always computed
-                        field.type == FieldType.UNKNOWN  -> false   // unknown = can't render
-                        field.readOnly && !field.required -> false   // cosmetic read-only
-                        else                             -> true
+                        field.type == FieldType.FORMULA           -> false
+                        field.type == FieldType.UNKNOWN           -> false
+                        field.readOnly && !field.required         -> false
+                        else                                      -> true
                     }
                 }
                 ?.sortedBy { it.sequence }

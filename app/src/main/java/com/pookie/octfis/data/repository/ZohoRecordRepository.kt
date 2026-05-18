@@ -135,4 +135,37 @@ class ZohoRecordRepository @Inject constructor(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    // ── Search (for LOOKUP picker) ────────────────────────────────────────────  ← ADDED
+
+    suspend fun searchRecords(
+        module: String,
+        query : String,
+    ): List<Pair<String, String>> = try {
+        val response = api.searchRecords(module, query) ?: return emptyList()
+
+        @Suppress("UNCHECKED_CAST")
+        val dataList = response["data"] as? List<Map<String, Any?>> ?: return emptyList()
+
+        val nameKeys = listOf(
+            "Name", "Full_Name", "Account_Name", "Deal_Name",
+            "Subject", "Product_Name", "Campaign_Name", "Vendor_Name"
+        )
+
+        dataList.mapNotNull { record ->
+            val id = record["id"]?.toString() ?: return@mapNotNull null
+
+            val displayName =
+                nameKeys.firstNotNullOfOrNull { key ->
+                    record[key]?.toString()?.takeIf { it.isNotBlank() }
+                } ?: record.entries
+                    .firstOrNull { it.key != "id" && it.value is String }
+                    ?.value?.toString()
+                ?: return@mapNotNull null
+
+            id to displayName
+        }
+    } catch (e: Exception) {
+        emptyList()
+    }
 }

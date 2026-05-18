@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pookie.octfis.data.repository.RawRecord
 import com.pookie.octfis.data.repository.ZohoRecordRepository
 import com.pookie.octfis.engine.metadata.FieldMetadata
+import com.pookie.octfis.engine.metadata.FieldType
 import com.pookie.octfis.engine.metadata.MetadataEngine
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -43,16 +44,9 @@ class RecordListViewModel @AssistedInject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    /**
-     * The api_name of the field used as the primary (title) line in each row.
-     * Resolved automatically from metadata — no hardcoding at call-sites.
-     */
     private val _primaryField = MutableStateFlow("Name")
     val primaryField: StateFlow<String> = _primaryField.asStateFlow()
 
-    /**
-     * The api_name of the field used as the subtitle line (nullable = no subtitle).
-     */
     private val _secondaryField = MutableStateFlow<String?>(null)
     val secondaryField: StateFlow<String?> = _secondaryField.asStateFlow()
 
@@ -84,75 +78,56 @@ class RecordListViewModel @AssistedInject constructor(
         }
     }
 
-    /**
-     * Picks the best primary + secondary field from Zoho metadata.
-     *
-     * Priority for PRIMARY:
-     *  1. Known name fields for common modules (Account_Name, Full_Name, Subject…)
-     *  2. Any field whose api_name ends with "_Name"
-     *  3. First text-like field in sequence order
-     *
-     * Priority for SECONDARY:
-     *  1. Known secondary fields per module (Phone, Email, Amount…)
-     *  2. First text-like field after primary
-     */
+    // ── Display field heuristics (zero hardcoded module names) ────────────────
+
     private fun resolveDisplayFields(meta: List<FieldMetadata>) {
-        val apiNames = meta.map { it.apiName }.toSet()
+        val sorted = meta.sortedBy { it.sequence }
 
-        // ── Primary ───────────────────────────────────────────────────────
-        val knownPrimary = when (moduleName) {
-            "Accounts"    -> "Account_Name"
-            "Contacts"    -> "Full_Name"
-            "Leads"       -> "Full_Name"
-            "Deals",
-            "Potentials"  -> "Deal_Name"
-            "Quotes"      -> "Subject"
-            "SalesOrders" -> "Subject"
-            "Invoices"    -> "Subject"
-            "PurchaseOrders" -> "Subject"
-            "Products"    -> "Product_Name"
-            "Campaigns"   -> "Campaign_Name"
-            "Cases"       -> "Subject"
-            "Solutions"   -> "Solution_Title"
-            "Vendors"     -> "Vendor_Name"
-            "Tasks"       -> "Subject"
-            "Events"      -> "Event_Title"
-            else          -> null
-        }
+        // ── Primary field (record title) ──────────────────────────────────────
+        val primary =
+            // 1. Field literally named "Name" — all custom modules use this
+            sorted.firstOrNull { it.apiName == "Name" }
+            // 2. First TEXT field whose apiName ends with "_Name"
+                ?: sorted.firstOrNull {
+                    it.type == FieldType.TEXT && it.apiName.endsWith("_Name")
+                }
+                // 3. First TEXT field named "Subject" or ending with "_Title"
+                ?: sorted.firstOrNull {
+                    it.type == FieldType.TEXT &&
+                            (it.apiName == "Subject" || it.apiName.endsWith("_Title"))
+                }
+                // 4. First non-readOnly TEXT/EMAIL/PHONE field by sequence
+                ?: sorted.firstOrNull {
+                    !it.readOnly &&
+                            it.type in listOf(FieldType.TEXT, FieldType.EMAIL, FieldType.PHONE)
+                }
+                // 5. Absolute fallback: first field in metadata
+                ?: sorted.firstOrNull()
 
-        _primaryField.value = when {
-            knownPrimary != null && knownPrimary in apiNames -> knownPrimary
-            "Name" in apiNames -> "Name"
-            else -> meta.firstOrNull { it.apiName.endsWith("_Name") }?.apiName
-                ?: meta.firstOrNull()?.apiName
-                ?: "Name"
-        }
+        _primaryField.value = primary?.apiName ?: "Name"
 
-        // ── Secondary ─────────────────────────────────────────────────────
-        val knownSecondary = when (moduleName) {
-            "Accounts"    -> "Phone"
-            "Contacts"    -> "Email"
-            "Leads"       -> "Email"
-            "Deals",
-            "Potentials"  -> "Amount"
-            "Quotes"      -> "Grand_Total"
-            "SalesOrders" -> "Grand_Total"
-            "Invoices"    -> "Grand_Total"
-            "Products"    -> "Unit_Price"
-            "Campaigns"   -> "Status"
-            "Cases"       -> "Status"
-            "Tasks"       -> "Due_Date"
-            "Events"      -> "Start_DateTime"
-            else          -> null
-        }
+        // ── Secondary field (subtitle) ────────────────────────────────────────
+        val secondaryTypePriority = listOf(
+            FieldType.EMAIL,
+            FieldType.PHONE,
+            FieldType.CURRENCY,
+            FieldType.DECIMAL,
+            FieldType.PERCENT,
+            FieldType.DATE,
+            FieldType.DATETIME,
+            FieldType.PICKLIST,
+            FieldType.TEXT,
+        )
 
-        _secondaryField.value = when {
-            knownSecondary != null && knownSecondary in apiNames -> knownSecondary
-            else -> meta
-                .filter { it.apiName != _primaryField.value }
-                .firstOrNull()
-                ?.apiName
-        }
+        val secondary = secondaryTypePriority
+            .firstNotNullOfOrNull { preferredType ->
+                sorted.firstOrNull { field ->
+                    field.type == preferredType &&
+                            field.apiName != _primaryField.value
+                }
+            }
+
+        _secondaryField.value = secondary?.apiName
     }
 
     // ── Pagination ────────────────────────────────────────────────────────────

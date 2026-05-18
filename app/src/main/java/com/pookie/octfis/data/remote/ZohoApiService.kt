@@ -180,6 +180,9 @@ interface ZohoApiService {
     @GET("settings/modules")
     suspend fun getModules(): ModulesResponse
 
+    @GET("settings/layouts")
+    suspend fun getLayouts(@Query("module") module: String): LayoutsResponse  // ← ADDED
+
     @GET("users")
     suspend fun getUsers(@Query("type") type: String = "AllUsers"): UsersResponse
 
@@ -219,8 +222,16 @@ interface ZohoApiService {
         @Path("id")     id    : String,
     ): CreateRecordResponse
 
+    // ── Search ────────────────────────────────────────────────────────────────
+    // Nullable — Zoho returns HTTP 204 (no body) when search has zero results
+    @GET("{module}/search")
+    suspend fun searchRecords(
+        @Path("module")    module : String,
+        @Query("word")     word   : String,
+        @Query("per_page") perPage: Int = 10,
+    ): Map<String, @JvmSuppressWildcards Any>?   // ← ADDED
+
     // ── Related records ───────────────────────────────────────────────────────
-    // Nullable return — Zoho returns empty body when no related records exist
     @GET("{parentModule}/{parentId}/{relatedModule}")
     suspend fun listRelatedRecords(
         @Path("parentModule")  parentModule : String,
