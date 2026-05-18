@@ -1,8 +1,6 @@
 package com.pookie.octfis.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -12,7 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pookie.octfis.engine.form.FormUiState
@@ -22,11 +19,11 @@ import com.pookie.octfis.engine.renderer.DynamicFormRenderer
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordFormScreen(
-    navController : NavController,
-    moduleName    : String,
-    recordId      : String?  = null,
-    screenTitle   : String?  = null,
-    viewModelFactory: RecordFormViewModel.Factory,
+    navController    : NavController,
+    moduleName       : String,
+    recordId         : String?  = null,
+    screenTitle      : String?  = null,
+    viewModelFactory : RecordFormViewModel.Factory,
 ) {
     // ── ViewModel via Assisted Inject ─────────────────────────────────────
     val viewModel: RecordFormViewModel = remember(moduleName, recordId) {
@@ -48,8 +45,8 @@ fun RecordFormScreen(
     LaunchedEffect(uiState) {
         if (uiState is FormUiState.Error) {
             snackbarHostState.showSnackbar(
-                message     = (uiState as FormUiState.Error).message,
-                duration    = SnackbarDuration.Long,
+                message  = (uiState as FormUiState.Error).message,
+                duration = SnackbarDuration.Long,
             )
             viewModel.resetState()
         }
@@ -70,10 +67,9 @@ fun RecordFormScreen(
                     }
                 },
                 actions = {
-                    // Save button in top bar
                     IconButton(
-                        onClick  = { viewModel.submit() },
-                        enabled  = uiState !is FormUiState.Submitting &&
+                        onClick = { viewModel.submit() },
+                        enabled = uiState !is FormUiState.Submitting &&
                                 uiState !is FormUiState.LoadingMetadata &&
                                 uiState !is FormUiState.LoadingRecord,
                     ) {
@@ -131,14 +127,17 @@ fun RecordFormScreen(
                 else -> {
                     Box {
                         DynamicFormRenderer(
-                            fields        = fields,
-                            values        = viewModel.formState.values,
-                            errors        = viewModel.formState.visibleErrors(),
-                            onValueChange = { apiName, value ->
+                            fields         = fields,
+                            values         = viewModel.formState.values,
+                            errors         = viewModel.formState.visibleErrors(),
+                            onValueChange  = { apiName, value ->
                                 viewModel.onFieldChange(apiName, value)
                             },
-                            scrollable    = true,
-                            modifier      = Modifier.fillMaxSize(),
+                            scrollable     = true,
+                            modifier       = Modifier.fillMaxSize(),
+                            onLookupSearch = { module, query ->   // ← ADDED
+                                viewModel.searchLookup(module, query)
+                            },
                         )
 
                         // Submitting overlay

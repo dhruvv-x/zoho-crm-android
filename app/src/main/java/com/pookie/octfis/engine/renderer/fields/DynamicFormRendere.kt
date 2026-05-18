@@ -16,12 +16,14 @@ import com.pookie.octfis.engine.metadata.FieldMetadata
 
 @Composable
 fun DynamicFormRenderer(
-    fields: List<FieldMetadata>,
-    values: Map<String, String>,
-    errors: Map<String, String>,
-    onValueChange: (apiName: String, value: String) -> Unit,
-    modifier: Modifier = Modifier,
-    scrollable: Boolean = true,
+    fields        : List<FieldMetadata>,
+    values        : Map<String, String>,
+    errors        : Map<String, String>,
+    onValueChange : (apiName: String, value: String) -> Unit,
+    modifier      : Modifier = Modifier,
+    scrollable    : Boolean = true,
+    onLookupSearch: (suspend (module: String, query: String)    // ← ADDED
+    -> List<Pair<String, String>>)? = null,
 ) {
     val columnModifier = if (scrollable)
         modifier.verticalScroll(rememberScrollState())
@@ -32,30 +34,28 @@ fun DynamicFormRenderer(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = columnModifier.padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        // Group fields by section
         val sections = fields.groupBy { it.sectionName }
 
         sections.forEach { (sectionName, sectionFields) ->
 
-            // Section header
             if (sections.size > 1) {
                 Text(
-                    text  = sectionName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    text     = sectionName,
+                    style    = MaterialTheme.typography.titleSmall,
+                    color    = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
                 HorizontalDivider()
             }
 
-            // Fields in this section
             sectionFields.forEach { field ->
                 DynamicFieldComponent(
-                    field         = field,
-                    value         = values[field.apiName] ?: field.defaultValue ?: "",
-                    onValueChange = { newValue -> onValueChange(field.apiName, newValue) },
-                    error         = errors[field.apiName],
-                    modifier      = Modifier.fillMaxWidth(),
+                    field          = field,
+                    value          = values[field.apiName] ?: field.defaultValue ?: "",
+                    onValueChange  = { newValue -> onValueChange(field.apiName, newValue) },
+                    error          = errors[field.apiName],
+                    onLookupSearch = onLookupSearch,               // ← ADDED
+                    modifier       = Modifier.fillMaxWidth(),
                 )
             }
         }

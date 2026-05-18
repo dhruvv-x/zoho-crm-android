@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pookie.octfis.data.repository.ZohoRecordRepository
 import com.pookie.octfis.engine.metadata.FieldMetadata
+import com.pookie.octfis.engine.metadata.FieldType
 import com.pookie.octfis.engine.metadata.MetadataEngine
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -30,7 +31,7 @@ class RecordFormViewModel @AssistedInject constructor(
     private val metadataEngine    : MetadataEngine,
     private val recordRepository  : ZohoRecordRepository,
     @Assisted("module")   val moduleName : String,
-    @Assisted("recordId") val recordId   : String?,   // null = create, non-null = edit
+    @Assisted("recordId") val recordId   : String?,
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -78,10 +79,14 @@ class RecordFormViewModel @AssistedInject constructor(
             _uiState.value = FormUiState.LoadingRecord
             recordRepository.getRecord(moduleName, id)
                 .onSuccess { rawMap ->
-                    // Convert every value to String for FormStateManager
                     val initial = rawMap.mapValues { (_, v) ->
                         when (v) {
-                            is Map<*, *> -> (v["name"] ?: v["id"] ?: "").toString()
+                            // ── CHANGED: store LOOKUP/OWNER as "id::name" ──
+                            is Map<*, *> -> {
+                                val rid  = v["id"]?.toString() ?: ""
+                                val name = v["name"]?.toString() ?: ""
+                                if (rid.isNotBlank()) "$rid::$name" else name
+                            }
                             is List<*>   -> v.joinToString(";")
                             else         -> v?.toString() ?: ""
                         }
@@ -106,13 +111,12 @@ class RecordFormViewModel @AssistedInject constructor(
 
     fun submit() {
         val currentFields = _fields.value
-        if (!formState.validateAll(currentFields)) return   // errors shown in UI
+        if (!formState.validateAll(currentFields)) return
 
         viewModelScope.launch {
             _uiState.value = FormUiState.Submitting
 
-            // Build payload — cast String values to correct types per FieldType
-            val rawPayload  = formState.toPayload(currentFields)
+            val rawPayload   = formState.toPayload(currentFields)
             val typedPayload = buildTypedPayload(rawPayload, currentFields)
 
             val result = if (isEditMode) {
@@ -127,32 +131,48 @@ class RecordFormViewModel @AssistedInject constructor(
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Typed payload builder ─────────────────────────────────────────────────
 
-    /**
-     * Zoho API expects typed values — integers as Int, booleans as Boolean etc.
-     * Everything else stays as String.
-     */
     private fun buildTypedPayload(
-        raw: Map<String, String>,
+        raw   : Map<String, String>,
         fields: List<FieldMetadata>,
     ): Map<String, Any> {
         val fieldMap = fields.associateBy { it.apiName }
         return raw.mapValues { (apiName, value) ->
             val type = fieldMap[apiName]?.type
             when (type) {
-                com.pookie.octfis.engine.metadata.FieldType.INTEGER  ->
+                FieldType.INTEGER  ->
                     value.toLongOrNull() ?: value
-                com.pookie.octfis.engine.metadata.FieldType.DECIMAL,
-                com.pookie.octfis.engine.metadata.FieldType.CURRENCY,
-                com.pookie.octfis.engine.metadata.FieldType.PERCENT  ->
+                FieldType.DECIMAL,
+                FieldType.CURRENCY,
+                FieldType.PERCENT  ->
                     value.toDoubleOrNull() ?: value
-                com.pookie.octfis.engine.metadata.FieldType.BOOLEAN  ->
+                FieldType.BOOLEAN  ->
                     value.equals("true", ignoreCase = true)
+                // ── CHANGED: unwrap "id::name" → {id: "..."} map for Zoho ──
+                FieldType.LOOKUP,
+                FieldType.OWNER    -> {
+                    val id = value.substringBefore("::")
+                    when {
+                        id.isNotBlank() && id != value -> mapOf("id" to id)
+                        value.isNotBlank()             -> mapOf("id" to value)
+                        else                           -> value
+                    }
+                }
                 else -> value
             }
         }
     }
+
+    // ── Lookup search (delegates to repository) ───────────────────────────────
+
+    // ── ADDED ──
+    suspend fun searchLookup(module: String, query: String): List<Pair<String, String>> =
+        try {
+            recordRepository.searchRecords(module, query)
+        } catch (e: Exception) {
+            emptyList()
+        }
 
     fun resetState() {
         _uiState.value = FormUiState.Idle

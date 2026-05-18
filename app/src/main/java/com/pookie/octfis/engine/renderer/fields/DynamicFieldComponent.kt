@@ -1,7 +1,6 @@
 package com.pookie.octfis.engine.renderer
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,16 +10,20 @@ import com.pookie.octfis.engine.metadata.FieldType
 import com.pookie.octfis.engine.renderer.fields.BooleanFieldComponent
 import com.pookie.octfis.engine.renderer.fields.DateFieldComponent
 import com.pookie.octfis.engine.renderer.fields.DropdownFieldComponent
+import com.pookie.octfis.engine.renderer.fields.LookupFieldComponent
+import com.pookie.octfis.engine.renderer.fields.MultiSelectFieldComponent
 import com.pookie.octfis.engine.renderer.fields.NumberFieldComponent
 import com.pookie.octfis.engine.renderer.fields.TextFieldComponent
 
 @Composable
 fun DynamicFieldComponent(
-    field: FieldMetadata,
-    value: String,
-    onValueChange: (String) -> Unit,
-    error: String?,
-    modifier: Modifier = Modifier,
+    field          : FieldMetadata,
+    value          : String,
+    onValueChange  : (String) -> Unit,
+    error          : String?,
+    modifier       : Modifier = Modifier,
+    onLookupSearch : (suspend (module: String, query: String)   // ← ADDED
+    -> List<Pair<String, String>>)? = null,
 ) {
     when (field.type) {
 
@@ -50,9 +53,17 @@ fun DynamicFieldComponent(
             modifier      = modifier.fillMaxWidth(),
         )
 
-        // ── Selection ─────────────────────────────────────────────────────
-        FieldType.PICKLIST,
-        FieldType.MULTI_SELECT -> DropdownFieldComponent(
+        // ── Single select ─────────────────────────────────────────────────
+        FieldType.PICKLIST -> DropdownFieldComponent(
+            field         = field,
+            value         = value,
+            onValueChange = onValueChange,
+            error         = error,
+            modifier      = modifier.fillMaxWidth(),
+        )
+
+        // ── Multi select — chip based ─────────────────────────────────────  ← CHANGED
+        FieldType.MULTI_SELECT -> MultiSelectFieldComponent(
             field         = field,
             value         = value,
             onValueChange = onValueChange,
@@ -79,14 +90,14 @@ fun DynamicFieldComponent(
             modifier      = modifier.fillMaxWidth(),
         )
 
-        // ── Lookup / Owner — read-only display for now ────────────────────
+        // ── Lookup / Owner — search picker ────────────────────────────────  ← CHANGED
         FieldType.LOOKUP,
-        FieldType.OWNER -> OutlinedTextField(
+        FieldType.OWNER -> LookupFieldComponent(
+            field         = field,
             value         = value,
-            onValueChange = {},
-            readOnly      = true,
-            label         = { Text(field.label) },
-            supportingText = { Text("Lookup — coming soon", style = MaterialTheme.typography.bodySmall) },
+            onValueChange = onValueChange,
+            error         = error,
+            onSearch      = onLookupSearch ?: { _, _ -> emptyList() },
             modifier      = modifier.fillMaxWidth(),
         )
 
