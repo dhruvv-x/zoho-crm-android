@@ -19,6 +19,7 @@ data class ZohoField(
     @SerializedName("tooltip")          val tooltip        : Tooltip? = null,
     @SerializedName("pick_list_values") val pickListValues : List<PickListValue>? = null,
     @SerializedName("lookup")           val lookup         : LookupMeta? = null,
+    @SerializedName("default_value")    val defaultValue   : String? = null,
 )
 
 data class Tooltip(
