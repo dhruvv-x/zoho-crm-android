@@ -181,7 +181,10 @@ interface ZohoApiService {
     suspend fun getModules(): ModulesResponse
 
     @GET("settings/layouts")
-    suspend fun getLayouts(@Query("module") module: String): LayoutsResponse  // ← ADDED
+    suspend fun getLayouts(@Query("module") module: String): LayoutsResponse
+
+    @GET("settings/related_lists")
+    suspend fun getRelatedLists(@Query("module") module: String): RelatedListsResponse
 
     @GET("users")
     suspend fun getUsers(@Query("type") type: String = "AllUsers"): UsersResponse
@@ -229,7 +232,7 @@ interface ZohoApiService {
         @Path("module")    module : String,
         @Query("word")     word   : String,
         @Query("per_page") perPage: Int = 10,
-    ): Map<String, @JvmSuppressWildcards Any>?   // ← ADDED
+    ): Map<String, @JvmSuppressWildcards Any>?
 
     // ── Related records ───────────────────────────────────────────────────────
     @GET("{parentModule}/{parentId}/{relatedModule}")

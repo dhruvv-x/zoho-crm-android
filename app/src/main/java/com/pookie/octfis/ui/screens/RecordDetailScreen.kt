@@ -31,6 +31,7 @@ import com.pookie.octfis.data.repository.ZohoRecordRepository
 import com.pookie.octfis.engine.detail.DetailUiState
 import com.pookie.octfis.engine.detail.RecordDetailSkeleton
 import com.pookie.octfis.engine.detail.RecordDetailViewModel
+import com.pookie.octfis.data.remote.dto.ZohoRelatedList
 import com.pookie.octfis.engine.detail.RelatedRecordsSection
 import com.pookie.octfis.engine.metadata.FieldMetadata
 import com.pookie.octfis.engine.metadata.FieldType
@@ -223,6 +224,7 @@ fun RecordDetailScreen(
                     moduleName    = moduleName,
                     recordId      = recordId,
                     fields        = state.fields,
+                    relatedLists  = state.relatedLists,
                     values        = state.values,
                     repository    = repository,
                     navController = navController,
@@ -244,6 +246,7 @@ private fun DetailContent(
     fields        : List<FieldMetadata>,
     values        : Map<String, Any?>,
     repository    : ZohoRecordRepository,
+    relatedLists  : List<ZohoRelatedList>,
     navController : NavController,
     modifier      : Modifier = Modifier,
 ) {
@@ -359,6 +362,7 @@ private fun DetailContent(
             parentModule  = moduleName,
             parentId      = recordId,
             repository    = repository,
+            relatedLists  = relatedLists,
             onRecordClick = { relatedModule, relatedId ->
                 navController.navigate(
                     Screen.ModuleDetail.createRoute(relatedModule, relatedId)

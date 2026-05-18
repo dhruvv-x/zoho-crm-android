@@ -1,8 +1,11 @@
 // engine/detail/RecordDetailViewModel.kt
 package com.pookie.octfis.engine.detail
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pookie.octfis.data.remote.ZohoApiService
+import com.pookie.octfis.data.remote.dto.ZohoRelatedList
 import com.pookie.octfis.data.repository.ZohoRecordRepository
 import com.pookie.octfis.engine.metadata.FieldMetadata
 import com.pookie.octfis.engine.metadata.MetadataEngine
@@ -20,8 +23,9 @@ import kotlinx.coroutines.launch
 sealed class DetailUiState {
     object Loading : DetailUiState()
     data class Success(
-        val fields : List<FieldMetadata>,
-        val values : Map<String, Any?>,    // raw Zoho values — display layer converts
+        val fields       : List<FieldMetadata>,
+        val values       : Map<String, Any?>,       // raw Zoho values — display layer converts
+        val relatedLists : List<ZohoRelatedList>,   // dynamic related lists from Zoho settings
     ) : DetailUiState()
     data class Error(val message: String) : DetailUiState()
 }
@@ -31,6 +35,7 @@ sealed class DetailUiState {
 class RecordDetailViewModel @AssistedInject constructor(
     private val metadataEngine   : MetadataEngine,
     private val recordRepository : ZohoRecordRepository,
+    private val api              : ZohoApiService,
     @Assisted("module")   val moduleName : String,
     @Assisted("recordId") val recordId   : String,
 ) : ViewModel() {
@@ -44,14 +49,27 @@ class RecordDetailViewModel @AssistedInject constructor(
         viewModelScope.launch {
             _uiState.value = DetailUiState.Loading
             try {
-                // Fetch metadata + record in parallel
-                val metaDeferred   = async { metadataEngine.getModuleMetadata(moduleName) }
-                val recordDeferred = async { recordRepository.getRecord(moduleName, recordId) }
+                // Fetch metadata, record, and related lists in parallel
+                val metaDeferred         = async { metadataEngine.getModuleMetadata(moduleName) }
+                val recordDeferred       = async { recordRepository.getRecord(moduleName, recordId) }
+                val relatedListDeferred  = async {
+                    try {
+                        api.getRelatedLists(moduleName).relatedLists
+                            ?.filter { it.visible }
+                            ?.sortedBy { it.sequence }
+                            ?: emptyList()
+                    } catch (e: Exception) {
+                        // Related lists are non-critical — fall back to empty gracefully
+                        Log.w("OctfisDetail", "getRelatedLists() failed for $moduleName — showing no related sections", e)
+                        emptyList()
+                    }
+                }
 
-                val metaResult   = metaDeferred.await()
-                val recordResult = recordDeferred.await()
+                val metaResult    = metaDeferred.await()
+                val recordResult  = recordDeferred.await()
+                val relatedLists  = relatedListDeferred.await()
 
-                // Both must succeed
+                // Both metadata and record must succeed
                 val fields = metaResult.getOrElse {
                     _uiState.value = DetailUiState.Error("Failed to load fields: ${it.message}")
                     return@launch
@@ -65,8 +83,9 @@ class RecordDetailViewModel @AssistedInject constructor(
                 val displayFields = fields.sortedBy { it.sequence }
 
                 _uiState.value = DetailUiState.Success(
-                    fields = displayFields,
-                    values = rawValues,
+                    fields       = displayFields,
+                    values       = rawValues,
+                    relatedLists = relatedLists,
                 )
             } catch (e: Exception) {
                 _uiState.value = DetailUiState.Error(e.message ?: "Unknown error")

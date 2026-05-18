@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
@@ -22,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pookie.octfis.data.remote.dto.ZohoRelatedList
 import com.pookie.octfis.data.repository.RawRecord
 import com.pookie.octfis.data.repository.ZohoRecordRepository
 import com.pookie.octfis.ui.theme.CrmPrimary
@@ -37,14 +37,16 @@ private sealed class RelatedState {
     data class Error(val message: String)            : RelatedState()
 }
 
-// ── Public config — which related modules to show per parent ──────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
 
 /**
  * Defines one related-records section to show on a detail screen.
  *
- * @param relatedModule  Zoho API module name, e.g. "Contacts", "Deals"
- * @param label          Display label for the section header, e.g. "Contacts"
- * @param primaryField   Field key used as the row title, e.g. "Full_Name"
+ * Built from [ZohoRelatedList] returned by GET /settings/related_lists.
+ *
+ * @param relatedModule  Zoho API module name used for fetching related records
+ * @param label          Display label for the section header
+ * @param primaryField   Field key used as the row title
  * @param secondaryField Optional field key used as the row subtitle
  */
 data class RelatedModuleConfig(
@@ -55,42 +57,71 @@ data class RelatedModuleConfig(
 )
 
 /**
- * Returns which related modules to show for a given parent module.
- * Add more entries here as the app grows — no other code changes needed.
+ * Converts a [ZohoRelatedList] from the settings API into a [RelatedModuleConfig].
+ *
+ * The `module` field on [ZohoRelatedList] is the actual API module name used for
+ * record fetching (e.g. "Contacts"). `api_name` is the relationship name and may
+ * differ (e.g. "Contacts_1"). We prefer `module` for fetching and `display_label`
+ * for the UI label.
+ *
+ * Primary/secondary field heuristics are intentionally generic — they work for
+ * all standard and custom Zoho modules without hardcoding module names.
  */
-fun relatedModulesFor(parentModule: String): List<RelatedModuleConfig> =
-    when (parentModule) {
-        "Accounts" -> listOf(
-            RelatedModuleConfig("Contacts", "Contacts", "Full_Name", "Email"),
-            RelatedModuleConfig("Deals",    "Deals",    "Deal_Name", "Stage"),
-        )
-        "Contacts" -> listOf(
-            RelatedModuleConfig("Deals", "Deals", "Deal_Name", "Stage"),
-        )
-        "Deals" -> listOf(
-            RelatedModuleConfig("Contacts", "Contacts", "Full_Name", "Email"),
-        )
-        else -> emptyList()
+private fun ZohoRelatedList.toConfig(): RelatedModuleConfig? {
+    // `module` is the fetchable API name; fall back to api_name if absent
+    val fetchModule = module?.takeIf { it.isNotBlank() } ?: apiName.takeIf { it.isNotBlank() }
+    ?: return null
+    val displayLabel = displayLabel?.takeIf { it.isNotBlank() } ?: fetchModule
+
+    // Heuristic primary/secondary fields — cover the vast majority of Zoho modules
+    val (primary, secondary) = when (fetchModule) {
+        "Contacts"            -> "Full_Name"  to "Email"
+        "Deals", "Potentials" -> "Deal_Name"  to "Stage"
+        "Leads"               -> "Full_Name"  to "Company"
+        "Cases"               -> "Case_Subject" to "Status"
+        "Tasks"               -> "Subject"    to "Due_Date"
+        "Events"              -> "Event_Title" to "Start_DateTime"
+        "Calls"               -> "Subject"    to "Call_Start_Time"
+        "Quotes"              -> "Subject"    to "Quote_Stage"
+        "Invoices"            -> "Subject"    to "Status"
+        "SalesOrders"         -> "Subject"    to "Status"
+        "PurchaseOrders"      -> "Subject"    to "Status"
+        "Products"            -> "Product_Name" to "Unit_Price"
+        "Vendors"             -> "Vendor_Name" to "Email"
+        "Campaigns"           -> "Campaign_Name" to "Status"
+        else                  -> "Name"       to null
     }
+    return RelatedModuleConfig(
+        relatedModule  = fetchModule,
+        label          = displayLabel,
+        primaryField   = primary,
+        secondaryField = secondary,
+    )
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 /**
  * Renders all related-record sections for [parentModule]/[parentId].
- * Each section is collapsible and lazy-loads on first expand.
  *
- * Drop this inside a Column in RecordDetailScreen — it handles its own
- * coroutine scope and state.
+ * Accepts [relatedLists] from [RecordDetailViewModel] — these come from
+ * GET /settings/related_lists and reflect what Zoho CRM has actually configured
+ * for this module. Each section is collapsible and lazy-loads on first expand.
+ *
+ * Pass an empty list and this composable renders nothing.
  */
 @Composable
 fun RelatedRecordsSection(
-    parentModule : String,
-    parentId     : String,
-    repository   : ZohoRecordRepository,
-    onRecordClick: (moduleName: String, recordId: String) -> Unit = { _, _ -> },
-    modifier     : Modifier = Modifier,
+    parentModule  : String,
+    parentId      : String,
+    repository    : ZohoRecordRepository,
+    relatedLists  : List<ZohoRelatedList>,
+    onRecordClick : (moduleName: String, recordId: String) -> Unit = { _, _ -> },
+    modifier      : Modifier = Modifier,
 ) {
-    val configs = remember(parentModule) { relatedModulesFor(parentModule) }
+    val configs = remember(relatedLists) {
+        relatedLists.mapNotNull { it.toConfig() }
+    }
     if (configs.isEmpty()) return
 
     Column(modifier = modifier) {
@@ -243,10 +274,10 @@ private fun RelatedModuleCard(
                             } else {
                                 s.records.forEachIndexed { index, record ->
                                     RelatedRecordRow(
-                                        record        = record,
-                                        config        = config,
-                                        isLast        = index == s.records.lastIndex,
-                                        onClick       = {
+                                        record  = record,
+                                        config  = config,
+                                        isLast  = index == s.records.lastIndex,
+                                        onClick = {
                                             onRecordClick(config.relatedModule, record.id)
                                         },
                                     )
@@ -269,7 +300,7 @@ private fun RelatedRecordRow(
     isLast : Boolean,
     onClick: () -> Unit,
 ) {
-    val primary = resolveDisplay(record, config.primaryField)
+    val primary   = resolveDisplay(record, config.primaryField)
     val secondary = config.secondaryField?.let { resolveDisplay(record, it) }
 
     Column {
@@ -288,13 +319,7 @@ private fun RelatedRecordRow(
             Box(
                 modifier         = Modifier
                     .size(36.dp)
-                    .clip(CircleShape)
-                    .then(
-                        Modifier.then(
-                            androidx.compose.ui.Modifier
-                                .clip(CircleShape)
-                        )
-                    ),
+                    .clip(CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Surface(
@@ -314,11 +339,11 @@ private fun RelatedRecordRow(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text     = primary.ifBlank { "—" },
-                    style    = MaterialTheme.typography.bodyMedium,
+                    text       = primary.ifBlank { "—" },
+                    style      = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines   = 1,
+                    overflow   = TextOverflow.Ellipsis,
                 )
                 if (!secondary.isNullOrBlank()) {
                     Text(
