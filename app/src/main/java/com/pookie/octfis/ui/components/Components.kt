@@ -216,7 +216,10 @@ fun CrmBottomBar(
             onClick  = {
                 if (currentRoute != homeRoute) {
                     navController.navigate(homeRoute) {
-                        popUpTo(homeRoute) { saveState = true }
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                            inclusive = false
+                        }
                         launchSingleTop = true
                         restoreState    = true
                     }
@@ -236,7 +239,10 @@ fun CrmBottomBar(
                 onClick  = {
                     if (currentRoute != route) {
                         navController.navigate(route) {
-                            popUpTo(Screen.Dashboard.route) { saveState = true }
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                                inclusive = false
+                            }
                             launchSingleTop = true
                             restoreState    = true
                         }
@@ -299,7 +305,10 @@ fun CrmBottomBar(
                             .clickable {
                                 showMoreSheet = false
                                 navController.navigate(route) {
-                                    popUpTo(Screen.Dashboard.route) { saveState = true }
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = true
+                                        inclusive = false
+                                    }
                                     launchSingleTop = true
                                     restoreState    = true
                                 }
