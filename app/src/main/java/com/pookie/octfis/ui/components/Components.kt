@@ -73,23 +73,109 @@ private val fallbackNavModules = listOf(
 
 // ─── Icon mapping ─────────────────────────────────────────────────────────────
 
-private fun moduleIcon(apiName: String): ImageVector = when (apiName) {
-    "Accounts"       -> Icons.Default.Business
-    "Contacts"       -> Icons.Default.Contacts
-    "Deals",
-    "Potentials"     -> Icons.Default.Handshake
-    "Quotes"         -> Icons.Default.Receipt
-    "Leads"          -> Icons.Default.PersonAdd
-    "Products"       -> Icons.Default.Inventory
-    "Invoices"       -> Icons.Default.Description
-    "PurchaseOrders" -> Icons.Default.ShoppingCart
-    "SalesOrders"    -> Icons.Default.ShoppingBag
-    "Campaigns"      -> Icons.Default.Campaign
-    "Cases"          -> Icons.Default.SupportAgent
-    "Solutions"      -> Icons.Default.Lightbulb
-    "Vendors"        -> Icons.Default.Store
-    else             -> Icons.Default.Folder
+/**
+ * Known Zoho standard modules → specific Material icon.
+ * Returns null for anything not in the list so the caller can
+ * fall through to the custom-module cycling logic.
+ */
+private fun knownModuleIcon(apiName: String): ImageVector? = when (apiName) {
+    "Accounts"                          -> Icons.Default.Business
+    "Contacts"                          -> Icons.Default.Contacts
+    "Deals", "Potentials"               -> Icons.Default.Handshake
+    "Quotes"                            -> Icons.Default.Receipt
+    "Leads"                             -> Icons.Default.PersonAdd
+    "Products"                          -> Icons.Default.Inventory
+    "Invoices"                          -> Icons.Default.Description
+    "PurchaseOrders"                    -> Icons.Default.ShoppingCart
+    "SalesOrders"                       -> Icons.Default.ShoppingBag
+    "Campaigns"                         -> Icons.Default.Campaign
+    "Cases"                             -> Icons.Default.SupportAgent
+    "Solutions"                         -> Icons.Default.Lightbulb
+    "Vendors"                           -> Icons.Default.Store
+    "Meetings", "Events"                -> Icons.Default.Event
+    "Tasks"                             -> Icons.Default.CheckCircle
+    "Calls"                             -> Icons.Default.Call
+    "Reports"                           -> Icons.Default.BarChart
+    "Dashboards"                        -> Icons.Default.Dashboard
+    "Forecasts"                         -> Icons.Default.TrendingUp
+    "Projects"                          -> Icons.Default.FolderSpecial
+    "Price_Books", "PriceBooks"         -> Icons.Default.LocalOffer
+    "Contracts"                         -> Icons.Default.Gavel
+    "Services"                          -> Icons.Default.MiscellaneousServices
+    "Appointments"                      -> Icons.Default.CalendarMonth
+    "Partners"                          -> Icons.Default.Group
+    "Competitors"                       -> Icons.Default.EmojiEvents
+    "Territories"                       -> Icons.Default.Map
+    "Documents"                         -> Icons.Default.Article
+    else                                -> null
 }
+
+/**
+ * Pool of icons cycled for CustomModuleXX and any other unknown module.
+ * 16 entries — large enough that neighbours in a typical Zoho setup look different.
+ */
+private val customModuleIconPool: List<ImageVector> = listOf(
+    Icons.Default.Star,
+    Icons.Default.Bolt,
+    Icons.Default.Widgets,
+    Icons.Default.Category,
+    Icons.Default.Layers,
+    Icons.Default.Extension,
+    Icons.Default.Flag,
+    Icons.Default.Spa,
+    Icons.Default.Diamond,
+    Icons.Default.Rocket,
+    Icons.Default.AutoAwesome,
+    Icons.Default.Tune,
+    Icons.Default.Hub,
+    Icons.Default.WorkspacePremium,
+    Icons.Default.Explore,
+    Icons.Default.LocalFireDepartment,
+)
+
+/**
+ * Pool of colors cycled for unknown modules — kept Material-ish and distinct.
+ */
+private val customModuleColorPool: List<Color> = listOf(
+    Color(0xFF6750A4), // M3 purple
+    Color(0xFF0077B6), // ocean blue
+    Color(0xFF2D9D78), // teal green
+    Color(0xFFE76F51), // terracotta
+    Color(0xFF457B9D), // steel blue
+    Color(0xFF8338EC), // violet
+    Color(0xFFE63946), // crimson
+    Color(0xFF2A9D8F), // seafoam
+    Color(0xFFF4A261), // sandy amber
+    Color(0xFF264653), // dark slate
+    Color(0xFF6D6875), // muted mauve
+    Color(0xFF023E8A), // deep navy
+    Color(0xFF40916C), // forest green
+    Color(0xFFBC6C25), // warm brown
+    Color(0xFF9B2226), // deep red
+    Color(0xFF48CAE4), // sky blue
+)
+
+/**
+ * Returns the icon for a module.
+ * Known standard modules → fixed icon.
+ * Everything else (CustomModuleXX, unknown) → cycles through [customModuleIconPool]
+ * using [sequence] so adjacent modules look different.
+ */
+fun moduleIcon(apiName: String, sequence: Int = 0): ImageVector =
+    knownModuleIcon(apiName)
+        ?: customModuleIconPool[sequence.coerceAtLeast(0) % customModuleIconPool.size]
+
+/**
+ * Returns a tint color for a module.
+ * Known standard modules get [CrmPrimary] (unchanged from before).
+ * Unknown modules cycle through [customModuleColorPool].
+ */
+fun moduleIconColor(apiName: String, sequence: Int = 0): Color =
+    if (knownModuleIcon(apiName) != null) {
+        CrmPrimary
+    } else {
+        customModuleColorPool[sequence.coerceAtLeast(0) % customModuleColorPool.size]
+    }
 
 // ─── Route helper ─────────────────────────────────────────────────────────────
 
@@ -151,7 +237,14 @@ fun CrmBottomBar(
                         }
                     }
                 },
-                icon   = { Icon(moduleIcon(module.apiName), contentDescription = module.pluralLabel) },
+                icon  = {
+                    Icon(
+                        imageVector        = moduleIcon(module.apiName, module.sequence),
+                        contentDescription = module.pluralLabel,
+                        // In the nav bar the selected/unselected tint is handled by
+                        // navItemColors() so we let Compose apply it naturally.
+                    )
+                },
                 label  = { Text(module.pluralLabel, fontSize = 10.sp, maxLines = 1) },
                 colors = navItemColors(),
             )
@@ -182,8 +275,8 @@ fun CrmBottomBar(
             )
             HorizontalDivider()
             LazyColumn(
-                modifier            = Modifier.fillMaxWidth(),
-                contentPadding      = PaddingValues(bottom = 32.dp),
+                modifier       = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(bottom = 32.dp),
             ) {
                 items(resolvedModules) { module ->
                     val route = moduleRoute(module.apiName)
@@ -191,9 +284,9 @@ fun CrmBottomBar(
                         headlineContent = { Text(module.pluralLabel) },
                         leadingContent  = {
                             Icon(
-                                imageVector        = moduleIcon(module.apiName),
+                                imageVector        = moduleIcon(module.apiName, module.sequence),
                                 contentDescription = null,
-                                tint               = CrmPrimary,
+                                tint               = moduleIconColor(module.apiName, module.sequence),
                             )
                         },
                         modifier = Modifier
