@@ -39,6 +39,8 @@ import com.pookie.octfis.engine.list.RecordListSkeleton
 import com.pookie.octfis.engine.list.RecordListUiState
 import com.pookie.octfis.engine.list.RecordListViewModel
 import com.pookie.octfis.navigation.Screen
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.pookie.octfis.ui.components.CrmBottomBar
 import com.pookie.octfis.util.ConnectivityObserver
 
 // ── Error classifier ──────────────────────────────────────────────────────────
@@ -268,7 +270,6 @@ fun RecordListScreen(
                     )
                 }
 
-                // Offline banner animates below the top bar
                 AnimatedVisibility(
                     visible = !isOnline,
                     enter   = expandVertically(),
@@ -278,6 +279,16 @@ fun RecordListScreen(
                 }
             }
         },
+
+        bottomBar = {
+            val navBackStack by navController.currentBackStackEntryAsState()
+
+            CrmBottomBar(
+                navController = navController,
+                currentRoute  = navBackStack?.destination?.route,
+            )
+        },
+
         floatingActionButton = {
             if (uiState !is RecordListUiState.Error) {
                 FloatingActionButton(

@@ -1,9 +1,13 @@
 // ui/components/Components.kt
 package com.pookie.octfis.ui.components
 
+import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,12 +37,6 @@ import javax.inject.Inject
 
 // ─── NavBar ViewModel ─────────────────────────────────────────────────────────
 
-/**
- * Thin @HiltViewModel that owns the ModuleEngine call.
- * Lives as long as the nav host — survives recomposition.
- * On success: emits the ordered ActiveModule list.
- * On failure: emits null → CrmBottomBar falls back to hardcoded tabs.
- */
 @HiltViewModel
 class NavBarViewModel @Inject constructor(
     private val moduleEngine: ModuleEngine,
@@ -50,75 +48,71 @@ class NavBarViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             moduleEngine.getActiveModules()
-                .onSuccess { _modules.value = it }
-            // on failure leave null → fallback nav renders
+                .onSuccess { modules ->
+                    Log.d("OctfisNav", "Loaded ${modules.size} modules from Zoho API")
+                    _modules.value = modules
+                }
+                .onFailure { error ->
+                    // This log is critical — if you see it, check:
+                    // 1. ZohoConstants.SCOPE includes ZohoCRM.settings.modules.READ
+                    // 2. The user has re-authenticated after the scope was added
+                    Log.e("OctfisNav", "getActiveModules() FAILED — falling back to static tabs", error)
+                }
         }
     }
 }
 
-// ─── Fallback static items (used when API hasn't loaded yet / fails) ──────────
+// ─── Fallback static items ────────────────────────────────────────────────────
 
 private val fallbackNavModules = listOf(
-    ActiveModule("Accounts", "Accounts", "Account",  1),
-    ActiveModule("Contacts", "Contacts", "Contact",  2),
-    ActiveModule("Deals",    "Deals",    "Deal",     3),
-    ActiveModule("Quotes",   "Quotes",   "Quote",    4),
+    ActiveModule("Accounts", "Accounts", "Account", 1),
+    ActiveModule("Contacts", "Contacts", "Contact", 2),
+    ActiveModule("Deals",    "Deals",    "Deal",    3),
+    ActiveModule("Quotes",   "Quotes",   "Quote",   4),
 )
 
 // ─── Icon mapping ─────────────────────────────────────────────────────────────
 
 private fun moduleIcon(apiName: String): ImageVector = when (apiName) {
-    "Accounts"      -> Icons.Default.Business
-    "Contacts"      -> Icons.Default.Contacts
+    "Accounts"       -> Icons.Default.Business
+    "Contacts"       -> Icons.Default.Contacts
     "Deals",
-    "Potentials"    -> Icons.Default.Handshake
-    "Quotes"        -> Icons.Default.Receipt
-    "Leads"         -> Icons.Default.PersonAdd
-    "Products"      -> Icons.Default.Inventory
-    "Invoices"      -> Icons.Default.Description
-    "PurchaseOrders"-> Icons.Default.ShoppingCart
-    "SalesOrders"   -> Icons.Default.ShoppingBag
-    "Campaigns"     -> Icons.Default.Campaign
-    "Cases"         -> Icons.Default.SupportAgent
-    "Solutions"     -> Icons.Default.Lightbulb
-    "Vendors"       -> Icons.Default.Store
-    else            -> Icons.Default.Folder
+    "Potentials"     -> Icons.Default.Handshake
+    "Quotes"         -> Icons.Default.Receipt
+    "Leads"          -> Icons.Default.PersonAdd
+    "Products"       -> Icons.Default.Inventory
+    "Invoices"       -> Icons.Default.Description
+    "PurchaseOrders" -> Icons.Default.ShoppingCart
+    "SalesOrders"    -> Icons.Default.ShoppingBag
+    "Campaigns"      -> Icons.Default.Campaign
+    "Cases"          -> Icons.Default.SupportAgent
+    "Solutions"      -> Icons.Default.Lightbulb
+    "Vendors"        -> Icons.Default.Store
+    else             -> Icons.Default.Folder
 }
 
 // ─── Route helper ─────────────────────────────────────────────────────────────
 
-/**
- * Maps a module's apiName to its bottom-nav route string.
- * Uses the unified ModuleList pattern — no hardcoded per-module routes.
- */
 private fun moduleRoute(apiName: String): String =
     Screen.ModuleList.createRoute(apiName)
 
 // ─── CrmBottomBar ─────────────────────────────────────────────────────────────
 
-/**
- * Signature intentionally unchanged — all 9 existing call-sites compile as-is.
- *
- * Behaviour:
- *  1. Home tab is always pinned at position 0.
- *  2. Up to [ModuleEngine.MAX_NAV_TABS - 1] (= 4) dynamic module tabs follow,
- *     ordered by Zoho's sequence_number.
- *  3. While the API call is in-flight (modules == null) the fallback list
- *     renders so the nav is never empty or invisible.
- *  4. If the API call fails, modules stays null → fallback list is shown
- *     indefinitely (zero regression from old behaviour).
- */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CrmBottomBar(
     navController: NavController,
     currentRoute : String?,
     vm           : NavBarViewModel = hiltViewModel(),
 ) {
-    val dynamicModules by vm.modules.collectAsState()
+    val allModules    by vm.modules.collectAsState()
+    var showMoreSheet by remember { mutableStateOf(false) }
 
-    // Resolve the tab list — always has Home + up to 4 module tabs
-    val moduleList = (dynamicModules ?: fallbackNavModules)
-        .take(ModuleEngine.MAX_NAV_TABS - 1)   // cap at 4 module tabs
+    val resolvedModules = allModules ?: fallbackNavModules
+
+    // First 4 modules go in the bottom bar; rest go in the "More" sheet
+    val pinnedModules = resolvedModules.take(4)
+    val moreModules   = resolvedModules.drop(4)
 
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -142,8 +136,8 @@ fun CrmBottomBar(
             colors = navItemColors(),
         )
 
-        // ── Dynamic module tabs ────────────────────────────────────────────
-        moduleList.forEach { module ->
+        // ── Top 4 dynamic module tabs ──────────────────────────────────────
+        pinnedModules.forEach { module ->
             val route    = moduleRoute(module.apiName)
             val selected = currentRoute == route
             NavigationBarItem(
@@ -157,10 +151,65 @@ fun CrmBottomBar(
                         }
                     }
                 },
-                icon  = { Icon(moduleIcon(module.apiName), contentDescription = module.pluralLabel) },
-                label = { Text(module.pluralLabel, fontSize = 10.sp, maxLines = 1) },
+                icon   = { Icon(moduleIcon(module.apiName), contentDescription = module.pluralLabel) },
+                label  = { Text(module.pluralLabel, fontSize = 10.sp, maxLines = 1) },
                 colors = navItemColors(),
             )
+        }
+
+        // ── "More" tab — only shown when there are extra modules ───────────
+        if (moreModules.isNotEmpty()) {
+            NavigationBarItem(
+                selected = false,
+                onClick  = { showMoreSheet = true },
+                icon     = { Icon(Icons.Default.MoreHoriz, contentDescription = "More") },
+                label    = { Text("More", fontSize = 10.sp) },
+                colors   = navItemColors(),
+            )
+        }
+    }
+
+    // ── More modules bottom sheet ──────────────────────────────────────────
+    if (showMoreSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showMoreSheet = false },
+            containerColor   = MaterialTheme.colorScheme.surface,
+        ) {
+            Text(
+                text     = "All Modules",
+                style    = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            )
+            HorizontalDivider()
+            LazyColumn(
+                modifier            = Modifier.fillMaxWidth(),
+                contentPadding      = PaddingValues(bottom = 32.dp),
+            ) {
+                items(resolvedModules) { module ->
+                    val route = moduleRoute(module.apiName)
+                    ListItem(
+                        headlineContent = { Text(module.pluralLabel) },
+                        leadingContent  = {
+                            Icon(
+                                imageVector        = moduleIcon(module.apiName),
+                                contentDescription = null,
+                                tint               = CrmPrimary,
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showMoreSheet = false
+                                navController.navigate(route) {
+                                    popUpTo(Screen.Dashboard.route) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState    = true
+                                }
+                            },
+                    )
+                    HorizontalDivider()
+                }
+            }
         }
     }
 }
@@ -182,8 +231,6 @@ data class BottomNavItem(
     val route : String,
 )
 
-// bottomNavItems is kept so any remaining import references compile.
-// CrmBottomBar no longer uses it — it drives from ActiveModule instead.
 val bottomNavItems = listOf(
     BottomNavItem("Home",     Icons.Default.Home,      Screen.Dashboard.route),
     BottomNavItem("Accounts", Icons.Default.Business,  Screen.ModuleList.createRoute("Accounts")),
@@ -230,7 +277,7 @@ fun CrmFilterSheet(
     }
 }
 
-// ─── Filter Chip Row (horizontally scrollable) ────────────────────────────────
+// ─── Filter Chip Row ──────────────────────────────────────────────────────────
 
 @Composable
 fun FilterChipRow(

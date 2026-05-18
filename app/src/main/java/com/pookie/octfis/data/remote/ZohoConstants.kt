@@ -6,14 +6,11 @@ object ZohoConstants {
     const val REDIRECT_URI  = "com.pookie.octfis://oauth/callback"
 
     const val SCOPE =
-        "ZohoCRM.modules.accounts.ALL," +
-                "ZohoCRM.modules.contacts.ALL," +
-                "ZohoCRM.modules.deals.ALL," +
-                "ZohoCRM.modules.quotes.ALL," +
-                "ZohoCRM.modules.Tasks.ALL," +
-                "ZohoCRM.modules.Events.ALL," +
-                "ZohoCRM.modules.Calls.ALL," +
+        "ZohoCRM.modules.ALL," +
+                "ZohoCRM.settings.modules.READ," +
                 "ZohoCRM.settings.fields.READ," +
+                "ZohoCRM.settings.layouts.READ," +
+                "ZohoCRM.settings.related_lists.READ," +
                 "ZohoCRM.users.READ"
 
     const val PREFS_NAME        = "zoho_prefs"
