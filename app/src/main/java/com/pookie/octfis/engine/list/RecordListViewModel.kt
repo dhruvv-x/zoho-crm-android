@@ -11,6 +11,8 @@ import com.pookie.octfis.engine.metadata.MetadataEngine
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,6 +56,9 @@ class RecordListViewModel @AssistedInject constructor(
     private val allRecords  = mutableListOf<RawRecord>()
     private var currentPage = 1
     private var loadingMore = false
+
+    // Debounce job for server-side search
+    private var searchJob: Job? = null
 
     init {
         loadMetadataThenRecords()
@@ -133,12 +138,18 @@ class RecordListViewModel @AssistedInject constructor(
     // ── Pagination ────────────────────────────────────────────────────────────
 
     fun refresh() {
+        // Cancel any pending search and reset query so we go back to list mode
+        searchJob?.cancel()
+        searchJob = null
+        _searchQuery.value = ""
         allRecords.clear()
         currentPage = 1
         viewModelScope.launch { fetchPage(1) }
     }
 
     fun loadNextPage() {
+        // Don't paginate while a search is active — server search returns its own set
+        if (_searchQuery.value.trim().length >= 3) return
         if (loadingMore) return
         if ((_uiState.value as? RecordListUiState.Success)?.hasMore != true) return
         viewModelScope.launch { fetchPage(currentPage + 1) }
@@ -150,8 +161,9 @@ class RecordListViewModel @AssistedInject constructor(
             .onSuccess { (newItems, hasMore) ->
                 allRecords.addAll(newItems)
                 currentPage = page
+                // If user typed something short while we were loading, apply client filter
                 _uiState.value = RecordListUiState.Success(
-                    records = applySearch(allRecords),
+                    records = applyClientSearch(allRecords),
                     hasMore = hasMore,
                 )
             }
@@ -163,15 +175,69 @@ class RecordListViewModel @AssistedInject constructor(
 
     // ── Search ────────────────────────────────────────────────────────────────
 
+    /**
+     * Called by the UI on every keystroke.
+     *
+     * • query.length < 3  → cancel any server job, apply client-side filter
+     *                        over the locally-cached [allRecords] immediately.
+     * • query.length >= 3 → debounce 300 ms, then call [searchRecords] on the
+     *                        server. If the server returns empty, fall back to
+     *                        the client-side filter so the list isn't jarring.
+     */
     fun setSearch(query: String) {
         _searchQuery.value = query
-        val current = _uiState.value
-        if (current is RecordListUiState.Success) {
-            _uiState.value = current.copy(records = applySearch(allRecords))
+        searchJob?.cancel()
+
+        val trimmed = query.trim()
+
+        if (trimmed.length < 3) {
+            // Short query → fast local filter, no network call
+            val current = _uiState.value
+            if (current is RecordListUiState.Success) {
+                _uiState.value = current.copy(records = applyClientSearch(allRecords))
+            } else {
+                // Re-apply over allRecords even if we were in a previous search state
+                _uiState.value = RecordListUiState.Success(
+                    records = applyClientSearch(allRecords),
+                    hasMore = false,
+                )
+            }
+            return
+        }
+
+        // Long-enough query → debounced server search
+        searchJob = viewModelScope.launch {
+            delay(300)
+            _uiState.value = RecordListUiState.Loading
+            val results = recordRepository.searchRecords(module = moduleName, query = trimmed)
+            if (results.isNotEmpty()) {
+                // Convert List<Pair<id,name>> → List<RawRecord> using the name key
+                // we resolved for this module so the list item renders correctly
+                val primaryKey = _primaryField.value
+                val serverRecords = results.map { (id, displayName) ->
+                    RawRecord(
+                        id     = id,
+                        fields = mapOf("id" to id, primaryKey to displayName),
+                    )
+                }
+                _uiState.value = RecordListUiState.Success(
+                    records = serverRecords,
+                    hasMore = false,       // server search returns a flat result set
+                )
+            } else {
+                // Server returned nothing → fall back to client-side filter
+                val clientFiltered = applyClientSearch(allRecords)
+                _uiState.value = RecordListUiState.Success(
+                    records = clientFiltered,
+                    hasMore = false,
+                )
+            }
         }
     }
 
-    private fun applySearch(list: List<RawRecord>): List<RawRecord> {
+    // ── Client-side filter (fallback / short queries) ─────────────────────────
+
+    private fun applyClientSearch(list: List<RawRecord>): List<RawRecord> {
         val q = _searchQuery.value.trim().lowercase()
         if (q.isBlank()) return list
         return list.filter { record ->

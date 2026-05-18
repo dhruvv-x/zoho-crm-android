@@ -38,6 +38,7 @@ import com.pookie.octfis.engine.metadata.FieldType
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.theme.*
 import com.pookie.octfis.util.ConnectivityObserver
+import kotlinx.coroutines.launch
 
 // ── Error classifier ──────────────────────────────────────────────────────────
 
@@ -149,7 +150,80 @@ fun RecordDetailScreen(
     val uiState  by viewModel.uiState.collectAsStateWithLifecycle()
     val isOnline by connectivityObserver.isOnline.collectAsStateWithLifecycle(initialValue = true)
 
+    // ── Delete state ──────────────────────────────────────────────────────────
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deleteInProgress by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope             = rememberCoroutineScope()
+
+    // ── Delete confirmation dialog ────────────────────────────────────────────
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!deleteInProgress) showDeleteDialog = false },
+            icon = {
+                Icon(
+                    imageVector        = Icons.Default.DeleteForever,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = { Text("Delete record?") },
+            text  = {
+                Text(
+                    "This will permanently delete this $moduleName record from Zoho CRM. " +
+                            "This action cannot be undone."
+                )
+            },
+            confirmButton = {
+                Button(
+                    enabled = !deleteInProgress,
+                    onClick = {
+                        deleteInProgress = true
+                        scope.launch {
+                            repository.deleteRecord(moduleName, recordId)
+                                .onSuccess {
+                                    showDeleteDialog = false
+                                    deleteInProgress = false
+                                    navController.popBackStack()
+                                }
+                                .onFailure { e ->
+                                    deleteInProgress = false
+                                    showDeleteDialog  = false
+                                    snackbarHostState.showSnackbar(
+                                        message     = "Delete failed: ${e.message ?: "Unknown error"}",
+                                        duration    = SnackbarDuration.Long,
+                                    )
+                                }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) {
+                    if (deleteInProgress) {
+                        CircularProgressIndicator(
+                            modifier  = Modifier.size(16.dp),
+                            color     = MaterialTheme.colorScheme.onError,
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !deleteInProgress,
+                    onClick = { showDeleteDialog = false },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column {
                 TopAppBar(
@@ -169,6 +243,16 @@ fun RecordDetailScreen(
                         if (uiState is DetailUiState.Error) {
                             IconButton(onClick = { viewModel.refresh() }) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Retry")
+                            }
+                        }
+                        // Red delete icon — only shown when record loaded successfully
+                        if (uiState is DetailUiState.Success) {
+                            IconButton(onClick = { showDeleteDialog = true }) {
+                                Icon(
+                                    imageVector        = Icons.Default.Delete,
+                                    contentDescription = "Delete record",
+                                    tint               = MaterialTheme.colorScheme.error,
+                                )
                             }
                         }
                     },
