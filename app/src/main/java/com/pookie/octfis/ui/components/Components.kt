@@ -25,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.pookie.octfis.engine.module.ActiveModule
 import com.pookie.octfis.engine.module.ModuleEngine
 import com.pookie.octfis.navigation.Screen
@@ -185,14 +186,26 @@ private fun moduleRoute(apiName: String): String =
     Screen.ModuleList.createRoute(apiName)
 
 // ─── CrmBottomBar ─────────────────────────────────────────────────────────────
+//
+// KEY INSIGHT: NavBackStackEntry.destination.route always returns the TEMPLATE
+// string ("module/{moduleName}/list"), never the filled value. To know which
+// module is active we must read NavBackStackEntry.arguments instead.
+// The argument key "moduleName" is declared in NavGraph for all Module* routes.
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CrmBottomBar(
     navController: NavController,
-    currentRoute : String?,
+    currentRoute : String?,   // still accepted so callers need no changes
     vm           : NavBarViewModel = hiltViewModel(),
 ) {
+    val navBackStack by navController.currentBackStackEntryAsState()
+
+    // destination.route = template e.g. "module/{moduleName}/list"
+    val routeTemplate = navBackStack?.destination?.route
+
+    // arguments holds the FILLED values e.g. arguments["moduleName"] = "Accounts"
+    val activeModuleName: String? = navBackStack?.arguments?.getString("moduleName")
     val allModules    by vm.modules.collectAsState()
     var showMoreSheet by remember { mutableStateOf(false) }
 
@@ -212,9 +225,9 @@ fun CrmBottomBar(
         // ── Home (pinned) ──────────────────────────────────────────────────
         val homeRoute = Screen.Dashboard.route
         NavigationBarItem(
-            selected = currentRoute == homeRoute,
+            selected = routeTemplate == homeRoute,
             onClick  = {
-                if (currentRoute != homeRoute) {
+                if (routeTemplate != homeRoute) {
                     navController.navigate(homeRoute) {
                         popUpTo(navController.graph.startDestinationId) {
                             saveState = true
@@ -233,11 +246,14 @@ fun CrmBottomBar(
         // ── Top 4 dynamic module tabs ──────────────────────────────────────
         pinnedModules.forEach { module ->
             val route    = moduleRoute(module.apiName)
-            val selected = currentRoute == route
+            // activeModuleName comes from navBackStack.arguments — the actual
+            // filled value ("Accounts"), not the template ("{moduleName}").
+            // This also stays highlighted when inside detail/edit of that module.
+            val selected = activeModuleName == module.apiName
             NavigationBarItem(
                 selected = selected,
                 onClick  = {
-                    if (currentRoute != route) {
+                    if (activeModuleName != module.apiName) {
                         navController.navigate(route) {
                             popUpTo(navController.graph.startDestinationId) {
                                 saveState = true
