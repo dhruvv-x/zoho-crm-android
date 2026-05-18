@@ -75,40 +75,42 @@ private val fallbackNavModules = listOf(
 
 /**
  * Known Zoho standard modules → specific Material icon.
+ * Matching is case-insensitive so Zoho API casing variations never fall through.
  * Returns null for anything not in the list so the caller can
  * fall through to the custom-module cycling logic.
  */
-private fun knownModuleIcon(apiName: String): ImageVector? = when (apiName) {
-    "Accounts"                          -> Icons.Default.Business
-    "Contacts"                          -> Icons.Default.Contacts
-    "Deals", "Potentials"               -> Icons.Default.Handshake
-    "Quotes"                            -> Icons.Default.Receipt
-    "Leads"                             -> Icons.Default.PersonAdd
-    "Products"                          -> Icons.Default.Inventory
-    "Invoices"                          -> Icons.Default.Description
-    "PurchaseOrders"                    -> Icons.Default.ShoppingCart
-    "SalesOrders"                       -> Icons.Default.ShoppingBag
-    "Campaigns"                         -> Icons.Default.Campaign
-    "Cases"                             -> Icons.Default.SupportAgent
-    "Solutions"                         -> Icons.Default.Lightbulb
-    "Vendors"                           -> Icons.Default.Store
-    "Meetings", "Events"                -> Icons.Default.Event
-    "Tasks"                             -> Icons.Default.CheckCircle
-    "Calls"                             -> Icons.Default.Call
-    "Reports"                           -> Icons.Default.BarChart
-    "Dashboards"                        -> Icons.Default.Dashboard
-    "Forecasts"                         -> Icons.Default.TrendingUp
-    "Projects"                          -> Icons.Default.FolderSpecial
-    "Price_Books", "PriceBooks"         -> Icons.Default.LocalOffer
-    "Contracts"                         -> Icons.Default.Gavel
-    "Services"                          -> Icons.Default.MiscellaneousServices
-    "Appointments"                      -> Icons.Default.CalendarMonth
-    "Partners"                          -> Icons.Default.Group
-    "Competitors"                       -> Icons.Default.EmojiEvents
-    "Territories"                       -> Icons.Default.Map
-    "Documents"                         -> Icons.Default.Article
-    else                                -> null
-}
+private fun knownModuleIcon(apiName: String): ImageVector? =
+    when (apiName.trim().lowercase()) {
+        "accounts"                          -> Icons.Default.Business
+        "contacts"                          -> Icons.Default.Contacts
+        "deals", "potentials"               -> Icons.Default.Handshake
+        "quotes"                            -> Icons.Default.Receipt
+        "leads"                             -> Icons.Default.PersonAdd
+        "products"                          -> Icons.Default.Inventory
+        "invoices"                          -> Icons.Default.Description
+        "purchaseorders"                    -> Icons.Default.ShoppingCart
+        "salesorders"                       -> Icons.Default.ShoppingBag
+        "campaigns"                         -> Icons.Default.Campaign
+        "cases"                             -> Icons.Default.SupportAgent
+        "solutions"                         -> Icons.Default.Lightbulb
+        "vendors"                           -> Icons.Default.Store
+        "meetings", "events"                -> Icons.Default.Event
+        "tasks"                             -> Icons.Default.CheckCircle
+        "calls"                             -> Icons.Default.Call
+        "reports"                           -> Icons.Default.BarChart
+        "dashboards"                        -> Icons.Default.Dashboard
+        "forecasts"                         -> Icons.Default.TrendingUp
+        "projects"                          -> Icons.Default.FolderSpecial
+        "price_books", "pricebooks"         -> Icons.Default.LocalOffer
+        "contracts"                         -> Icons.Default.Gavel
+        "services"                          -> Icons.Default.MiscellaneousServices
+        "appointments"                      -> Icons.Default.CalendarMonth
+        "partners"                          -> Icons.Default.Group
+        "competitors"                       -> Icons.Default.EmojiEvents
+        "territories"                       -> Icons.Default.Map
+        "documents"                         -> Icons.Default.Article
+        else                                -> null
+    }
 
 /**
  * Pool of icons cycled for CustomModuleXX and any other unknown module.
@@ -194,7 +196,10 @@ fun CrmBottomBar(
     val allModules    by vm.modules.collectAsState()
     var showMoreSheet by remember { mutableStateOf(false) }
 
-    val resolvedModules = allModules ?: fallbackNavModules
+    // Deduplicate by apiName — Zoho can occasionally return the same module twice
+    // (e.g. Accounts at sequence 1 and again at a higher sequence).
+    val resolvedModules = (allModules ?: fallbackNavModules)
+        .distinctBy { it.apiName }
 
     // First 4 modules go in the bottom bar; rest go in the "More" sheet
     val pinnedModules = resolvedModules.take(4)

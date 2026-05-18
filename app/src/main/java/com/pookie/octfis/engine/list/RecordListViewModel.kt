@@ -88,25 +88,39 @@ class RecordListViewModel @AssistedInject constructor(
     private fun resolveDisplayFields(meta: List<FieldMetadata>) {
         val sorted = meta.sortedBy { it.sequence }
 
+        // Types that are never useful as a display title or subtitle.
+        // LOOKUP/OWNER render as nested objects; FORMULA/UNKNOWN are unreliable.
+        val nonDisplayTypes = setOf(
+            FieldType.LOOKUP,
+            FieldType.OWNER,
+            FieldType.FORMULA,
+            FieldType.UNKNOWN,
+            FieldType.BOOLEAN,
+            FieldType.MULTI_SELECT,
+            FieldType.RICH_TEXT,
+        )
+
+        val displayable = sorted.filter { it.type !in nonDisplayTypes }
+
         // ── Primary field (record title) ──────────────────────────────────────
         val primary =
             // 1. Field literally named "Name" — all custom modules use this
-            sorted.firstOrNull { it.apiName == "Name" }
-            // 2. First TEXT field whose apiName ends with "_Name"
-                ?: sorted.firstOrNull {
-                    it.type == FieldType.TEXT && it.apiName.endsWith("_Name")
-                }
-                // 3. First TEXT field named "Subject" or ending with "_Title"
-                ?: sorted.firstOrNull {
+            displayable.firstOrNull { it.apiName == "Name" }
+            // 2. Field literally named "Subject" — Quotes, Tasks, Meetings, etc.
+                ?: displayable.firstOrNull { it.apiName == "Subject" }
+                // 3. First TEXT field whose apiName ends with "_Name" or "_Title"
+                ?: displayable.firstOrNull {
                     it.type == FieldType.TEXT &&
-                            (it.apiName == "Subject" || it.apiName.endsWith("_Title"))
+                            (it.apiName.endsWith("_Name") || it.apiName.endsWith("_Title"))
                 }
                 // 4. First non-readOnly TEXT/EMAIL/PHONE field by sequence
-                ?: sorted.firstOrNull {
+                ?: displayable.firstOrNull {
                     !it.readOnly &&
                             it.type in listOf(FieldType.TEXT, FieldType.EMAIL, FieldType.PHONE)
                 }
-                // 5. Absolute fallback: first field in metadata
+                // 5. Absolute fallback: first displayable field
+                ?: displayable.firstOrNull()
+                // 6. Last resort: truly first field regardless of type
                 ?: sorted.firstOrNull()
 
         _primaryField.value = primary?.apiName ?: "Name"
@@ -126,7 +140,7 @@ class RecordListViewModel @AssistedInject constructor(
 
         val secondary = secondaryTypePriority
             .firstNotNullOfOrNull { preferredType ->
-                sorted.firstOrNull { field ->
+                displayable.firstOrNull { field ->
                     field.type == preferredType &&
                             field.apiName != _primaryField.value
                 }
