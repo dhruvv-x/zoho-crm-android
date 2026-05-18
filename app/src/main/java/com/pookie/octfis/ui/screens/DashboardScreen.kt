@@ -67,27 +67,27 @@ fun DashboardScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CrmPrimary)
+                    .background(CrmNavBackground)
                     .padding(horizontal = 16.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = CrmNavTextActive)
                 Spacer(Modifier.width(12.dp))
                 Text(
                     text       = "Activity Dashboard",
                     fontWeight = FontWeight.Bold,
                     fontSize   = 18.sp,
-                    color      = Color.White,
+                    color      = CrmNavTextActive,
                 )
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { vm.load() }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = CrmNavTextActive)
                 }
                 IconButton(onClick = onToggleTheme) {
                     Icon(
                         imageVector        = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
                         contentDescription = "Toggle theme",
-                        tint               = Color.White,
+                        tint               = CrmNavTextActive,
                     )
                 }
                 IconButton(onClick = {
@@ -96,7 +96,7 @@ fun DashboardScreen(
                         popUpTo(0) { inclusive = true }
                     }
                 }) {
-                    Icon(Icons.Default.Logout, contentDescription = "Logout", tint = Color.White)
+                    Icon(Icons.Default.Logout, contentDescription = "Logout", tint = CrmNavTextActive)
                 }
             }
 
@@ -105,7 +105,7 @@ fun DashboardScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(CrmPrimary)
+                        .background(CrmNavBackground)
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -139,14 +139,14 @@ fun DashboardScreen(
                         Icon(
                             imageVector        = tab.icon,
                             contentDescription = null,
-                            tint               = if (sel) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint               = if (sel) CrmNavTextActive else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier           = Modifier.size(13.dp),
                         )
                         Text(
                             text       = tab.label,
                             fontSize   = 12.sp,
                             fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
-                            color      = if (sel) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color      = if (sel) CrmNavTextActive else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -268,7 +268,7 @@ private fun SummaryCard(
     Card(
         modifier  = modifier,
         shape     = RoundedCornerShape(12.dp),
-        colors    = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.2f)),
+        colors    = CardDefaults.cardColors(containerColor = CrmNavActive.copy(alpha = 0.5f)),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
         Column(
@@ -276,9 +276,9 @@ private fun SummaryCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-            Text(count, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text(label, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+            Icon(icon, contentDescription = null, tint = CrmNavTextActive, modifier = Modifier.size(20.dp))
+            Text(count, color = CrmNavTextActive, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(label, color = CrmNavTextActive.copy(alpha = 0.85f), fontSize = 11.sp)
         }
     }
 }
@@ -309,15 +309,15 @@ private fun ProperTable(
             modifier  = Modifier.fillMaxWidth(),
         ) {
             Column {
-                Row(modifier = Modifier.fillMaxWidth().background(CrmPrimary)) {
+                Row(modifier = Modifier.fillMaxWidth().background(CrmNavBackground)) {
                     headers.forEachIndexed { index, header ->
                         Box(
                             modifier = Modifier
                                 .weight(if (index == 0) 1f else 2f)
-                                .then(if (index > 0) Modifier.border(0.5.dp, Color.White.copy(alpha = 0.3f)) else Modifier)
+                                .then(if (index > 0) Modifier.border(0.5.dp, CrmNavTextActive.copy(alpha = 0.3f)) else Modifier)
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
-                            Text(header, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text(header, color = CrmNavTextActive, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         }
                     }
                 }
