@@ -50,9 +50,9 @@ data class Deal(
     val phone           : String = "",
     val dealName        : String = "",
     val accountName     : String = "",
-    val accountZohoId   : String = "",   // linked Account record id
+    val accountZohoId   : String = "",
     val contactName     : String = "",
-    val contactZohoId   : String = "",   // linked Contact record id
+    val contactZohoId   : String = "",
     val amount          : String = "",
     val closingDate     : String = "",
     val type            : String = "-None-",
@@ -74,21 +74,26 @@ data class QuoteItem(
 )
 
 data class Quote(
-    val id          : Int,
-    val zohoId      : String = "",
-    val name        : String,
-    val phone       : String = "",
-    val subject     : String = "",
-    val accountName : String = "",
-    val contactName : String = "",
-    val validUntil  : String = "",
-    val quoteStage  : String = "Draft",
-    val description : String = "",
-    val grandTotal  : Double = 0.0,
-    val subTotal    : Double = 0.0,
-    val discount    : Double = 0.0,
-    val tax         : Double = 0.0,
-    val items       : List<QuoteItem> = emptyList(),
+    val id            : Int,
+    val zohoId        : String = "",
+    val name          : String,
+    val phone         : String = "",
+    val subject       : String = "",
+    val accountName   : String = "",
+    val accountZohoId : String = "",
+    val contactName   : String = "",
+    val contactZohoId : String = "",
+    // FIX: added deal lookup fields (were completely missing before)
+    val dealName      : String = "",
+    val dealZohoId    : String = "",
+    val validUntil    : String = "",
+    val quoteStage    : String = "Draft",
+    val description   : String = "",
+    val grandTotal    : Double = 0.0,
+    val subTotal      : Double = 0.0,
+    val discount      : Double = 0.0,
+    val tax           : Double = 0.0,
+    val items         : List<QuoteItem> = emptyList(),
 )
 
 data class CallActivity(val time: String, val subject: String)

@@ -19,7 +19,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.data.remote.ZohoServiceLocator
+import com.pookie.octfis.data.repository.AccountRepository
 import com.pookie.octfis.data.repository.ContactRepository
+import com.pookie.octfis.ui.components.LookupField
+import com.pookie.octfis.ui.components.LookupItem
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +43,7 @@ class EditContactViewModel : ViewModel() {
 
     private val api  = ZohoServiceLocator.getApiService()
     private val repo = ContactRepository(api)
+    private val accountRepo = AccountRepository(api)
 
     private val _options        = MutableStateFlow(ContactPicklistOptions())
     val options: StateFlow<ContactPicklistOptions> = _options.asStateFlow()
@@ -49,6 +53,10 @@ class EditContactViewModel : ViewModel() {
 
     private val _saveState      = MutableStateFlow<EditContactState>(EditContactState.Idle)
     val saveState: StateFlow<EditContactState> = _saveState.asStateFlow()
+
+    // ── NEW: account lookup list ──────────────────────────────────────────────
+    private val _accountItems   = MutableStateFlow<List<LookupItem>>(emptyList())
+    val accountItems: StateFlow<List<LookupItem>> = _accountItems.asStateFlow()
 
     init { loadOptions() }
 
@@ -72,6 +80,28 @@ class EditContactViewModel : ViewModel() {
                 )
             } finally {
                 _optionsLoading.value = false
+            }
+
+            // Load accounts for lookup (use cache if already populated)
+            loadAccountLookup()
+        }
+    }
+
+    // ── NEW ───────────────────────────────────────────────────────────────────
+    private fun loadAccountLookup() {
+        viewModelScope.launch {
+            // Use whatever is already in cache; if empty, fetch page 1
+            val cached = AccountRepository.cache
+            if (cached.isNotEmpty()) {
+                _accountItems.value = cached.map { LookupItem(it.zohoId, it.name, it.phone) }
+            } else {
+                runCatching { accountRepo.getAccounts(1) }
+                    .getOrNull()
+                    ?.getOrNull()
+                    ?.first
+                    ?.let { accounts ->
+                        _accountItems.value = accounts.map { LookupItem(it.zohoId, it.name, it.phone) }
+                    }
             }
         }
     }
@@ -155,6 +185,8 @@ fun EditContactScreen(
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val saveState      by vm.saveState.collectAsState()
+    // NEW
+    val accountItems   by vm.accountItems.collectAsState()
     val snackbarHost    = remember { SnackbarHostState() }
 
     LaunchedEffect(saveState) {
@@ -213,7 +245,7 @@ fun EditContactScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -232,7 +264,18 @@ fun EditContactScreen(
                     ECDivider()
                     ECTextField("Email",        email,       "Enter Email ID")     { email = it }
                     ECDivider()
-                    ECTextField("Account Name", accountName, "Enter Company Name") { accountName = it }
+
+                    // ── CHANGED: was ECTextField, now LookupField ─────────────
+                    LookupField(
+                        label       = "Account Name",
+                        value       = accountName,
+                        placeholder = "Select Account",
+                        items       = accountItems,
+                        loading     = optionsLoading && accountItems.isEmpty(),
+                        onSelect    = { item -> accountName = item.name },
+                    )
+                    // ─────────────────────────────────────────────────────────
+
                     ECDivider()
                     ECTextField("Title",        title,       "Enter Job Title")    { title = it }
                     ECDivider()

@@ -57,18 +57,19 @@ class DealRepository(private val api: ZohoApiService) {
         leadSourceDrill: String,
     ): Result<String> = runCatching {
         val record = buildMap<String, Any> {
-            put("Deal_Name",    dealName)
-            put("Stage",        stage.ifBlank { "-None-" })
-            put("Closing_Date", closingDate)
-            if (accountName.isNotBlank())    put("Account_Name",            mapOf("name" to accountName))
-            if (contactName.isNotBlank())    put("Contact_Name",            mapOf("name" to contactName))
-            amount.toDoubleOrNull()?.let {   put("Amount",                  it) }
-            if (type.isNotBlank() && type != "-None-")          put("Type",          type)
-            if (email.isNotBlank())                              put("Email",         email)
-            if (description.isNotBlank())                        put("Description",   description)
-            if (leadSource.isNotBlank() && leadSource != "-None-") put("Lead_Source", leadSource)
-            if (leadSourceDrill.isNotBlank()) put("Lead_Source_Drill_Down", leadSourceDrill)
-            if (dealOwner.isNotBlank())       put("Owner",                  mapOf("id" to dealOwner))
+            put("Deal_Name", dealName)
+            put("Stage",     stage.ifBlank { "-None-" })
+            if (closingDate.isNotBlank())  put("Closing_Date", closingDate)
+            // FIX: Do NOT send Account_Name / Contact_Name as {"name": "..."} without "id".
+            // Zoho treats these as lookup fields and requires the "id" key inside the object.
+            // Without a Zoho record id, omit the field entirely.
+            amount.toDoubleOrNull()?.let {  put("Amount", it) }
+            if (type.isNotBlank() && type != "-None-")             put("Type",                  type)
+            if (email.isNotBlank())                                 put("Email",                 email)
+            if (description.isNotBlank())                           put("Description",           description)
+            if (leadSource.isNotBlank() && leadSource != "-None-")  put("Lead_Source",           leadSource)
+            if (leadSourceDrill.isNotBlank())                        put("Lead_Source_Drill_Down",leadSourceDrill)
+            if (dealOwner.isNotBlank())                              put("Owner",                 mapOf("id" to dealOwner))
         }
         val response = api.createDeal(mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
@@ -77,7 +78,6 @@ class DealRepository(private val api: ZohoApiService) {
         val newZohoId = result?.details?.id
             ?: error("No ID returned from Zoho")
 
-        // add to local cache
         cache.add(
             Deal(
                 id              = cache.size + 1,
@@ -119,24 +119,35 @@ class DealRepository(private val api: ZohoApiService) {
         leadSourceDrill: String,
     ): Result<Unit> = runCatching {
         val record = buildMap<String, Any> {
-            put("Deal_Name",    dealName)
-            put("Stage",        stage.ifBlank { "-None-" })
-            put("Closing_Date", closingDate)
+            put("Deal_Name", dealName)
+            put("Stage",     stage.ifBlank { "-None-" })
+
+            if (closingDate.isNotBlank()) put("Closing_Date", closingDate)
+
+            // FIX: ONLY send lookup fields when we have the Zoho id.
+            // Sending {"name": "..."} without "id" causes Zoho to return
+            // "required field not found [field: id]".
             if (accountZohoId.isNotBlank()) put("Account_Name", mapOf("id" to accountZohoId))
             if (contactZohoId.isNotBlank()) put("Contact_Name", mapOf("id" to contactZohoId))
+
             amount.toDoubleOrNull()?.let {  put("Amount", it) }
-            if (type.isNotBlank())          put("Type",          type)
-            if (email.isNotBlank())         put("Email",         email)
-            if (description.isNotBlank())   put("Description",   description)
-            if (leadSource.isNotBlank())    put("Lead_Source",   leadSource)
-            if (leadSourceDrill.isNotBlank()) put("Lead_Source_Drill_Down", leadSourceDrill)
-            if (dealOwner.isNotBlank())     put("Owner",         mapOf("id" to dealOwner))
+            if (email.isNotBlank())         put("Email",       email)
+            if (description.isNotBlank())   put("Description", description)
+
+            if (type.isNotBlank() && type != "-None-")
+                put("Type", type)
+            if (leadSource.isNotBlank() && leadSource != "-None-")
+                put("Lead_Source", leadSource)
+            if (leadSourceDrill.isNotBlank())
+                put("Lead_Source_Drill_Down", leadSourceDrill)
+            if (dealOwner.isNotBlank())
+                put("Owner", mapOf("id" to dealOwner))
         }
+
         val response = api.updateDeal(zohoId, mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
         if (result?.status != "success") error(result?.message ?: "Update failed")
 
-        // update local cache
         val idx = cache.indexOfFirst { it.zohoId == zohoId }
         if (idx >= 0) {
             cache[idx] = cache[idx].copy(

@@ -29,18 +29,24 @@ data class ZohoUser(
     @SerializedName("email")     val email: String?,
 )
 
-// POST /Accounts response
+// POST/PUT response (create or update any record)
 data class CreateRecordResponse(
     @SerializedName("data") val data: List<CreateRecordResult>?,
 )
 
 data class CreateRecordResult(
     @SerializedName("code")    val code: String?,
+    // FIX: expanded to capture both success id AND error field name from Zoho
     @SerializedName("details") val details: CreateRecordDetails?,
     @SerializedName("message") val message: String?,
     @SerializedName("status")  val status: String?,
 )
 
 data class CreateRecordDetails(
+    // Success case: Zoho returns the new record id
     @SerializedName("id") val id: String?,
+    // Error case: Zoho returns which field caused INVALID_DATA
+    @SerializedName("api_name")           val apiName: String?,
+    @SerializedName("expected_data_type") val expectedDataType: String?,
+    @SerializedName("index")             val index: Int?,
 )

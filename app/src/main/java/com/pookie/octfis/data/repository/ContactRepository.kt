@@ -75,8 +75,9 @@ class ContactRepository(private val api: ZohoApiService) {
             if (mailingState.isNotBlank())   put("Mailing_State",    mailingState)
             if (mailingZip.isNotBlank())     put("Mailing_Zip",      mailingZip)
             if (mailingCountry.isNotBlank()) put("Mailing_Country",  mailingCountry)
-            if (accountName.isNotBlank())    put("Account_Name",     mapOf("name" to accountName))
-            if (contactOwner.isNotBlank())   put("Owner",            mapOf("id" to contactOwner))
+            // FIX: Do NOT send Account_Name as {"name": "..."} — Zoho requires the "id" key
+            // inside any lookup object. Without an accountZohoId we simply omit the field.
+            if (contactOwner.isNotBlank())   put("Owner", mapOf("id" to contactOwner))
         }
         val response = api.createContact(mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
@@ -85,7 +86,6 @@ class ContactRepository(private val api: ZohoApiService) {
         val newZohoId = result?.details?.id
             ?: error("No ID returned from Zoho")
 
-        // add to local cache
         cache.add(
             Contact(
                 id             = cache.size + 1,
@@ -112,46 +112,52 @@ class ContactRepository(private val api: ZohoApiService) {
     }
 
     suspend fun updateContact(
-        zohoId       : String,
-        contactId    : Int,
-        firstName    : String,
-        lastName     : String,
-        phone        : String,
-        email        : String,
-        accountName  : String,
-        title        : String,
-        department   : String,
-        contactOwner : String,
-        leadSource   : String,
-        description  : String,
-        mailingStreet: String,
-        mailingCity  : String,
-        mailingState : String,
-        mailingZip   : String,
+        zohoId        : String,
+        contactId     : Int,
+        firstName     : String,
+        lastName      : String,
+        phone         : String,
+        email         : String,
+        accountName   : String,
+        title         : String,
+        department    : String,
+        contactOwner  : String,
+        leadSource    : String,
+        description   : String,
+        mailingStreet : String,
+        mailingCity   : String,
+        mailingState  : String,
+        mailingZip    : String,
         mailingCountry: String,
     ): Result<Unit> = runCatching {
         val record = buildMap<String, Any> {
-            put("First_Name",   firstName)
-            put("Last_Name",    lastName)
-            put("Phone",        phone)
-            put("Email",        email)
-            put("Title",        title)
-            put("Department",   department)
-            put("Lead_Source",  leadSource)
-            put("Description",  description)
-            put("Mailing_Street",  mailingStreet)
-            put("Mailing_City",    mailingCity)
-            put("Mailing_State",   mailingState)
-            put("Mailing_Zip",     mailingZip)
-            put("Mailing_Country", mailingCountry)
-            if (accountName.isNotBlank())  put("Account_Name", mapOf("name" to accountName))
-            if (contactOwner.isNotBlank()) put("Owner", mapOf("id" to contactOwner))
+            // Required by Zoho — always send
+            put("Last_Name", lastName.ifBlank { "(No Name)" })
+
+            if (firstName.isNotBlank())      put("First_Name",      firstName)
+            if (phone.isNotBlank())          put("Phone",            phone)
+            if (email.isNotBlank())          put("Email",            email)
+            if (title.isNotBlank())          put("Title",            title)
+            if (department.isNotBlank())     put("Department",       department)
+            if (description.isNotBlank())    put("Description",      description)
+            if (mailingStreet.isNotBlank())  put("Mailing_Street",   mailingStreet)
+            if (mailingCity.isNotBlank())    put("Mailing_City",     mailingCity)
+            if (mailingState.isNotBlank())   put("Mailing_State",    mailingState)
+            if (mailingZip.isNotBlank())     put("Mailing_Zip",      mailingZip)
+            if (mailingCountry.isNotBlank()) put("Mailing_Country",  mailingCountry)
+
+            if (leadSource.isNotBlank() && leadSource != "-None-")
+                put("Lead_Source", leadSource)
+
+            // FIX: Do NOT send Account_Name as {"name": "..."} — Zoho requires the "id" key
+            // inside any lookup object. Without an accountZohoId we simply omit the field.
+            if (contactOwner.isNotBlank())   put("Owner", mapOf("id" to contactOwner))
         }
+
         val response = api.updateContact(zohoId, mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
         if (result?.status != "success") error(result?.message ?: "Update failed")
 
-        // update local cache
         val idx = cache.indexOfFirst { it.id == contactId }
         if (idx >= 0) {
             cache[idx] = cache[idx].copy(
