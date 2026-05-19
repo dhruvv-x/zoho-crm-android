@@ -76,6 +76,7 @@ class FormStateManager {
         _errors.clear()
 
         fields.forEach { field ->
+            if (field.readOnly) return@forEach          // ← never validate immutable fields
             val raw    = _values[field.apiName] ?: ""
             val result = ValidationEngine.validate(field, raw)
             if (result is ValidationResult.Invalid) {
@@ -104,6 +105,7 @@ class FormStateManager {
      */
     fun toPayload(fields: List<FieldMetadata>): Map<String, String> {
         return fields
+            .filter { !it.readOnly }                   // ← never send immutable fields to Zoho
             .mapNotNull { field ->
                 val value = _values[field.apiName]?.trim() ?: ""
                 if (value.isBlank() && !field.required) null

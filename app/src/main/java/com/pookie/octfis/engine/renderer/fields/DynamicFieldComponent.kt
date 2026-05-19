@@ -13,6 +13,7 @@ import com.pookie.octfis.engine.renderer.fields.DropdownFieldComponent
 import com.pookie.octfis.engine.renderer.fields.LookupFieldComponent
 import com.pookie.octfis.engine.renderer.fields.MultiSelectFieldComponent
 import com.pookie.octfis.engine.renderer.fields.NumberFieldComponent
+import com.pookie.octfis.engine.renderer.fields.ReadOnlyFieldComponent
 import com.pookie.octfis.engine.renderer.fields.TextFieldComponent
 
 @Composable
@@ -22,9 +23,15 @@ fun DynamicFieldComponent(
     onValueChange  : (String) -> Unit,
     error          : String?,
     modifier       : Modifier = Modifier,
-    onLookupSearch : (suspend (module: String, query: String)   // ← ADDED
+    onLookupSearch : (suspend (module: String, query: String)
     -> List<Pair<String, String>>)? = null,
 ) {
+    // ── Immutable system fields — render as locked display, never editable ──
+    if (field.readOnly) {
+        ReadOnlyFieldComponent(field = field, value = value, modifier = modifier)
+        return
+    }
+
     when (field.type) {
 
         // ── Text family ───────────────────────────────────────────────────

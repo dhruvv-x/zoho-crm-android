@@ -13,6 +13,13 @@ class MetadataEngine @Inject constructor(
 ) {
     private val cache = mutableMapOf<String, List<FieldMetadata>>()
 
+    // Zoho system fields that must NEVER be editable, regardless of API readOnly flag
+    private val immutableFields = setOf(
+        "Created_Time", "Modified_Time",
+        "Created_By",   "Modified_By",
+        "id",
+    )
+
     suspend fun getModuleMetadata(module: String): Result<List<FieldMetadata>> {
         cache[module]?.let { return Result.success(it) }
 
@@ -54,7 +61,8 @@ class MetadataEngine @Inject constructor(
                             zohoField.jsonType,
                         ),
                         required       = zohoField.mandatory,
-                        readOnly       = zohoField.readOnly,
+                        // Force readOnly if Zoho says so OR it's a known system field
+                        readOnly       = zohoField.readOnly || zohoField.apiName in immutableFields,
                         maxLength      = zohoField.length,
                         sequence       = zohoField.sequenceNumber,
                         sectionName    = sectionMap[zohoField.apiName] ?: "Details",
@@ -65,12 +73,11 @@ class MetadataEngine @Inject constructor(
                     )
                 }
                 ?.filter { field ->
-                    when {
-                        field.type == FieldType.FORMULA           -> false
-                        field.type == FieldType.UNKNOWN           -> false
-                        field.readOnly && !field.required         -> false
-                        else                                      -> true
-                    }
+                    // Only drop server-computed formula fields and truly unmapped types.
+                    // readOnly fields (Created_Time, Modified_Time, Created_By, etc.)
+                    // are intentionally kept — they are shown as locked display fields
+                    // in edit mode and excluded from the API payload.
+                    field.type != FieldType.FORMULA && field.type != FieldType.UNKNOWN
                 }
                 ?.sortedBy { it.sequence }
                 ?: emptyList()

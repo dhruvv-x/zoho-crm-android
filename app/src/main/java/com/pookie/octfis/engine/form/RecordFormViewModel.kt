@@ -59,7 +59,13 @@ class RecordFormViewModel @AssistedInject constructor(
             _uiState.value = FormUiState.LoadingMetadata
             metadataEngine.getModuleMetadata(moduleName)
                 .onSuccess { fields ->
-                    _fields.value = fields
+                    // In create mode, immutable system fields have no value yet — hide them.
+                    // In edit mode, keep them so they render as locked display fields.
+                    _fields.value = if (recordId == null) {
+                        fields.filter { !it.readOnly }
+                    } else {
+                        fields
+                    }
                     if (recordId != null) {
                         loadRecord(recordId)
                     } else {
