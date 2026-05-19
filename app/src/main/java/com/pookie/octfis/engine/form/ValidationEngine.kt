@@ -61,9 +61,15 @@ object ValidationEngine {
             }
 
             FieldType.INTEGER -> {
-                trimmed.toLongOrNull()
-                    ?.let { ValidationResult.Valid }
-                    ?: ValidationResult.Invalid("Enter a whole number")
+                // Zoho sometimes returns integers as "255.0" — accept both forms
+                val asLong   = trimmed.toLongOrNull()
+                val asDouble = trimmed.toDoubleOrNull()?.let {
+                    if (it == kotlin.math.floor(it)) it.toLong() else null
+                }
+                if (asLong != null || asDouble != null)
+                    ValidationResult.Valid
+                else
+                    ValidationResult.Invalid("Enter a whole number")
             }
 
             FieldType.DECIMAL, FieldType.CURRENCY, FieldType.PERCENT -> {
@@ -82,8 +88,8 @@ object ValidationEngine {
             }
 
             FieldType.DATETIME -> {
-                // Accepts YYYY-MM-DD or YYYY-MM-DDTHH:MM
-                val dtRegex = Regex("""^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$""")
+                // Accept: YYYY-MM-DD, YYYY-MM-DDTHH:MM, or full ISO with offset/Z
+                val dtRegex = Regex("""^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}([+-]\d{2}:\d{2}|Z)?)?)?$""")
                 if (dtRegex.matches(trimmed))
                     ValidationResult.Valid
                 else

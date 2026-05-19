@@ -18,6 +18,12 @@ class MetadataEngine @Inject constructor(
         "Created_Time", "Modified_Time",
         "Created_By",   "Modified_By",
         "id",
+        // Activity/conversion timestamps — computed by Zoho, not user-editable
+        "Last_Activity_Time", "Lead_Conversion_Time",
+        // Sales duration fields — computed by Zoho
+        "Sales_Cycle_Duration", "Overall_Sales_Duration",
+        // Layout is a system lookup, not user-editable
+        "Layout",
     )
 
     suspend fun getModuleMetadata(module: String): Result<List<FieldMetadata>> {

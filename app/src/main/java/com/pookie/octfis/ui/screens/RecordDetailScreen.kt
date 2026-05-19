@@ -248,6 +248,13 @@ fun RecordDetailScreen(
                             }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Edit")
                             }
+                            IconButton(onClick = {
+                                navController.navigate(
+                                    Screen.ModuleClone.createRoute(moduleName, recordId)
+                                )
+                            }) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Clone")
+                            }
                             IconButton(onClick = { showDeleteDialog = true }) {
                                 Icon(
                                     imageVector        = Icons.Default.Delete,

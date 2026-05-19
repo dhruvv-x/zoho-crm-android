@@ -74,6 +74,11 @@ sealed class Screen(val route: String) {
         fun createRoute(moduleName: String) = "module/$moduleName/create"
     }
 
+    object ModuleClone : Screen("module/{moduleName}/clone/{sourceId}") {
+        fun createRoute(moduleName: String, sourceId: String) =
+            "module/$moduleName/clone/$sourceId"
+    }
+
     object ModuleEdit : Screen("module/{moduleName}/edit/{recordId}") {
         fun createRoute(moduleName: String, recordId: String) =
             "module/$moduleName/edit/$recordId"

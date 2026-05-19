@@ -31,7 +31,8 @@ class RecordFormViewModel @AssistedInject constructor(
     private val metadataEngine    : MetadataEngine,
     private val recordRepository  : ZohoRecordRepository,
     @Assisted("module")   val moduleName : String,
-    @Assisted("recordId") val recordId   : String?,
+    @Assisted("recordId")      val recordId      : String?,
+    @Assisted("cloneSourceId") val cloneSourceId : String?,
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────────────────
@@ -44,11 +45,13 @@ class RecordFormViewModel @AssistedInject constructor(
 
     val formState = FormStateManager()
 
-    val isEditMode get() = recordId != null
+    val isEditMode   get() = recordId != null
+    val isCloneMode  get() = cloneSourceId != null && recordId == null
 
     // ── Init ──────────────────────────────────────────────────────────────────
 
     init {
+        metadataEngine.invalidate(moduleName) // ensure immutableFields changes are picked up
         loadMetadata()
     }
 
@@ -66,10 +69,10 @@ class RecordFormViewModel @AssistedInject constructor(
                     } else {
                         fields
                     }
-                    if (recordId != null) {
-                        loadRecord(recordId)
-                    } else {
-                        _uiState.value = FormUiState.Idle
+                    when {
+                        recordId      != null -> loadRecord(recordId)
+                        cloneSourceId != null -> loadCloneSource(cloneSourceId)
+                        else                  -> _uiState.value = FormUiState.Idle
                     }
                 }
                 .onFailure { e ->
@@ -106,7 +109,42 @@ class RecordFormViewModel @AssistedInject constructor(
         }
     }
 
-    // ── Field change ──────────────────────────────────────────────────────────
+    // ── Load source record for cloning ────────────────────────────────────────
+
+    private fun loadCloneSource(sourceId: String) {
+        viewModelScope.launch {
+            _uiState.value = FormUiState.LoadingRecord
+            recordRepository.getRecord(moduleName, sourceId)
+                .onSuccess { rawMap ->
+                    val readOnlyKeys = _fields.value
+                        .filter { it.readOnly }
+                        .map { it.apiName }
+                        .toSet() + setOf("id", "Created_Time", "Modified_Time",
+                        "Created_By", "Modified_By", "Owner")
+
+                    val initial = rawMap
+                        .filterKeys { it !in readOnlyKeys }
+                        .mapValues { (_, v) ->
+                            when (v) {
+                                is Map<*, *> -> {
+                                    val rid  = v["id"]?.toString() ?: ""
+                                    val name = v["name"]?.toString() ?: ""
+                                    if (rid.isNotBlank()) "$rid::$name" else name
+                                }
+                                is List<*>   -> v.joinToString(";")
+                                else         -> v?.toString() ?: ""
+                            }
+                        }
+                    formState.initialize(initial)
+                    _uiState.value = FormUiState.Idle
+                }
+                .onFailure { e ->
+                    _uiState.value = FormUiState.Error("Failed to load source record: ${e.message}")
+                }
+        }
+    }
+
+
 
     fun onFieldChange(apiName: String, value: String) {
         val field = _fields.value.firstOrNull { it.apiName == apiName } ?: return
@@ -122,7 +160,8 @@ class RecordFormViewModel @AssistedInject constructor(
         viewModelScope.launch {
             _uiState.value = FormUiState.Submitting
 
-            val rawPayload   = formState.toPayload(currentFields)
+            val rawPayload   = if (isEditMode) formState.toDirtyPayload(currentFields)
+            else            formState.toPayload(currentFields)
             val typedPayload = buildTypedPayload(rawPayload, currentFields)
 
             val result = if (isEditMode) {
@@ -148,7 +187,9 @@ class RecordFormViewModel @AssistedInject constructor(
             val type = fieldMap[apiName]?.type
             when (type) {
                 FieldType.INTEGER  ->
-                    value.toLongOrNull() ?: value
+                    value.toLongOrNull()
+                        ?: value.toDoubleOrNull()?.toLong()
+                        ?: value
                 FieldType.DECIMAL,
                 FieldType.CURRENCY,
                 FieldType.PERCENT  ->
@@ -189,8 +230,9 @@ class RecordFormViewModel @AssistedInject constructor(
     @AssistedFactory
     interface Factory {
         fun create(
-            @Assisted("module")   moduleName: String,
-            @Assisted("recordId") recordId  : String?,
+            @Assisted("module")        moduleName    : String,
+            @Assisted("recordId")      recordId      : String?,
+            @Assisted("cloneSourceId") cloneSourceId : String?,
         ): RecordFormViewModel
     }
 }

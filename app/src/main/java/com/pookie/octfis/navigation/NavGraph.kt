@@ -80,6 +80,23 @@ fun NavGraph(
             )
         }
 
+        // ── Clone ─────────────────────────────────────────────────────────────
+        composable(
+            route     = Screen.ModuleClone.route,
+            arguments = listOf(
+                navArgument("moduleName") { type = NavType.StringType },
+                navArgument("sourceId")   { type = NavType.StringType },
+            ),
+        ) { back ->
+            val module   = back.arguments?.getString("moduleName") ?: return@composable
+            val sourceId = back.arguments?.getString("sourceId")   ?: return@composable
+            RecordFormScreenEntry(
+                navController   = navController,
+                moduleName      = module,
+                cloneSourceId   = sourceId,
+            )
+        }
+
         // ── Detail ✅ ─────────────────────────────────────────────────────────
         composable(
             route     = Screen.ModuleDetail.route,

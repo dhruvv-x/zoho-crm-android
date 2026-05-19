@@ -12,7 +12,8 @@ import javax.inject.Inject
 fun RecordFormScreenEntry(
     navController : NavController,
     moduleName    : String,
-    recordId      : String? = null,
+    recordId      : String?  = null,
+    cloneSourceId : String?  = null,
 ) {
     val holder  = hiltViewModel<RecordFormViewModelFactoryHolder>()
 
@@ -20,6 +21,7 @@ fun RecordFormScreenEntry(
         navController    = navController,
         moduleName       = moduleName,
         recordId         = recordId,
+        cloneSourceId    = cloneSourceId,
         viewModelFactory = holder.factory,
     )
 }

@@ -114,6 +114,20 @@ class FormStateManager {
             .toMap()
     }
 
+    /**
+     * Like toPayload but only includes fields the user actually touched.
+     * Use for UPDATE to avoid sending stale/unedited values back to Zoho.
+     */
+    fun toDirtyPayload(fields: List<FieldMetadata>): Map<String, String> {
+        return fields
+            .filter { !it.readOnly && _dirty[it.apiName] == true }
+            .mapNotNull { field ->
+                val value = _values[field.apiName]?.trim() ?: ""
+                field.apiName to value
+            }
+            .toMap()
+    }
+
     /** True if any field has been touched by the user. */
     val isDirty: Boolean get() = _dirty.values.any { it }
 

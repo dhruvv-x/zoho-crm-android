@@ -22,12 +22,13 @@ fun RecordFormScreen(
     navController    : NavController,
     moduleName       : String,
     recordId         : String?  = null,
+    cloneSourceId    : String?  = null,
     screenTitle      : String?  = null,
     viewModelFactory : RecordFormViewModel.Factory,
 ) {
     // ── ViewModel via Assisted Inject ─────────────────────────────────────
-    val viewModel: RecordFormViewModel = remember(moduleName, recordId) {
-        viewModelFactory.create(moduleName, recordId)
+    val viewModel: RecordFormViewModel = remember(moduleName, recordId, cloneSourceId) {
+        viewModelFactory.create(moduleName, recordId, cloneSourceId)
     }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -53,7 +54,11 @@ fun RecordFormScreen(
     }
 
     val title = screenTitle
-        ?: if (viewModel.isEditMode) "Edit $moduleName" else "New $moduleName"
+        ?: when {
+            viewModel.isEditMode  -> "Edit $moduleName"
+            viewModel.isCloneMode -> "Clone $moduleName"
+            else                  -> "New $moduleName"
+        }
 
     Scaffold(
         topBar = {
