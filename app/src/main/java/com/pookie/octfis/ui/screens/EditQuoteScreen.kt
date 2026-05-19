@@ -124,7 +124,6 @@ fun EditQuoteScreen(
     var accountZohoId  by remember { mutableStateOf(original.accountZohoId) }
     var contactName    by remember { mutableStateOf(original.contactName) }
     var contactZohoId  by remember { mutableStateOf(original.contactZohoId) }
-    // FIX: Pre-populate deal from cache (was always blank "" before)
     var dealName       by remember { mutableStateOf(original.dealName) }
     var dealZohoId     by remember { mutableStateOf(original.dealZohoId) }
     var validUntil     by remember { mutableStateOf(original.validUntil) }
@@ -223,7 +222,6 @@ fun EditQuoteScreen(
                             saveError = null
                             scope.launch {
                                 val repo = QuoteRepository(ZohoServiceLocator.getApiService())
-                                // FIX: Pass dealName + dealZohoId (were missing from call before)
                                 val result: Result<Unit> = repo.updateQuote(
                                     zohoId        = original.zohoId,
                                     subject       = subject,
@@ -239,8 +237,15 @@ fun EditQuoteScreen(
                                     items         = items.toList(),
                                 )
                                 result.fold(
-                                    onSuccess = { navController.popBackStack() },
-                                    // FIX: error now includes field name e.g. "invalid data [field: Sub_Total]"
+                                    onSuccess = {
+                                        // ── FIX 2: Tell QuoteDetailScreen to re-fetch ─────────────
+                                        // Without this, the detail screen stays on its old cached state
+                                        // because LaunchedEffect(zohoId) doesn't re-run on back-navigation.
+                                        navController.previousBackStackEntry
+                                            ?.savedStateHandle
+                                            ?.set("quoteUpdated", true)
+                                        navController.popBackStack()
+                                    },
                                     onFailure = { e -> saveError = e.message ?: "Save failed" },
                                 )
                                 isSaving = false

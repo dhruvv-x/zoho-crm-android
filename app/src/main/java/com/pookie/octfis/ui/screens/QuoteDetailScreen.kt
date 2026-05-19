@@ -37,11 +37,33 @@ fun QuoteDetailScreen(navController: NavController, quoteId: Int) {
 
     val repo = remember { QuoteRepository(ZohoServiceLocator.getApiService()) }
 
-    LaunchedEffect(zohoId) {
-        if (zohoId.isBlank()) { loading = false; return@LaunchedEffect }
+    // ── FIX 2: Suspend function extracted so both effects can call it ──────────
+    suspend fun fetchQuote() {
+        if (zohoId.isBlank()) { loading = false; return }
+        loading = true
         repo.getQuoteById(zohoId)
             .onSuccess { quote = it; loading = false }
             .onFailure { error = it.message; loading = false }
+    }
+
+    // Initial load when screen first enters composition
+    LaunchedEffect(zohoId) {
+        fetchQuote()
+    }
+
+    // ── FIX 2: Re-fetch when returning from EditQuoteScreen ───────────────────
+    // EditQuoteScreen sets "quoteUpdated = true" on previousBackStackEntry's
+    // savedStateHandle before popping. We observe it here and re-fetch.
+    val savedStateHandle = navController.currentBackStackEntry?.savedStateHandle
+    val quoteUpdated = savedStateHandle
+        ?.getStateFlow("quoteUpdated", false)
+        ?.collectAsState()
+
+    LaunchedEffect(quoteUpdated?.value) {
+        if (quoteUpdated?.value == true) {
+            savedStateHandle?.set("quoteUpdated", false) // reset so it doesn't fire again
+            fetchQuote()
+        }
     }
 
     Scaffold(
@@ -102,6 +124,9 @@ fun QuoteDetailScreen(navController: NavController, quoteId: Int) {
                             FormRow("Account Name", q.accountName.ifEmpty { "—" })
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Contact Name", q.contactName.ifEmpty { "—" })
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
+                            // ── FIX 1: Deal Name row was completely missing ────────────────────
+                            FormRow("Deal Name",    q.dealName.ifEmpty { "—" })
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                             FormRow("Valid Until",  q.validUntil.ifEmpty { "—" })
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
