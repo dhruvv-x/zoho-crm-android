@@ -43,8 +43,10 @@ fun LookupFieldComponent(
     modifier     : Modifier = Modifier,
 ) {
     if (field.lookupModule == null) {
+        // No lookup module configured — show name portion only (strip "id::name" → "name")
+        val readOnlyDisplay = if (value.contains("::")) value.substringAfterLast("::") else value
         OutlinedTextField(
-            value         = value,
+            value         = readOnlyDisplay,
             onValueChange = {},
             readOnly      = true,
             label         = { Text(field.label) },
@@ -53,7 +55,7 @@ fun LookupFieldComponent(
         return
     }
 
-    val displayName = if (value.contains("::")) value.substringAfter("::") else value
+    val displayName = if (value.contains("::")) value.substringAfterLast("::") else value
     val hasValue    = displayName.isNotBlank()
 
     var isExpanded  by remember { mutableStateOf(false) }
