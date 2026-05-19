@@ -75,110 +75,158 @@ private val fallbackNavModules = listOf(
 // ─── Icon mapping ─────────────────────────────────────────────────────────────
 
 /**
- * Known Zoho standard modules → specific Material icon.
- * Matching is case-insensitive so Zoho API casing variations never fall through.
- * Returns null for anything not in the list so the caller can
- * fall through to the custom-module cycling logic.
+ * Standard Zoho modules matched by API name (case-insensitive).
+ * Returns null if not a known standard module so the caller
+ * can fall through to knownCustomIcon() or prefix-based fallback.
  */
 private fun knownModuleIcon(apiName: String): ImageVector? =
-    when (apiName.trim().lowercase()) {
-        "accounts"                          -> Icons.Default.Business
-        "contacts"                          -> Icons.Default.Contacts
-        "deals", "potentials"               -> Icons.Default.Handshake
-        "quotes"                            -> Icons.Default.Receipt
-        "leads"                             -> Icons.Default.PersonAdd
-        "products"                          -> Icons.Default.Inventory
-        "invoices"                          -> Icons.Default.Description
-        "purchaseorders"                    -> Icons.Default.ShoppingCart
-        "salesorders"                       -> Icons.Default.ShoppingBag
+    when (apiName.trim().lowercase().replace(" ", "_")) {
+        "accounts"                          -> Icons.Default.Domain
+        "contacts"                          -> Icons.Default.PermContactCalendar
+        "deals", "potentials"               -> Icons.Default.Work
+        "leads"                             -> Icons.Default.PersonSearch
+        "quotes"                            -> Icons.Default.RequestQuote
+        "tasks"                             -> Icons.Default.AssignmentTurnedIn
+        "meetings", "events"                -> Icons.Default.Groups
+        "calls"                             -> Icons.Default.Phone
+        "products"                          -> Icons.Default.Inventory2
+        "invoices"                          -> Icons.Default.Receipt
+        "purchase_orders", "purchaseorders" -> Icons.Default.LocalShipping
+        "sales_orders", "salesorders"       -> Icons.Default.ShoppingBag
         "campaigns"                         -> Icons.Default.Campaign
-        "cases"                             -> Icons.Default.SupportAgent
+        "cases"                             -> Icons.Default.Headset
         "solutions"                         -> Icons.Default.Lightbulb
-        "vendors"                           -> Icons.Default.Store
-        "meetings", "events"                -> Icons.Default.Event
-        "tasks"                             -> Icons.Default.CheckCircle
-        "calls"                             -> Icons.Default.Call
-        "reports"                           -> Icons.Default.BarChart
-        "dashboards"                        -> Icons.Default.Dashboard
-        "forecasts"                         -> Icons.Default.TrendingUp
-        "projects"                          -> Icons.Default.FolderSpecial
+        "vendors"                           -> Icons.Default.Storefront
         "price_books", "pricebooks"         -> Icons.Default.LocalOffer
-        "contracts"                         -> Icons.Default.Gavel
         "services"                          -> Icons.Default.MiscellaneousServices
         "appointments"                      -> Icons.Default.CalendarMonth
-        "partners"                          -> Icons.Default.Group
-        "competitors"                       -> Icons.Default.EmojiEvents
-        "territories"                       -> Icons.Default.Map
         "documents"                         -> Icons.Default.Article
+        "reports"                           -> Icons.Default.BarChart
+        "analytics"                         -> Icons.Default.Analytics
+        "forecasts"                         -> Icons.Default.TrendingUp
+        "projects"                          -> Icons.Default.AccountTree
+        "feeds"                             -> Icons.Default.DynamicFeed
+        "salesinbox"                        -> Icons.Default.AllInbox
+        "social"                            -> Icons.Default.Share
+        "visits"                            -> Icons.Default.Place
+        "commandcenter"                     -> Icons.Default.Hub
+        "approvals"                         -> Icons.Default.HowToVote
+        "google_adwords", "googleadwords"   -> Icons.Default.Search
+        "hubspot0"                          -> Icons.Default.Hub
+        "contracts"                         -> Icons.Default.Gavel
         else                                -> null
     }
 
 /**
- * Pool of icons cycled for CustomModuleXX and any other unknown module.
- * 16 entries — large enough that neighbours in a typical Zoho setup look different.
+ * Your org's custom modules, web tabs, and linking modules —
+ * matched by their display (plural) label (case-insensitive).
+ * Returns null if unrecognised so the caller falls through to
+ * the prefix-based type detection.
  */
-private val customModuleIconPool: List<ImageVector> = listOf(
-    Icons.Default.Star,
-    Icons.Default.Bolt,
-    Icons.Default.Widgets,
-    Icons.Default.Category,
-    Icons.Default.Layers,
-    Icons.Default.Extension,
-    Icons.Default.Flag,
-    Icons.Default.Spa,
-    Icons.Default.Diamond,
-    Icons.Default.Rocket,
-    Icons.Default.AutoAwesome,
-    Icons.Default.Tune,
-    Icons.Default.Hub,
-    Icons.Default.WorkspacePremium,
-    Icons.Default.Explore,
-    Icons.Default.LocalFireDepartment,
-)
-
-/**
- * Pool of colors cycled for unknown modules — kept Material-ish and distinct.
- */
-private val customModuleColorPool: List<Color> = listOf(
-    Color(0xFF6750A4), // M3 purple
-    Color(0xFF0077B6), // ocean blue
-    Color(0xFF2D9D78), // teal green
-    Color(0xFFE76F51), // terracotta
-    Color(0xFF457B9D), // steel blue
-    Color(0xFF8338EC), // violet
-    Color(0xFFE63946), // crimson
-    Color(0xFF2A9D8F), // seafoam
-    Color(0xFFF4A261), // sandy amber
-    Color(0xFF264653), // dark slate
-    Color(0xFF6D6875), // muted mauve
-    Color(0xFF023E8A), // deep navy
-    Color(0xFF40916C), // forest green
-    Color(0xFFBC6C25), // warm brown
-    Color(0xFF9B2226), // deep red
-    Color(0xFF48CAE4), // sky blue
-)
-
-/**
- * Returns the icon for a module.
- * Known standard modules → fixed icon.
- * Everything else (CustomModuleXX, unknown) → cycles through [customModuleIconPool]
- * using [sequence] so adjacent modules look different.
- */
-fun moduleIcon(apiName: String, sequence: Int = 0): ImageVector =
-    knownModuleIcon(apiName)
-        ?: customModuleIconPool[sequence.coerceAtLeast(0) % customModuleIconPool.size]
-
-/**
- * Returns a tint color for a module.
- * Known standard modules get [CrmPrimary] (unchanged from before).
- * Unknown modules cycle through [customModuleColorPool].
- */
-fun moduleIconColor(apiName: String, sequence: Int = 0): Color =
-    if (knownModuleIcon(apiName) != null) {
-        CrmPrimary
-    } else {
-        customModuleColorPool[sequence.coerceAtLeast(0) % customModuleColorPool.size]
+private fun knownCustomIcon(pluralLabel: String): ImageVector? =
+    when (pluralLabel.trim().lowercase()) {
+        // ── Custom modules ────────────────────────────────────────────────
+        "productions"               -> Icons.Default.Build
+        "clinical notes"            -> Icons.Default.LocalHospital
+        "accounts2"                 -> Icons.Default.Domain
+        "contact vs"                -> Icons.Default.CompareArrows
+        "buyer11"                   -> Icons.Default.ShoppingCart
+        "avs leads"                 -> Icons.Default.PersonSearch
+        "indiamart logs"            -> Icons.Default.History
+        "exporters india logs"      -> Icons.Default.ImportExport
+        "twilio history"            -> Icons.Default.History
+        "twilio messages"           -> Icons.Default.Sms
+        "zohosign recipients"       -> Icons.Default.Draw
+        "countries"                 -> Icons.Default.Public
+        "states"                    -> Icons.Default.LocationCity
+        "cities"                    -> Icons.Default.LocationCity
+        "zohosign documents"        -> Icons.Default.Draw
+        "zohosign document events"  -> Icons.Default.EventNote
+        "insurance"                 -> Icons.Default.HealthAndSafety
+        "targeted products"         -> Icons.Default.Inventory2
+        "purchase requisitions"     -> Icons.Default.AddShoppingCart
+        "doctor"                    -> Icons.Default.LocalHospital
+        "chittals"                  -> Icons.Default.ReceiptLong
+        "chittal details rsm"       -> Icons.Default.ReceiptLong
+        "pmjby insurances"          -> Icons.Default.HealthAndSafety
+        "architects"                -> Icons.Default.Architecture
+        "purchase"                  -> Icons.Default.ShoppingCart
+        "piller"                    -> Icons.Default.Straighten
+        "p deals"                   -> Icons.Default.Work
+        "p vendors"                 -> Icons.Default.Storefront
+        "p products"                -> Icons.Default.Inventory2
+        "dealers"                   -> Icons.Default.Store
+        "victory"                   -> Icons.Default.EmojiEvents
+        "cush"                      -> Icons.Default.Inventory2
+        "demo"                      -> Icons.Default.Science
+        "faw"                       -> Icons.Default.Widgets
+        "fap"                       -> Icons.Default.Widgets
+        "wishdata"                  -> Icons.Default.Bookmarks
+        "odden"                     -> Icons.Default.Widgets
+        "specification"             -> Icons.Default.Description
+        "my jobs"                   -> Icons.Default.HowToVote
+        // ── Linking modules ───────────────────────────────────────────────
+        "products x chittals",
+        "p product x vendor",
+        "contacts x accounts"       -> Icons.Default.Link
+        // ── Web tabs ──────────────────────────────────────────────────────
+        "shopify"                   -> Icons.Default.ShoppingBag
+        "twilio inbox"              -> Icons.Default.AllInbox
+        "routeiq"                   -> Icons.Default.Route
+        "leadchain"                 -> Icons.Default.PersonSearch
+        "mapsly"                    -> Icons.Default.Map
+        "zoho analytics"            -> Icons.Default.Analytics
+        "track my location",
+        "tag my location"           -> Icons.Default.LocationOn
+        "youtube"                   -> Icons.Default.VideoLibrary
+        "zoho form"                 -> Icons.Default.ListAlt
+        "octfis"                    -> Icons.Default.Apps
+        "testing"                   -> Icons.Default.BugReport
+        "school forms"              -> Icons.Default.School
+        "allforms"                  -> Icons.Default.ListAlt
+        "map"                       -> Icons.Default.Map
+        "zoho books"                -> Icons.Default.MenuBook
+        "lead dashboard"            -> Icons.Default.Dashboard
+        "whatsapp"                  -> Icons.Default.Chat
+        else                        -> null
     }
+
+// Fallback tint colors by module type
+private val customModuleColor  = Color(0xFF5F6368) // gray  — unknown CustomModule*
+private val webTabColor        = Color(0xFF0077B6) // blue  — unknown WebTab*
+private val linkingModuleColor = Color(0xFF2D9D78) // teal  — unknown LinkingModule*
+
+/**
+ * Returns the icon for any module:
+ *   1. Standard Zoho module  → matched by apiName
+ *   2. Known org module      → matched by pluralLabel
+ *   3. WebTab* / LinkingModule* / CustomTab* → type-based fallback icon
+ *   4. Everything else       → Widgets
+ */
+fun moduleIcon(apiName: String, sequence: Int = 0, pluralLabel: String = ""): ImageVector {
+    knownModuleIcon(apiName)?.let { return it }
+    knownCustomIcon(pluralLabel)?.let { return it }
+    return when {
+        apiName.startsWith("WebTab",        ignoreCase = true) -> Icons.Default.Language
+        apiName.startsWith("LinkingModule", ignoreCase = true) -> Icons.Default.Link
+        apiName.startsWith("CustomTab",     ignoreCase = true) -> Icons.Default.Language
+        else                                                    -> Icons.Default.Widgets
+    }
+}
+
+/**
+ * Returns the tint color for any module icon.
+ * Standard and named org modules → CrmPrimary (blue).
+ * Unknown types → color by type (gray / blue / teal).
+ */
+fun moduleIconColor(apiName: String, sequence: Int = 0, pluralLabel: String = ""): Color {
+    if (knownModuleIcon(apiName) != null || knownCustomIcon(pluralLabel) != null) return CrmPrimary
+    return when {
+        apiName.startsWith("WebTab",        ignoreCase = true) -> webTabColor
+        apiName.startsWith("LinkingModule", ignoreCase = true) -> linkingModuleColor
+        else                                                    -> customModuleColor
+    }
+}
 
 // ─── Route helper ─────────────────────────────────────────────────────────────
 
@@ -266,10 +314,8 @@ fun CrmBottomBar(
                 },
                 icon  = {
                     Icon(
-                        imageVector        = moduleIcon(module.apiName, module.sequence),
+                        imageVector        = moduleIcon(module.apiName, module.sequence, module.pluralLabel),
                         contentDescription = module.pluralLabel,
-                        // In the nav bar the selected/unselected tint is handled by
-                        // navItemColors() so we let Compose apply it naturally.
                     )
                 },
                 label  = { Text(module.pluralLabel, fontSize = 10.sp, maxLines = 1) },
@@ -311,9 +357,9 @@ fun CrmBottomBar(
                         headlineContent = { Text(module.pluralLabel) },
                         leadingContent  = {
                             Icon(
-                                imageVector        = moduleIcon(module.apiName, module.sequence),
+                                imageVector        = moduleIcon(module.apiName, module.sequence, module.pluralLabel),
                                 contentDescription = null,
-                                tint               = moduleIconColor(module.apiName, module.sequence),
+                                tint               = moduleIconColor(module.apiName, module.sequence, module.pluralLabel),
                             )
                         },
                         modifier = Modifier
@@ -356,10 +402,10 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem("Home",     Icons.Default.Home,      Screen.Dashboard.route),
-    BottomNavItem("Accounts", Icons.Default.Business,  Screen.ModuleList.createRoute("Accounts")),
-    BottomNavItem("Contacts", Icons.Default.Contacts,  Screen.ModuleList.createRoute("Contacts")),
-    BottomNavItem("Deals",    Icons.Default.Handshake, Screen.ModuleList.createRoute("Deals")),
-    BottomNavItem("Quotes",   Icons.Default.Receipt,   Screen.ModuleList.createRoute("Quotes")),
+    BottomNavItem("Accounts", Icons.Default.Domain,    Screen.ModuleList.createRoute("Accounts")),
+    BottomNavItem("Contacts", Icons.Default.PermContactCalendar, Screen.ModuleList.createRoute("Contacts")),
+    BottomNavItem("Deals",    Icons.Default.Work,      Screen.ModuleList.createRoute("Deals")),
+    BottomNavItem("Quotes",   Icons.Default.RequestQuote, Screen.ModuleList.createRoute("Quotes")),
 )
 
 // ─── Filter Bottom Sheet ──────────────────────────────────────────────────────
