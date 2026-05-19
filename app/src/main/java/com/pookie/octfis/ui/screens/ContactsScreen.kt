@@ -33,6 +33,9 @@ import com.pookie.octfis.ui.components.CrmBottomBar
 import com.pookie.octfis.ui.components.CrmFilterSheet
 import com.pookie.octfis.ui.components.FilterChipRow
 import com.pookie.octfis.ui.theme.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +65,15 @@ fun ContactsScreen(
     }
     LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
     LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.load()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     if (filterOpen) {
         CrmFilterSheet(

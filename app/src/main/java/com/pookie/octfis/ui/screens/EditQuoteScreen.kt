@@ -40,6 +40,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+// ── Save State sealed class ────────────────────────────────────────────────────
+
+sealed class SaveState {
+    object Idle    : SaveState()
+    object Saving  : SaveState()
+    object Success : SaveState()
+    data class Error(val message: String) : SaveState()
+}
+
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
 class EditQuoteViewModel : ViewModel() {
@@ -60,6 +69,10 @@ class EditQuoteViewModel : ViewModel() {
 
     private val _lookupLoading = MutableStateFlow(true)
     val lookupLoading: StateFlow<Boolean> = _lookupLoading.asStateFlow()
+
+    // ── FIX: Save state lives in ViewModel scope, not Compose scope ───────────
+    private val _saveState = MutableStateFlow<SaveState>(SaveState.Idle)
+    val saveState: StateFlow<SaveState> = _saveState.asStateFlow()
 
     init { loadLookups() }
 
@@ -97,6 +110,51 @@ class EditQuoteViewModel : ViewModel() {
             _lookupLoading.value = false
         }
     }
+
+    // ── FIX: Save runs on viewModelScope — survives navigation transitions ────
+    fun saveQuote(
+        zohoId        : String,
+        subject       : String,
+        accountName   : String,
+        accountZohoId : String,
+        contactName   : String,
+        contactZohoId : String,
+        dealName      : String,
+        dealZohoId    : String,
+        quoteStage    : String,
+        validUntil    : String,
+        description   : String,
+        items         : List<QuoteItem>,
+    ) {
+        if (_saveState.value == SaveState.Saving) return   // prevent double-tap
+        viewModelScope.launch {
+            _saveState.value = SaveState.Saving
+            val repo = QuoteRepository(api)
+            repo.updateQuote(
+                zohoId        = zohoId,
+                subject       = subject,
+                accountName   = accountName,
+                accountZohoId = accountZohoId,
+                contactName   = contactName,
+                contactZohoId = contactZohoId,
+                dealName      = dealName,
+                dealZohoId    = dealZohoId,
+                quoteStage    = quoteStage,
+                validUntil    = validUntil,
+                description   = description,
+                items         = items,
+            ).fold(
+                onSuccess = { _saveState.value = SaveState.Success },
+                onFailure = { e -> _saveState.value = SaveState.Error(e.message ?: "Save failed") },
+            )
+        }
+    }
+
+    // Called from the screen after the error snackbar is shown, so it doesn't
+    // fire again on recomposition.
+    fun clearError() {
+        _saveState.value = SaveState.Idle
+    }
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -133,14 +191,34 @@ fun EditQuoteScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showItemDialog by remember { mutableStateOf(false) }
     var editingIndex   by remember { mutableStateOf<Int?>(null) }
-    var isSaving       by remember { mutableStateOf(false) }
-    var saveError      by remember { mutableStateOf<String?>(null) }
-    val scope          = rememberCoroutineScope()
 
     val accountItems  by vm.accountItems.collectAsState()
     val contactItems  by vm.contactItems.collectAsState()
     val dealItems     by vm.dealItems.collectAsState()
     val lookupLoading by vm.lookupLoading.collectAsState()
+
+    // ── FIX: Observe saveState from ViewModel ─────────────────────────────────
+    val saveState by vm.saveState.collectAsState()
+    val isSaving  = saveState == SaveState.Saving
+
+    // React to save outcome — navigate on success, show snackbar on error.
+    // LaunchedEffect key = saveState so it re-runs only when state actually changes.
+    LaunchedEffect(saveState) {
+        when (val s = saveState) {
+            is SaveState.Success -> {
+                // Tell QuoteDetailScreen to re-fetch after we pop back
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("quoteUpdated", true)
+                navController.popBackStack()
+                // No need to reset state — ViewModel is cleared with the screen
+            }
+            is SaveState.Error -> {
+                // Error message is shown via snackbarHost below; no action needed here
+            }
+            else -> { /* Idle / Saving — do nothing */ }
+        }
+    }
 
     val stageOptions = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
     val items = remember { mutableStateListOf<QuoteItem>().also { it.addAll(original.items) } }
@@ -217,39 +295,22 @@ fun EditQuoteScreen(
                 },
                 actions = {
                     Button(
+                        // ── FIX: delegate to ViewModel — no rememberCoroutineScope needed ──
                         onClick = {
-                            isSaving = true
-                            saveError = null
-                            scope.launch {
-                                val repo = QuoteRepository(ZohoServiceLocator.getApiService())
-                                val result: Result<Unit> = repo.updateQuote(
-                                    zohoId        = original.zohoId,
-                                    subject       = subject,
-                                    accountName   = accountName,
-                                    accountZohoId = accountZohoId,
-                                    contactName   = contactName,
-                                    contactZohoId = contactZohoId,
-                                    dealName      = dealName,
-                                    dealZohoId    = dealZohoId,
-                                    quoteStage    = quoteStage,
-                                    validUntil    = validUntil,
-                                    description   = description,
-                                    items         = items.toList(),
-                                )
-                                result.fold(
-                                    onSuccess = {
-                                        // ── FIX 2: Tell QuoteDetailScreen to re-fetch ─────────────
-                                        // Without this, the detail screen stays on its old cached state
-                                        // because LaunchedEffect(zohoId) doesn't re-run on back-navigation.
-                                        navController.previousBackStackEntry
-                                            ?.savedStateHandle
-                                            ?.set("quoteUpdated", true)
-                                        navController.popBackStack()
-                                    },
-                                    onFailure = { e -> saveError = e.message ?: "Save failed" },
-                                )
-                                isSaving = false
-                            }
+                            vm.saveQuote(
+                                zohoId        = original.zohoId,
+                                subject       = subject,
+                                accountName   = accountName,
+                                accountZohoId = accountZohoId,
+                                contactName   = contactName,
+                                contactZohoId = contactZohoId,
+                                dealName      = dealName,
+                                dealZohoId    = dealZohoId,
+                                quoteStage    = quoteStage,
+                                validUntil    = validUntil,
+                                description   = description,
+                                items         = items.toList(),
+                            )
                         },
                         enabled  = !isSaving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
@@ -261,11 +322,14 @@ fun EditQuoteScreen(
             )
         },
         snackbarHost = {
-            saveError?.let { msg ->
+            // Show error from ViewModel state (not a local var anymore)
+            if (saveState is SaveState.Error) {
                 Snackbar(
-                    action = { TextButton(onClick = { saveError = null }) { Text("OK") } },
+                    action = {
+                        TextButton(onClick = { vm.clearError() }) { Text("OK") }
+                    },
                     modifier = Modifier.padding(8.dp),
-                ) { Text(msg) }
+                ) { Text((saveState as SaveState.Error).message) }
             }
         },
         containerColor = MaterialTheme.colorScheme.background,
