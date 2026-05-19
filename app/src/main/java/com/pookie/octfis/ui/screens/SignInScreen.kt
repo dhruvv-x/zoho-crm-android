@@ -1,5 +1,6 @@
 package com.pookie.octfis.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.pookie.octfis.R
 import com.pookie.octfis.data.remote.AuthState
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.navigation.Screen
@@ -60,14 +63,15 @@ fun SignInScreen(navController: NavController) {
         verticalArrangement = Arrangement.Center,
     ) {
 
-        Text(
-            text       = "🦅 OCTFIS\nTECHNO LLP",
-            color      = CrmPrimary,
-            fontWeight = FontWeight.Bold,
-            fontSize   = 20.sp,
-            textAlign  = TextAlign.Center,
-            lineHeight = 26.sp,
+        // ── Logo ──────────────────────────────────────────────────────────
+        Image(
+            painter            = painterResource(id = R.drawable.octfis_logo),
+            contentDescription = "Octfis Techno LLP",
+            modifier           = Modifier
+                .fillMaxWidth(0.72f)   // 72% of screen width — adjust to taste
+                .aspectRatio(2.1f),    // matches the logo's natural width:height ratio
         )
+        // ─────────────────────────────────────────────────────────────────
 
         Spacer(Modifier.height(36.dp))
 
