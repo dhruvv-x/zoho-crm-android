@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Octfis" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Minimal XML theme — app is fully Compose, this only handles OS-level items -->
+    <style name="Theme.Octfis" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Splash screen background — OS reads XML only, no Compose API -->
+        <item name="android:windowSplashScreenBackground">#FF1A1F36</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#FF4361EE</item>
+        <!-- Transparent status bar — Compose draws behind it -->
+        <item name="android:statusBarColor">#00000000</item>
+        <!-- Light mode — dark status bar icons -->
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
 </resources>

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -585,4 +587,204 @@ fun SectionHeader(title: String) {
             fontSize   = 13.sp,
         )
     }
+}
+// ═══════════════════════════════════════════════════════════════════════════════
+// THEME-LAYER COMPONENT WRAPPERS
+// Drop-in replacements that apply the full Zoho CRM visual system automatically.
+// Use these instead of raw M3 Card/Surface/Text throughout the app.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── CrmCard ──────────────────────────────────────────────────────────────────
+// Pure white card with 1dp border — exactly like Zoho site cards.
+// No tonal elevation tinting. Use everywhere instead of raw Card {}.
+
+@Composable
+fun CrmCard(
+    modifier : Modifier = Modifier,
+    onClick  : (() -> Unit)? = null,
+    content  : @Composable ColumnScope.() -> Unit,
+) {
+    val border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
+    if (onClick != null) {
+        Card(
+            onClick    = onClick,
+            modifier   = modifier,
+            shape      = ShapeCard,
+            colors     = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+            elevation  = CardDefaults.cardElevation(
+                defaultElevation  = 0.dp,
+                pressedElevation  = 0.dp,
+                hoveredElevation  = 1.dp,
+            ),
+            border     = border,
+            content    = content,
+        )
+    } else {
+        Card(
+            modifier   = modifier,
+            shape      = ShapeCard,
+            colors     = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
+            elevation  = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border     = border,
+            content    = content,
+        )
+    }
+}
+
+// ─── CrmBadge ─────────────────────────────────────────────────────────────────
+// Colored pill badge — for status labels, count chips, and record tags.
+// Matches Zoho's compact inline status indicators.
+
+enum class CrmBadgeStyle { Primary, Success, Warning, Error, Neutral }
+
+@Composable
+fun CrmBadge(
+    text     : String,
+    style    : CrmBadgeStyle = CrmBadgeStyle.Primary,
+    modifier : Modifier = Modifier,
+) {
+    val (bg, fg) = when (style) {
+        CrmBadgeStyle.Primary -> CrmAccentContainer    to CrmAccentDark
+        CrmBadgeStyle.Success -> CrmSuccessContainer   to CrmOnSuccessContainer
+        CrmBadgeStyle.Warning -> CrmWarningContainer   to CrmOnWarningContainer
+        CrmBadgeStyle.Error   -> CrmErrorContainer     to CrmOnErrorContainer
+        CrmBadgeStyle.Neutral -> CrmSurfaceAlt         to CrmSubtext
+    }
+    Surface(
+        shape    = ShapeBadge,
+        color    = bg,
+        modifier = modifier,
+    ) {
+        Text(
+            text     = text,
+            style    = MaterialTheme.typography.labelSmall,
+            color    = fg,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+        )
+    }
+}
+
+// ─── CrmStatusChip ────────────────────────────────────────────────────────────
+// Outlined filter chip — matches Zoho's module filter chips on list screens.
+
+@Composable
+fun CrmStatusChip(
+    label    : String,
+    selected : Boolean,
+    onClick  : () -> Unit,
+    modifier : Modifier = Modifier,
+) {
+    FilterChip(
+        selected = selected,
+        onClick  = onClick,
+        label    = { Text(label, style = MaterialTheme.typography.labelMedium) },
+        shape    = ShapeChip,
+        colors   = FilterChipDefaults.filterChipColors(
+            containerColor         = MaterialTheme.colorScheme.surface,
+            labelColor             = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedContainerColor = CrmAccentContainer,
+            selectedLabelColor     = CrmAccentDark,
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled              = true,
+            selected             = selected,
+            borderColor          = MaterialTheme.colorScheme.outline,
+            selectedBorderColor  = CrmAccent,
+            borderWidth          = 0.5.dp,
+            selectedBorderWidth  = 1.dp,
+        ),
+        modifier = modifier,
+    )
+}
+
+// ─── CrmDivider ───────────────────────────────────────────────────────────────
+// Thin divider that matches Zoho's subtle list separators.
+
+@Composable
+fun CrmDividerLine(modifier: Modifier = Modifier) {
+    HorizontalDivider(
+        modifier  = modifier,
+        thickness = 0.5.dp,
+        color     = MaterialTheme.colorScheme.outline,
+    )
+}
+
+// ─── CrmEmptyState ────────────────────────────────────────────────────────────
+// Consistent empty state for list screens with no records.
+
+@Composable
+fun CrmEmptyState(
+    icon    : ImageVector = Icons.Default.Inbox,
+    title   : String      = "No records found",
+    message : String      = "Nothing to show here yet.",
+    modifier: Modifier    = Modifier,
+) {
+    Column(
+        modifier              = modifier
+            .fillMaxWidth()
+            .padding(48.dp),
+        horizontalAlignment   = Alignment.CenterHorizontally,
+        verticalArrangement   = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector        = icon,
+            contentDescription = null,
+            tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier           = Modifier.size(56.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text  = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text  = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+// ─── CrmTopBar ────────────────────────────────────────────────────────────────
+// Consistent top app bar — white bg, navy title, matches Zoho header style.
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CrmTopBar(
+    title        : String,
+    onBack       : (() -> Unit)? = null,
+    actions      : @Composable RowScope.() -> Unit = {},
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text  = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        },
+        navigationIcon = {
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector        = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint               = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        },
+        actions = actions,
+        colors  = TopAppBarDefaults.topAppBarColors(
+            containerColor       = MaterialTheme.colorScheme.surface,
+            scrolledContainerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor    = MaterialTheme.colorScheme.onSurface,
+        ),
+    )
 }
