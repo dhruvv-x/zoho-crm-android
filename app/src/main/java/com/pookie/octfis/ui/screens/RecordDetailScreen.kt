@@ -323,6 +323,12 @@ private fun DetailContent(
 
         sections.forEach { (sectionName, sectionFields) ->
 
+            // ── Skip sections with no displayable fields ───────────────────
+            val visibleFieldsCheck = sectionFields.filter { field ->
+                formatFieldValue(field, values[field.apiName]).isNotBlank() || field.required
+            }
+            if (visibleFieldsCheck.isEmpty()) return@forEach
+
             // ── Blue banner section header ─────────────────────────────────
             Box(
                 modifier = Modifier
@@ -349,15 +355,12 @@ private fun DetailContent(
                 shadowElevation = 1.dp,
             ) {
                 Column {
-                    val visibleFields = sectionFields.filter { field ->
-                        formatFieldValue(field, values[field.apiName]).isNotBlank() || field.required
-                    }
-                    visibleFields.forEachIndexed { index, field ->
+                    visibleFieldsCheck.forEachIndexed { index, field ->
                         DetailFieldRow(
                             label  = field.label,
                             value  = formatFieldValue(field, values[field.apiName]),
                             type   = field.type,
-                            isLast = index == visibleFields.lastIndex,
+                            isLast = index == visibleFieldsCheck.lastIndex,
                         )
                     }
                 }
@@ -365,32 +368,34 @@ private fun DetailContent(
         }
 
         // ── Related section header ─────────────────────────────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                .background(CrmPrimary)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-        ) {
-            Text(
-                text       = "Related",
-                style      = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color      = Color.White,
+        if (relatedLists.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                    .background(CrmPrimary)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Text(
+                    text       = "Related",
+                    style      = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = Color.White,
+                )
+            }
+
+            RelatedRecordsSection(
+                parentModule  = moduleName,
+                parentId      = recordId,
+                repository    = repository,
+                relatedLists  = relatedLists,
+                onRecordClick = { relatedModule, relatedId ->
+                    navController.navigate(
+                        Screen.ModuleDetail.createRoute(relatedModule, relatedId)
+                    )
+                },
             )
         }
-
-        RelatedRecordsSection(
-            parentModule  = moduleName,
-            parentId      = recordId,
-            repository    = repository,
-            relatedLists  = relatedLists,
-            onRecordClick = { relatedModule, relatedId ->
-                navController.navigate(
-                    Screen.ModuleDetail.createRoute(relatedModule, relatedId)
-                )
-            },
-        )
 
         Spacer(Modifier.height(24.dp))
     }
