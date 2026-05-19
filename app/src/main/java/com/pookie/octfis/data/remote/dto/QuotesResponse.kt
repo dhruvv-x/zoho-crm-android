@@ -12,6 +12,8 @@ data class ZohoQuote(
     @SerializedName("Subject")          val subject: String?,
     @SerializedName("Account_Name")     val accountName: ZohoQuoteAccount?,
     @SerializedName("Contact_Name")     val contactName: ZohoQuoteContact?,
+    // FIX: Deal_Name was completely missing from this DTO
+    @SerializedName("Deal_Name")        val dealName: ZohoQuoteDeal?,
     @SerializedName("Quote_Stage")      val quoteStage: String?,
     @SerializedName("Valid_Till")       val validUntil: String?,
     @SerializedName("Description")      val description: String?,
@@ -20,7 +22,6 @@ data class ZohoQuote(
     @SerializedName("Discount")         val discount: Double?,
     @SerializedName("Tax")              val tax: Double?,
     @SerializedName("Quote_Owner")      val quoteOwner: ZohoOwner?,
-    // Zoho CRM v2/v3 returns line items under "Product_Details"
     @SerializedName("Product_Details")  val quotedItems: List<ZohoQuotedItem>?,
 )
 
@@ -34,7 +35,12 @@ data class ZohoQuoteContact(
     @SerializedName("id")   val id: String?,
 )
 
-// Matches Zoho CRM v2/v3 Product_Details item structure
+// FIX: new DTO for the Deal lookup object
+data class ZohoQuoteDeal(
+    @SerializedName("name") val name: String?,
+    @SerializedName("id")   val id: String?,
+)
+
 data class ZohoQuotedItem(
     @SerializedName("product")          val product: ZohoProduct?,
     @SerializedName("quantity")         val quantity: Double?,

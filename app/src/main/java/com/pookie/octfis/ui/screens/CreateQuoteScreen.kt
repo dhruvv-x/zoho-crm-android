@@ -19,10 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.data.model.QuoteItem
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.data.repository.QuoteRepository
+import com.pookie.octfis.ui.components.LookupField
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 import java.text.SimpleDateFormat
@@ -33,11 +35,19 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateQuoteScreen(navController: NavController) {
+fun CreateQuoteScreen(
+    navController: NavController,
+    vm: EditQuoteViewModel = viewModel(),   // reuses the same ViewModel for lookup data
+) {
+    val accountItems  by vm.accountItems.collectAsState()
+    val contactItems  by vm.contactItems.collectAsState()
+    val lookupLoading by vm.lookupLoading.collectAsState()
 
     var subject        by remember { mutableStateOf("") }
     var accountName    by remember { mutableStateOf("") }
+    var accountZohoId  by remember { mutableStateOf("") }
     var contactName    by remember { mutableStateOf("") }
+    var contactZohoId  by remember { mutableStateOf("") }
     var validUntil     by remember { mutableStateOf("") }
     var quoteStage     by remember { mutableStateOf("Draft") }
     var description    by remember { mutableStateOf("") }
@@ -126,13 +136,15 @@ fun CreateQuoteScreen(navController: NavController) {
                                 val repo = QuoteRepository(ZohoServiceLocator.getApiService())
                                 val result: Result<Unit> = withContext(Dispatchers.IO) {
                                     repo.createQuote(
-                                        subject     = subject,
-                                        accountName = accountName,
-                                        contactName = contactName,
-                                        quoteStage  = quoteStage,
-                                        validUntil  = validUntil,
-                                        description = description,
-                                        items       = items.toList(),
+                                        subject       = subject,
+                                        accountName   = accountName,
+                                        accountZohoId = accountZohoId,
+                                        contactName   = contactName,
+                                        contactZohoId = contactZohoId,
+                                        quoteStage    = quoteStage,
+                                        validUntil    = validUntil,
+                                        description   = description,
+                                        items         = items.toList(),
                                     )
                                 }
                                 result.fold(
@@ -170,14 +182,35 @@ fun CreateQuoteScreen(navController: NavController) {
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    QuoteFormField("Subject",      subject,     "Enter Quote title")     { subject = it }
-                    QuoteDivider()
-                    QuoteFormField("Account Name", accountName, "Select Company Name")   { accountName = it }
-                    QuoteDivider()
-                    QuoteFormField("Contact Name", contactName, "Select Contact Person") { contactName = it }
+                    QuoteFormField("Subject", subject, "Enter Quote title") { subject = it }
                     QuoteDivider()
 
-                    // Valid Until — taps open DatePicker
+                    LookupField(
+                        label       = "Account Name",
+                        value       = accountName,
+                        placeholder = "Select Account",
+                        items       = accountItems,
+                        loading     = lookupLoading && accountItems.isEmpty(),
+                        onSelect    = { item ->
+                            accountName   = item.name
+                            accountZohoId = item.zohoId
+                        },
+                    )
+                    QuoteDivider()
+
+                    LookupField(
+                        label       = "Contact Name",
+                        value       = contactName,
+                        placeholder = "Select Contact",
+                        items       = contactItems,
+                        loading     = lookupLoading && contactItems.isEmpty(),
+                        onSelect    = { item ->
+                            contactName   = item.name
+                            contactZohoId = item.zohoId
+                        },
+                    )
+                    QuoteDivider()
+
                     TextButton(
                         onClick        = { showDatePicker = true },
                         modifier       = Modifier.fillMaxWidth(),
@@ -195,7 +228,6 @@ fun CreateQuoteScreen(navController: NavController) {
                     }
                     QuoteDivider()
 
-                    // Quote Stage — dropdown, value persists immediately
                     ExposedDropdownMenuBox(expanded = stageExpanded, onExpandedChange = { stageExpanded = !stageExpanded }) {
                         Row(
                             modifier          = Modifier.fillMaxWidth().menuAnchor().padding(horizontal = 16.dp, vertical = 14.dp),
@@ -224,7 +256,6 @@ fun CreateQuoteScreen(navController: NavController) {
             SectionHeader("Quoted Items")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    // Header row
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                         Text("S.NO",         fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(40.dp))
                         Text("Product Name", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))

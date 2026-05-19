@@ -19,21 +19,95 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.data.model.QuoteItem
 import com.pookie.octfis.data.remote.ZohoServiceLocator
+import com.pookie.octfis.data.repository.AccountRepository
+import com.pookie.octfis.data.repository.ContactRepository
+import com.pookie.octfis.data.repository.DealRepository
 import com.pookie.octfis.data.repository.QuoteRepository
+import com.pookie.octfis.ui.components.LookupField
+import com.pookie.octfis.ui.components.LookupItem
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+
+// ── ViewModel ─────────────────────────────────────────────────────────────────
+
+class EditQuoteViewModel : ViewModel() {
+
+    private val api         = ZohoServiceLocator.getApiService()
+    private val accountRepo = AccountRepository(api)
+    private val contactRepo = ContactRepository(api)
+    private val dealRepo    = DealRepository(api)
+
+    private val _accountItems  = MutableStateFlow<List<LookupItem>>(emptyList())
+    val accountItems: StateFlow<List<LookupItem>> = _accountItems.asStateFlow()
+
+    private val _contactItems  = MutableStateFlow<List<LookupItem>>(emptyList())
+    val contactItems: StateFlow<List<LookupItem>> = _contactItems.asStateFlow()
+
+    private val _dealItems     = MutableStateFlow<List<LookupItem>>(emptyList())
+    val dealItems: StateFlow<List<LookupItem>> = _dealItems.asStateFlow()
+
+    private val _lookupLoading = MutableStateFlow(true)
+    val lookupLoading: StateFlow<Boolean> = _lookupLoading.asStateFlow()
+
+    init { loadLookups() }
+
+    private fun loadLookups() {
+        viewModelScope.launch {
+            _lookupLoading.value = true
+
+            val cachedAccounts = AccountRepository.cache
+            if (cachedAccounts.isNotEmpty()) {
+                _accountItems.value = cachedAccounts.map { LookupItem(it.zohoId, it.name, it.phone) }
+            } else {
+                runCatching { accountRepo.getAccounts(1) }
+                    .getOrNull()?.getOrNull()?.first
+                    ?.let { _accountItems.value = it.map { a -> LookupItem(a.zohoId, a.name, a.phone) } }
+            }
+
+            val cachedContacts = ContactRepository.cache
+            if (cachedContacts.isNotEmpty()) {
+                _contactItems.value = cachedContacts.map { LookupItem(it.zohoId, it.fullName, it.email) }
+            } else {
+                runCatching { contactRepo.getContacts(1) }
+                    .getOrNull()?.getOrNull()?.first
+                    ?.let { _contactItems.value = it.map { c -> LookupItem(c.zohoId, c.fullName, c.email) } }
+            }
+
+            val cachedDeals = DealRepository.cache
+            if (cachedDeals.isNotEmpty()) {
+                _dealItems.value = cachedDeals.map { LookupItem(it.zohoId, it.dealName, it.accountName) }
+            } else {
+                runCatching { dealRepo.getDeals(1) }
+                    .getOrNull()?.getOrNull()?.first
+                    ?.let { _dealItems.value = it.map { d -> LookupItem(d.zohoId, d.dealName, d.accountName) } }
+            }
+
+            _lookupLoading.value = false
+        }
+    }
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditQuoteScreen(navController: NavController, quoteId: Int) {
+fun EditQuoteScreen(
+    navController: NavController,
+    quoteId: Int,
+    vm: EditQuoteViewModel = viewModel(),
+) {
     val original = QuoteRepository.cache.firstOrNull { it.id == quoteId }
 
     if (original == null) {
@@ -47,7 +121,12 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
 
     var subject        by remember { mutableStateOf(original.subject) }
     var accountName    by remember { mutableStateOf(original.accountName) }
+    var accountZohoId  by remember { mutableStateOf(original.accountZohoId) }
     var contactName    by remember { mutableStateOf(original.contactName) }
+    var contactZohoId  by remember { mutableStateOf(original.contactZohoId) }
+    // FIX: Pre-populate deal from cache (was always blank "" before)
+    var dealName       by remember { mutableStateOf(original.dealName) }
+    var dealZohoId     by remember { mutableStateOf(original.dealZohoId) }
     var validUntil     by remember { mutableStateOf(original.validUntil) }
     var quoteStage     by remember { mutableStateOf(original.quoteStage) }
     var description    by remember { mutableStateOf(original.description) }
@@ -58,6 +137,11 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
     var isSaving       by remember { mutableStateOf(false) }
     var saveError      by remember { mutableStateOf<String?>(null) }
     val scope          = rememberCoroutineScope()
+
+    val accountItems  by vm.accountItems.collectAsState()
+    val contactItems  by vm.contactItems.collectAsState()
+    val dealItems     by vm.dealItems.collectAsState()
+    val lookupLoading by vm.lookupLoading.collectAsState()
 
     val stageOptions = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
     val items = remember { mutableStateListOf<QuoteItem>().also { it.addAll(original.items) } }
@@ -136,20 +220,27 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
                     Button(
                         onClick = {
                             isSaving = true
+                            saveError = null
                             scope.launch {
                                 val repo = QuoteRepository(ZohoServiceLocator.getApiService())
-                                val result: Result<Unit> = withContext(Dispatchers.IO) {
-                                    repo.updateQuote(
-                                        zohoId      = original.zohoId,
-                                        subject     = subject,
-                                        quoteStage  = quoteStage,
-                                        validUntil  = validUntil,
-                                        description = description,
-                                        items       = items.toList(),
-                                    )
-                                }
+                                // FIX: Pass dealName + dealZohoId (were missing from call before)
+                                val result: Result<Unit> = repo.updateQuote(
+                                    zohoId        = original.zohoId,
+                                    subject       = subject,
+                                    accountName   = accountName,
+                                    accountZohoId = accountZohoId,
+                                    contactName   = contactName,
+                                    contactZohoId = contactZohoId,
+                                    dealName      = dealName,
+                                    dealZohoId    = dealZohoId,
+                                    quoteStage    = quoteStage,
+                                    validUntil    = validUntil,
+                                    description   = description,
+                                    items         = items.toList(),
+                                )
                                 result.fold(
                                     onSuccess = { navController.popBackStack() },
+                                    // FIX: error now includes field name e.g. "invalid data [field: Sub_Total]"
                                     onFailure = { e -> saveError = e.message ?: "Save failed" },
                                 )
                                 isSaving = false
@@ -180,11 +271,46 @@ fun EditQuoteScreen(navController: NavController, quoteId: Int) {
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    EQFormField("Subject",      subject,     "Enter Quote title")     { subject = it }
+                    EQFormField("Subject", subject, "Enter Quote title") { subject = it }
                     EQDivider()
-                    EQFormField("Account Name", accountName, "Select Company Name")   { accountName = it }
+
+                    LookupField(
+                        label       = "Account Name",
+                        value       = accountName,
+                        placeholder = "Select Account",
+                        items       = accountItems,
+                        loading     = lookupLoading && accountItems.isEmpty(),
+                        onSelect    = { item ->
+                            accountName   = item.name
+                            accountZohoId = item.zohoId
+                        },
+                    )
                     EQDivider()
-                    EQFormField("Contact Name", contactName, "Select Contact Person") { contactName = it }
+
+                    LookupField(
+                        label       = "Contact Name",
+                        value       = contactName,
+                        placeholder = "Select Contact",
+                        items       = contactItems,
+                        loading     = lookupLoading && contactItems.isEmpty(),
+                        onSelect    = { item ->
+                            contactName   = item.name
+                            contactZohoId = item.zohoId
+                        },
+                    )
+                    EQDivider()
+
+                    LookupField(
+                        label       = "Deal",
+                        value       = dealName,
+                        placeholder = "Link a Deal (optional)",
+                        items       = dealItems,
+                        loading     = lookupLoading && dealItems.isEmpty(),
+                        onSelect    = { item ->
+                            dealName   = item.name
+                            dealZohoId = item.zohoId
+                        },
+                    )
                     EQDivider()
 
                     TextButton(
