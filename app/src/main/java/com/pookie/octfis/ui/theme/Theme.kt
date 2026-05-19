@@ -31,12 +31,12 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary              = CrmAccentLight,
-    onPrimary            = Color(0xFF003380),
-    primaryContainer     = Color(0xFF00419F),
+    onPrimary            = Color(0xFF1A2D8A),
+    primaryContainer     = Color(0xFF2F44C0),
     onPrimaryContainer   = CrmAccentLight,
     secondary            = CrmNavActive,
     onSecondary          = Color.White,
-    secondaryContainer   = Color(0xFF1B3A8A),
+    secondaryContainer   = Color(0xFF1B2A7A),
     onSecondaryContainer = CrmOnSurfaceDark,
     background           = CrmBackgroundDark,
     onBackground         = CrmOnSurfaceDark,

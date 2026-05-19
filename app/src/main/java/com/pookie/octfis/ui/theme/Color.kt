@@ -2,11 +2,11 @@ package com.pookie.octfis.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Zoho Blue — primary buttons, FAB, active states
-val CrmAccent          = Color(0xFF1A6BFF)
-val CrmAccentDark      = Color(0xFF1456CC)
-val CrmAccentLight     = Color(0xFFE8F0FF)
-val CrmAccentContainer = Color(0xFFDCEAFF)
+// Primary — Zoho CRM indigo-blue (extracted from site buttons & active states)
+val CrmAccent          = Color(0xFF4361EE)
+val CrmAccentDark      = Color(0xFF2F4DD4)
+val CrmAccentLight     = Color(0xFFECEFFD)
+val CrmAccentContainer = Color(0xFFDDE2FB)
 val CrmOnAccent        = Color(0xFFFFFFFF)
 
 // Screen-level aliases
@@ -15,41 +15,41 @@ val CrmPrimaryLight = CrmAccentLight
 val CrmPrimaryDark  = CrmAccentDark
 val CrmOnPrimary    = CrmOnAccent
 
-// Sidebar / Nav
-val CrmNavBackground = Color(0xFF1A1D2E)
-val CrmNavActive     = Color(0xFF2D5BE3)
-val CrmNavText       = Color(0xFFCDD5E0)
+// Sidebar / Nav — matches Zoho CRM dark navy sidebar exactly
+val CrmNavBackground = Color(0xFF1A1F36)
+val CrmNavActive     = Color(0xFF3D55D0)
+val CrmNavText       = Color(0xFFC8CFE0)
 val CrmNavTextActive = Color(0xFFFFFFFF)
-val CrmNavIcon       = Color(0xFF8A9BB5)
+val CrmNavIcon       = Color(0xFF8A96B8)
 val CrmNavIconActive = Color(0xFFFFFFFF)
 
-// Light Theme
-val CrmBackground  = Color(0xFFF0F2F5)
+// Light Theme — matches Zoho CRM page background & card surfaces
+val CrmBackground  = Color(0xFFF0F2F8)
 val CrmSurface     = Color(0xFFFFFFFF)
-val CrmSurfaceAlt  = Color(0xFFF5F7FA)
-val CrmOnSurface   = Color(0xFF1C1C2E)
-val CrmSubtext     = Color(0xFF6B7280)
-val CrmDivider     = Color(0xFFE4E7EC)
+val CrmSurfaceAlt  = Color(0xFFF5F7FC)
+val CrmOnSurface   = Color(0xFF1A1F36)
+val CrmSubtext     = Color(0xFF6B7A99)
+val CrmDivider     = Color(0xFFE2E6F0)
 
 // Dark Theme
-val CrmBackgroundDark = Color(0xFF0F1117)
-val CrmSurfaceDark    = Color(0xFF1A1D26)
-val CrmSurfaceAltDark = Color(0xFF21242F)
-val CrmOnSurfaceDark  = Color(0xFFE2E8F0)
-val CrmSubtextDark    = Color(0xFF8A9BB5)
-val CrmDividerDark    = Color(0xFF2A2D3A)
+val CrmBackgroundDark = Color(0xFF0E1120)
+val CrmSurfaceDark    = Color(0xFF181C2E)
+val CrmSurfaceAltDark = Color(0xFF1E2238)
+val CrmOnSurfaceDark  = Color(0xFFDDE2F0)
+val CrmSubtextDark    = Color(0xFF8A96B8)
+val CrmDividerDark    = Color(0xFF282D45)
 
 // Slate aliases
-val CrmSlate     = Color(0xFF1A1D2E)
-val CrmSlateDark = Color(0xFF12141E)
+val CrmSlate     = Color(0xFF1A1F36)
+val CrmSlateDark = Color(0xFF101320)
 
-// Table
-val CrmTableHeader     = Color(0xFF2C3345)
-val CrmTableHeaderDark = Color(0xFF1E2130)
-val CrmRowAlt          = Color(0xFFF8F9FB)
-val CrmRowAltDark      = Color(0xFF1E2130)
+// Table — matches Zoho CRM list/report headers
+val CrmTableHeader     = Color(0xFF252A42)
+val CrmTableHeaderDark = Color(0xFF1A1E30)
+val CrmRowAlt          = Color(0xFFF7F8FC)
+val CrmRowAltDark      = Color(0xFF1E2238)
 
-// Status
+// Status — exact Zoho CRM status colors
 val CrmSuccess   = Color(0xFF00875A)
 val CrmOnSuccess = Color(0xFFFFFFFF)
 val CrmWarning   = Color(0xFFFF8B00)
