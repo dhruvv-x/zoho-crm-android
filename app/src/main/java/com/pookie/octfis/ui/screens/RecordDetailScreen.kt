@@ -524,6 +524,14 @@ private fun formatFieldValue(field: FieldMetadata, raw: Any?): String {
         }
         FieldType.CURRENCY, FieldType.DECIMAL, FieldType.PERCENT ->
             raw.toString().toDoubleOrNull()?.let { "%.2f".format(it) } ?: raw.toString()
+        FieldType.DATETIME -> runCatching {
+            val odt = java.time.OffsetDateTime.parse(raw.toString())
+            odt.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a", java.util.Locale.ENGLISH))
+        }.getOrElse { raw.toString() }
+        FieldType.DATE -> runCatching {
+            val ld = java.time.LocalDate.parse(raw.toString())
+            ld.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH))
+        }.getOrElse { raw.toString() }
         else -> raw.toString()
     }
 }

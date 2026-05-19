@@ -13,12 +13,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pookie.octfis.engine.metadata.FieldMetadata
+import com.pookie.octfis.engine.metadata.FieldType
+import java.time.OffsetDateTime
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Renders an immutable system field (Created Time, Modified Time, Created By, etc.)
  * as a styled read-only display — no interaction possible.
- *
- * Shown only in edit mode; hidden in create mode (see RecordFormViewModel).
  */
 @Composable
 fun ReadOnlyFieldComponent(
@@ -26,9 +29,7 @@ fun ReadOnlyFieldComponent(
     value    : String,
     modifier : Modifier = Modifier,
 ) {
-    val displayValue = value
-        .substringAfterLast("::")   // "4475594000000267001::User1" → "User1"
-        .ifBlank { "—" }
+    val displayValue = formatForDisplay(value, field.type)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -57,5 +58,34 @@ fun ReadOnlyFieldComponent(
                 thickness = 0.5.dp,
             )
         }
+    }
+}
+
+/**
+ * Converts raw Zoho values into human-readable strings.
+ *
+ * - DATETIME  "2024-10-16T15:45:00+05:30"  →  "16 Oct 2024, 3:45 PM"
+ * - DATE      "2024-10-16"                  →  "16 Oct 2024"
+ * - LOOKUP/OWNER  "447559::User1"           →  "User1"
+ * - Everything else                         →  as-is, or "—" if blank
+ */
+private fun formatForDisplay(raw: String, type: FieldType): String {
+    if (raw.isBlank()) return "—"
+
+    return when (type) {
+        FieldType.DATETIME -> runCatching {
+            val odt = OffsetDateTime.parse(raw)
+            odt.format(DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a", Locale.ENGLISH))
+        }.getOrElse { raw }
+
+        FieldType.DATE -> runCatching {
+            val ld = LocalDate.parse(raw)
+            ld.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH))
+        }.getOrElse { raw }
+
+        FieldType.LOOKUP,
+        FieldType.OWNER -> raw.substringAfterLast("::").ifBlank { raw }
+
+        else -> raw
     }
 }
