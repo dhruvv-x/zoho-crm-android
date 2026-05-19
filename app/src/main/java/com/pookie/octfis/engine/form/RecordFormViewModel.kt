@@ -67,7 +67,7 @@ class RecordFormViewModel @AssistedInject constructor(
                     _fields.value = if (recordId == null) {
                         fields.filter { !it.readOnly }
                     } else {
-                        fields
+                        fields.filter { it.apiName != "id" }
                     }
                     when {
                         recordId      != null -> loadRecord(recordId)
