@@ -7,7 +7,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,7 +23,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.pookie.octfis.data.repository.ZohoRecordRepository
@@ -150,13 +148,11 @@ fun RecordDetailScreen(
     val uiState  by viewModel.uiState.collectAsStateWithLifecycle()
     val isOnline by connectivityObserver.isOnline.collectAsStateWithLifecycle(initialValue = true)
 
-    // ── Delete state ──────────────────────────────────────────────────────────
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteInProgress by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope             = rememberCoroutineScope()
 
-    // ── Delete confirmation dialog ────────────────────────────────────────────
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { if (!deleteInProgress) showDeleteDialog = false },
@@ -190,8 +186,8 @@ fun RecordDetailScreen(
                                     deleteInProgress = false
                                     showDeleteDialog  = false
                                     snackbarHostState.showSnackbar(
-                                        message     = "Delete failed: ${e.message ?: "Unknown error"}",
-                                        duration    = SnackbarDuration.Long,
+                                        message  = "Delete failed: ${e.message ?: "Unknown error"}",
+                                        duration = SnackbarDuration.Long,
                                     )
                                 }
                         }
@@ -202,8 +198,8 @@ fun RecordDetailScreen(
                 ) {
                     if (deleteInProgress) {
                         CircularProgressIndicator(
-                            modifier  = Modifier.size(16.dp),
-                            color     = MaterialTheme.colorScheme.onError,
+                            modifier    = Modifier.size(16.dp),
+                            color       = MaterialTheme.colorScheme.onError,
                             strokeWidth = 2.dp,
                         )
                         Spacer(Modifier.width(8.dp))
@@ -215,9 +211,7 @@ fun RecordDetailScreen(
                 TextButton(
                     enabled = !deleteInProgress,
                     onClick = { showDeleteDialog = false },
-                ) {
-                    Text("Cancel")
-                }
+                ) { Text("Cancel") }
             },
         )
     }
@@ -229,7 +223,7 @@ fun RecordDetailScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            text     = moduleName,
+                            text     = "$moduleName Details",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -245,20 +239,25 @@ fun RecordDetailScreen(
                                 Icon(Icons.Default.Refresh, contentDescription = "Retry")
                             }
                         }
-                        // Red delete icon — only shown when record loaded successfully
                         if (uiState is DetailUiState.Success) {
+                            // Edit moved into TopBar — no FAB
+                            IconButton(onClick = {
+                                navController.navigate(
+                                    Screen.ModuleEdit.createRoute(moduleName, recordId)
+                                )
+                            }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            }
                             IconButton(onClick = { showDeleteDialog = true }) {
                                 Icon(
                                     imageVector        = Icons.Default.Delete,
-                                    contentDescription = "Delete record",
+                                    contentDescription = "Delete",
                                     tint               = MaterialTheme.colorScheme.error,
                                 )
                             }
                         }
                     },
                 )
-
-                // Offline banner
                 AnimatedVisibility(
                     visible = !isOnline,
                     enter   = expandVertically(),
@@ -268,41 +267,21 @@ fun RecordDetailScreen(
                 }
             }
         },
-        floatingActionButton = {
-            if (uiState is DetailUiState.Success) {
-                ExtendedFloatingActionButton(
-                    onClick = {
-                        navController.navigate(
-                            Screen.ModuleEdit.createRoute(moduleName, recordId)
-                        )
-                    },
-                    icon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                    text = { Text("Edit") },
-                )
-            }
-        },
     ) { padding ->
 
         when (val state = uiState) {
-
             is DetailUiState.Loading -> {
                 RecordDetailSkeleton(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize().padding(padding),
                 )
             }
-
             is DetailUiState.Error -> {
                 DetailErrorState(
                     message  = state.message,
                     onRetry  = { viewModel.refresh() },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize().padding(padding),
                 )
             }
-
             is DetailUiState.Success -> {
                 DetailContent(
                     moduleName    = moduleName,
@@ -312,9 +291,7 @@ fun RecordDetailScreen(
                     values        = state.values,
                     repository    = repository,
                     navController = navController,
-                    modifier      = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier      = Modifier.fillMaxSize().padding(padding),
                 )
             }
         }
@@ -334,113 +311,74 @@ private fun DetailContent(
     navController : NavController,
     modifier      : Modifier = Modifier,
 ) {
-    val avatarText = run {
-        val nameField = fields.firstOrNull { f ->
-            f.apiName == "Name" || f.apiName == "Subject" ||
-                    f.apiName == "Full_Name" || f.apiName.endsWith("_Name")
-        }
-        val raw = nameField?.let { values[it.apiName]?.toString() } ?: moduleName
-        raw.trim().split(" ").take(2)
-            .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
-            .joinToString("").ifEmpty { "?" }
-    }
-    val titleText = run {
-        val nameField = fields.firstOrNull { f ->
-            f.apiName == "Name" || f.apiName == "Subject" ||
-                    f.apiName == "Full_Name" || f.apiName.endsWith("_Name")
-        }
-        nameField?.let { values[it.apiName]?.toString() } ?: "Record"
-    }
-
-    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
-
-        // ── Avatar header ─────────────────────────────────────────────────────
-        Surface(
-            modifier       = Modifier.fillMaxWidth(),
-            color          = CrmPrimary,
-            tonalElevation = 0.dp,
-        ) {
-            Column(
-                modifier            = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(
-                    modifier         = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.25f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text       = avatarText,
-                        fontSize   = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color      = Color.White,
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text       = titleText,
-                    style      = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color      = Color.White,
-                    maxLines   = 2,
-                    overflow   = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text  = moduleName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.75f),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // ── Field sections ────────────────────────────────────────────────────
+    Column(
+        modifier = modifier
+            .background(CrmBackground)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+    ) {
         val sections = fields
             .filter { it.apiName != "id" }
             .groupBy { it.sectionName }
 
         sections.forEach { (sectionName, sectionFields) ->
-            Text(
-                text     = sectionName,
-                style    = MaterialTheme.typography.labelMedium,
-                color    = CrmPrimary,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-            )
 
-            Surface(
-                modifier       = Modifier
+            // ── Blue banner section header ─────────────────────────────────
+            Box(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                shape          = RoundedCornerShape(12.dp),
-                tonalElevation = 1.dp,
+                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                    .background(CrmPrimary)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Text(
+                    text       = sectionName,
+                    style      = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = Color.White,
+                )
+            }
+
+            // ── White card with rows ───────────────────────────────────────
+            Surface(
+                modifier        = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                shape           = RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp),
+                color           = CrmSurface,
+                shadowElevation = 1.dp,
             ) {
                 Column {
-                    sectionFields.forEachIndexed { index, field ->
-                        val display = formatFieldValue(field, values[field.apiName])
-                        if (display.isBlank() && !field.required) return@forEachIndexed
+                    val visibleFields = sectionFields.filter { field ->
+                        formatFieldValue(field, values[field.apiName]).isNotBlank() || field.required
+                    }
+                    visibleFields.forEachIndexed { index, field ->
                         DetailFieldRow(
                             label  = field.label,
-                            value  = display,
+                            value  = formatFieldValue(field, values[field.apiName]),
                             type   = field.type,
-                            isLast = index == sectionFields.lastIndex,
+                            isLast = index == visibleFields.lastIndex,
                         )
                     }
                 }
             }
         }
 
-        // ── Related records ───────────────────────────────────────────────────
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            text     = "Related",
-            style    = MaterialTheme.typography.labelMedium,
-            color    = CrmPrimary,
-            modifier = Modifier.padding(start = 16.dp, bottom = 4.dp),
-        )
+        // ── Related section header ─────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                .background(CrmPrimary)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Text(
+                text       = "Related",
+                style      = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color      = Color.White,
+            )
+        }
 
         RelatedRecordsSection(
             parentModule  = moduleName,
@@ -454,7 +392,7 @@ private fun DetailContent(
             },
         )
 
-        Spacer(Modifier.height(88.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -471,19 +409,19 @@ private fun DetailFieldRow(
         Row(
             modifier          = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.Top,
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text     = label,
-                style    = MaterialTheme.typography.bodySmall,
-                color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(120.dp),
+                text       = label,
+                style      = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color      = CrmOnSurface,
+                modifier   = Modifier.width(130.dp),
             )
-            Spacer(Modifier.width(8.dp))
             val valueColor = when (type) {
                 FieldType.EMAIL, FieldType.PHONE, FieldType.URL -> CrmPrimary
-                else -> MaterialTheme.colorScheme.onSurface
+                else -> CrmSubtext
             }
             Text(
                 text     = value.ifBlank { "—" },
@@ -494,9 +432,9 @@ private fun DetailFieldRow(
         }
         if (!isLast) {
             HorizontalDivider(
-                modifier  = Modifier.padding(start = 16.dp),
+                modifier  = Modifier.padding(horizontal = 16.dp),
                 thickness = 0.5.dp,
-                color     = MaterialTheme.colorScheme.outlineVariant,
+                color     = CrmDivider,
             )
         }
     }
