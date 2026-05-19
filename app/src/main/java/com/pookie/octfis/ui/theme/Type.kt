@@ -24,101 +24,129 @@ val PuviFont = FontFamily(
     Font(R.font.puvi_black,           FontWeight.Black),
 )
 
+// ── Typography — tuned to match Zoho CRM's crisp, professional density ────────
+//
+// Key decisions vs old scale:
+//  • Negative letter-spacing on all headings/titles → crisp, premium CRM feel
+//  • bodyMedium bumped 13 → 14sp → more readable on dense list rows
+//  • titleMedium bumped 13 → 15sp → section headers breathe properly
+//  • labelLarge letter-spacing tightened → matches Zoho button label rendering
+//  • All lineHeights tuned for ~1.4–1.5× ratio — professional document density
+
 val Typography = Typography(
+
+    // ── Display — sign-in hero text, onboarding ───────────────────────────────
     displayLarge = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Black,
         fontSize      = 48.sp,
         lineHeight    = 56.sp,
+        letterSpacing = (-1.0).sp,
     ),
     displayMedium = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Bold,
         fontSize      = 40.sp,
         lineHeight    = 48.sp,
+        letterSpacing = (-0.8).sp,
     ),
     displaySmall = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Bold,
-        fontSize      = 36.sp,
-        lineHeight    = 44.sp,
+        fontSize      = 34.sp,
+        lineHeight    = 42.sp,
+        letterSpacing = (-0.5).sp,
     ),
+
+    // ── Headline — screen titles, dashboard section headers ───────────────────
     headlineLarge = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Bold,
-        fontSize      = 32.sp,
-        lineHeight    = 40.sp,
+        fontSize      = 28.sp,
+        lineHeight    = 36.sp,
         letterSpacing = (-0.5).sp,
     ),
     headlineMedium = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.SemiBold,
-        fontSize      = 24.sp,
-        lineHeight    = 32.sp,
+        fontSize      = 22.sp,
+        lineHeight    = 30.sp,
+        letterSpacing = (-0.3).sp,
     ),
     headlineSmall = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.SemiBold,
-        fontSize      = 20.sp,
-        lineHeight    = 28.sp,
+        fontSize      = 18.sp,
+        lineHeight    = 26.sp,
+        letterSpacing = (-0.2).sp,
     ),
+
+    // ── Title — top app bar, card titles, section labels ──────────────────────
     titleLarge = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.SemiBold,
-        fontSize      = 20.sp,
-        lineHeight    = 28.sp,
+        fontSize      = 18.sp,
+        lineHeight    = 26.sp,
         letterSpacing = (-0.2).sp,
     ),
     titleMedium = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.SemiBold,
-        fontSize      = 13.sp,
-        lineHeight    = 20.sp,
-        letterSpacing = 0.4.sp,
+        fontSize      = 15.sp,
+        lineHeight    = 22.sp,
+        letterSpacing = (-0.1).sp,
     ),
     titleSmall = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Medium,
-        fontSize      = 12.sp,
-        lineHeight    = 18.sp,
-        letterSpacing = 0.2.sp,
+        fontSize      = 13.sp,
+        lineHeight    = 20.sp,
+        letterSpacing = 0.0.sp,
     ),
+
+    // ── Body — record field values, list row content ──────────────────────────
     bodyLarge = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Normal,
-        fontSize      = 14.sp,
-        lineHeight    = 20.sp,
+        fontSize      = 15.sp,
+        lineHeight    = 22.sp,
+        letterSpacing = 0.0.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Normal,
-        fontSize      = 13.sp,
-        lineHeight    = 18.sp,
+        fontSize      = 14.sp,
+        lineHeight    = 20.sp,
+        letterSpacing = 0.0.sp,
     ),
     bodySmall = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Normal,
-        fontSize      = 11.sp,
-        lineHeight    = 16.sp,
+        fontSize      = 12.sp,
+        lineHeight    = 17.sp,
+        letterSpacing = 0.0.sp,
     ),
+
+    // ── Label — buttons, chips, field labels, badges ──────────────────────────
     labelLarge = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.SemiBold,
         fontSize      = 14.sp,
         lineHeight    = 20.sp,
-        letterSpacing = 0.1.sp,
+        letterSpacing = 0.0.sp,   // Zoho buttons have no extra tracking
     ),
     labelMedium = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Medium,
-        fontSize      = 11.sp,
+        fontSize      = 12.sp,
         lineHeight    = 16.sp,
+        letterSpacing = 0.1.sp,
     ),
     labelSmall = TextStyle(
         fontFamily    = PuviFont,
         fontWeight    = FontWeight.Medium,
-        fontSize      = 10.sp,
-        lineHeight    = 14.sp,
-        letterSpacing = 0.2.sp,
+        fontSize      = 11.sp,
+        lineHeight    = 15.sp,
+        letterSpacing = 0.1.sp,
     ),
 )
