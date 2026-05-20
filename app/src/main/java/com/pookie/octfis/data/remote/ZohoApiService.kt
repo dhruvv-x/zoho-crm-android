@@ -147,29 +147,36 @@ interface ZohoApiService {
     suspend fun deleteEvent(@Path("id") id: String): CreateRecordResponse
 
     // ── Calls ─────────────────────────────────────────────────────────────────
+// ── Calls ─────────────────────────────────────────────────────────────────
 
     @GET("Calls")
     suspend fun getCalls(
-        @Query("page")       page: Int = 1,
-        @Query("per_page")   perPage: Int = 50,
-        @Query("sort_by")    sortBy: String = "Call_Start_Time",
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 50,
+        @Query("sort_by") sortBy: String = "Call_Start_Time",
         @Query("sort_order") sortOrder: String = "desc",
     ): CallsResponse
 
     @GET("Calls/{id}")
-    suspend fun getCallById(@Path("id") id: String): CallsResponse
+    suspend fun getCallById(
+        @Path("id") id: String
+    ): CallsResponse
 
     @POST("Calls")
-    suspend fun createCall(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
+    suspend fun createCall(
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): CreateRecordResponse
 
-    @PUT("Calls/{id}")
+    // ✅ FIXED UPDATE API
+    @PUT("Calls")
     suspend fun updateCall(
-        @Path("id") id: String,
-        @Body body: Map<String, @JvmSuppressWildcards Any>,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
     ): CreateRecordResponse
 
     @DELETE("Calls/{id}")
-    suspend fun deleteCall(@Path("id") id: String): CreateRecordResponse
+    suspend fun deleteCall(
+        @Path("id") id: String
+    ): CreateRecordResponse
 
     // ── Settings ──────────────────────────────────────────────────────────────
 
