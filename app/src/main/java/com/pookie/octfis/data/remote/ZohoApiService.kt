@@ -84,7 +84,6 @@ interface ZohoApiService {
     @GET("Quotes/{id}")
     suspend fun getQuoteById(
         @Path("id") id: String,
-        // AFTER
         @Query("fields") fields: String = "Subject,Account_Name,Contact_Name,Deal_Name,Quote_Stage,Valid_Till,Description,Grand_Total,Sub_Total,Discount,Tax,Quote_Owner,Product_Details",
     ): QuotesResponse
 
@@ -96,6 +95,18 @@ interface ZohoApiService {
         @Path("id") id: String,
         @Body body: Map<String, @JvmSuppressWildcards Any>,
     ): CreateRecordResponse
+
+    // ── Products ──────────────────────────────────────────────────────────────
+    // ADDED: Fetch products from Zoho CRM Products module for lookup in quote items
+
+    @GET("Products")
+    suspend fun getProducts(
+        @Query("page")       page: Int = 1,
+        @Query("per_page")   perPage: Int = 200,
+        @Query("sort_by")    sortBy: String = "Product_Name",
+        @Query("sort_order") sortOrder: String = "asc",
+        @Query("fields")     fields: String = "Product_Name,Unit_Price,Product_Code",
+    ): ProductsResponse
 
     // ── Tasks ─────────────────────────────────────────────────────────────────
 
@@ -148,36 +159,26 @@ interface ZohoApiService {
     suspend fun deleteEvent(@Path("id") id: String): CreateRecordResponse
 
     // ── Calls ─────────────────────────────────────────────────────────────────
-// ── Calls ─────────────────────────────────────────────────────────────────
 
     @GET("Calls")
     suspend fun getCalls(
-        @Query("page") page: Int = 1,
-        @Query("per_page") perPage: Int = 50,
-        @Query("sort_by") sortBy: String = "Call_Start_Time",
+        @Query("page")       page: Int = 1,
+        @Query("per_page")   perPage: Int = 50,
+        @Query("sort_by")    sortBy: String = "Call_Start_Time",
         @Query("sort_order") sortOrder: String = "desc",
     ): CallsResponse
 
     @GET("Calls/{id}")
-    suspend fun getCallById(
-        @Path("id") id: String
-    ): CallsResponse
+    suspend fun getCallById(@Path("id") id: String): CallsResponse
 
     @POST("Calls")
-    suspend fun createCall(
-        @Body body: Map<String, @JvmSuppressWildcards Any>
-    ): CreateRecordResponse
+    suspend fun createCall(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
 
-    // ✅ FIXED UPDATE API
     @PUT("Calls")
-    suspend fun updateCall(
-        @Body body: Map<String, @JvmSuppressWildcards Any>
-    ): CreateRecordResponse
+    suspend fun updateCall(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
 
     @DELETE("Calls/{id}")
-    suspend fun deleteCall(
-        @Path("id") id: String
-    ): CreateRecordResponse
+    suspend fun deleteCall(@Path("id") id: String): CreateRecordResponse
 
     // ── Settings ──────────────────────────────────────────────────────────────
 

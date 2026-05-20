@@ -3,20 +3,17 @@ package com.pookie.octfis.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -29,6 +26,7 @@ import com.pookie.octfis.data.repository.AccountRepository
 import com.pookie.octfis.data.repository.ContactRepository
 import com.pookie.octfis.data.repository.DealRepository
 import com.pookie.octfis.data.repository.QuoteRepository
+import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.LookupField
 import com.pookie.octfis.ui.components.LookupItem
 import com.pookie.octfis.ui.components.SectionHeader
@@ -183,8 +181,6 @@ fun EditQuoteScreen(
     var description    by remember { mutableStateOf(original.description) }
     var stageExpanded  by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var showItemDialog by remember { mutableStateOf(false) }
-    var editingIndex   by remember { mutableStateOf<Int?>(null) }
 
     val accountItems  by vm.accountItems.collectAsState()
     val contactItems  by vm.contactItems.collectAsState()
@@ -193,10 +189,9 @@ fun EditQuoteScreen(
     val saveState     by vm.saveState.collectAsState()
     val isSaving       = saveState == SaveState.Saving
 
-    // ── FIX: use proper SnackbarHostState ─────────────────────────────────────
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle save outcomes via LaunchedEffect on ViewModel state
+    // Handle save outcomes
     LaunchedEffect(saveState) {
         when (val s = saveState) {
             is SaveState.Success -> {
@@ -216,7 +211,17 @@ fun EditQuoteScreen(
     val stageOptions = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
     val items = remember { mutableStateListOf<QuoteItem>().also { it.addAll(original.items) } }
 
-    // ── Date Picker ───────────────────────────────────────────────────────────
+    // Receive item returned from AddQuoteItemScreen
+    val addItemHandle = navController.currentBackStackEntry?.savedStateHandle
+    val newQuoteItem  = addItemHandle?.getStateFlow<QuoteItem?>("newQuoteItem", null)?.collectAsState()
+    LaunchedEffect(newQuoteItem?.value) {
+        newQuoteItem?.value?.let { item ->
+            items.add(item)
+            addItemHandle.set("newQuoteItem", null)
+        }
+    }
+
+    // Date Picker
     val initialMillis = runCatching {
         SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).parse(original.validUntil)?.time
     }.getOrNull() ?: System.currentTimeMillis()
@@ -237,48 +242,8 @@ fun EditQuoteScreen(
         ) { DatePicker(state = datePickerState) }
     }
 
-    // ── Item Dialog ───────────────────────────────────────────────────────────
-    if (showItemDialog) {
-        val editing = editingIndex?.let { items.getOrNull(it) }
-        var dBrand  by remember(editingIndex) { mutableStateOf(editing?.brand ?: "") }
-        var dName   by remember(editingIndex) { mutableStateOf(editing?.productName?.takeIf { it != "Product name" } ?: "") }
-        var dDesc   by remember(editingIndex) { mutableStateOf(editing?.description ?: "") }
-        var dQty    by remember(editingIndex) { mutableStateOf((editing?.quantity ?: 1).toString()) }
-        var dPrice  by remember(editingIndex) { mutableStateOf(if ((editing?.price ?: 0.0) == 0.0) "" else (editing?.price ?: 0.0).toString()) }
-
-        AlertDialog(
-            onDismissRequest = { showItemDialog = false; editingIndex = null },
-            title = { Text(if (editing != null) "Edit Item" else "Add Item", fontWeight = FontWeight.SemiBold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = dBrand, onValueChange = { dBrand = it }, label = { Text("Brand") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = dName,  onValueChange = { dName = it },  label = { Text("Product Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = dDesc,  onValueChange = { dDesc = it },  label = { Text("Description") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = dQty,   onValueChange = { dQty = it },   label = { Text("Quantity") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    OutlinedTextField(value = dPrice, onValueChange = { dPrice = it }, label = { Text("Price") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val qty   = dQty.toIntOrNull() ?: 1
-                    val price = dPrice.toDoubleOrNull() ?: 0.0
-                    val idx   = editingIndex
-                    if (idx != null) {
-                        items[idx] = items[idx].copy(brand = dBrand, productName = dName.ifEmpty { "Product name" }, description = dDesc, quantity = qty, price = price)
-                    } else {
-                        val nextId = (items.maxOfOrNull { it.sNo } ?: 0) + 1
-                        items.add(QuoteItem(nextId, brand = dBrand, productName = dName.ifEmpty { "Product name" }, description = dDesc, quantity = qty, price = price))
-                    }
-                    showItemDialog = false; editingIndex = null
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { showItemDialog = false; editingIndex = null }) { Text("Cancel") } },
-        )
-    }
-
     // ── Scaffold ──────────────────────────────────────────────────────────────
     Scaffold(
-        // ── FIX: use SnackbarHost with SnackbarHostState, not raw Snackbar ────
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -341,10 +306,7 @@ fun EditQuoteScreen(
                         placeholder = "Select Account",
                         items       = accountItems,
                         loading     = lookupLoading && accountItems.isEmpty(),
-                        onSelect    = { item ->
-                            accountName   = item.name
-                            accountZohoId = item.zohoId
-                        },
+                        onSelect    = { item -> accountName = item.name; accountZohoId = item.zohoId },
                     )
                     EQDivider()
 
@@ -354,10 +316,7 @@ fun EditQuoteScreen(
                         placeholder = "Select Contact",
                         items       = contactItems,
                         loading     = lookupLoading && contactItems.isEmpty(),
-                        onSelect    = { item ->
-                            contactName   = item.name
-                            contactZohoId = item.zohoId
-                        },
+                        onSelect    = { item -> contactName = item.name; contactZohoId = item.zohoId },
                     )
                     EQDivider()
 
@@ -367,10 +326,7 @@ fun EditQuoteScreen(
                         placeholder = "Link a Deal (optional)",
                         items       = dealItems,
                         loading     = lookupLoading && dealItems.isEmpty(),
-                        onSelect    = { item ->
-                            dealName   = item.name
-                            dealZohoId = item.zohoId
-                        },
+                        onSelect    = { item -> dealName = item.name; dealZohoId = item.zohoId },
                     )
                     EQDivider()
 
@@ -415,32 +371,31 @@ fun EditQuoteScreen(
             SectionHeader("Quoted Items")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
+                    // Table header
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        Text("S.NO",         fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(40.dp))
-                        Text("Product Name", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                        Text("PRICE",        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(60.dp))
-                        Spacer(Modifier.width(64.dp))
+                        Text("S.NO",      fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(36.dp))
+                        Text("Product",   fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                        Text("Thickness", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(62.dp))
+                        Text("Material",  fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(58.dp))
+                        Text("Qty",       fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(30.dp))
+                        Text("Price",     fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(60.dp))
+                        Spacer(Modifier.width(32.dp))
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
 
                     items.forEachIndexed { index, item ->
                         Row(
-                            modifier          = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+                            modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("${item.sNo}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(40.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                if (item.brand.isNotEmpty()) Text(item.brand, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(item.productName, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                                if (item.description.isNotEmpty()) Text(item.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Qty: ${item.quantity}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text("₹${String.format("%.2f", item.price)}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium, modifier = Modifier.width(60.dp))
-                            IconButton(onClick = { editingIndex = index; showItemDialog = true }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary, modifier = Modifier.size(16.dp))
-                            }
-                            IconButton(onClick = { items.removeAt(index) }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                            Text("${item.sNo}",                        fontSize = 12.sp, modifier = Modifier.width(36.dp))
+                            Text(item.productName,                      fontSize = 12.sp, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(item.materialThickness,                fontSize = 12.sp, modifier = Modifier.width(62.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(item.material,                         fontSize = 12.sp, modifier = Modifier.width(58.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${item.quantity}",                    fontSize = 12.sp, modifier = Modifier.width(30.dp))
+                            Text("₹${String.format("%.2f", item.price)}", fontSize = 12.sp, modifier = Modifier.width(60.dp), color = CrmOnSurface)
+                            IconButton(onClick = { items.removeAt(index) }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(15.dp))
                             }
                         }
                         if (index < items.lastIndex)
@@ -448,15 +403,26 @@ fun EditQuoteScreen(
                     }
 
                     if (items.isNotEmpty()) {
-                        val subTotal = items.sumOf { it.price * it.quantity }
+                        val grandTotal = items.sumOf { it.price * it.quantity }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(
+                            modifier              = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
                             Text("Grand Total", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("₹${String.format("%.2f", subTotal)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmPrimary)
+                            Text("₹${String.format("%.2f", grandTotal)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmPrimary)
                         }
                     }
 
-                    TextButton(onClick = { editingIndex = null; showItemDialog = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                    TextButton(
+                        onClick  = {
+                            val nextSno = (items.maxOfOrNull { it.sNo } ?: 0) + 1
+                            navController.currentBackStackEntry
+                                ?.savedStateHandle?.set("nextItemSno", nextSno)
+                            navController.navigate(Screen.AddQuoteItem.route)
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                    ) {
                         Text("+ Add Item", color = CrmPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }

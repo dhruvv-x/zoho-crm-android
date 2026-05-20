@@ -1,5 +1,8 @@
 package com.pookie.octfis.data.model
 
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
+
 data class Account(
     val id            : Int,
     val zohoId        : String = "",
@@ -30,11 +33,8 @@ data class Contact(
     val phone         : String = "",
     val mobile        : String = "",
     val email         : String = "",
-    // FIX: store both name AND Zoho ID for the account lookup field.
-    // Previously only accountName was kept; accountZohoId was silently dropped
-    // after getContacts(), making it impossible to send a valid lookup object on update.
     val accountName   : String = "",
-    val accountZohoId : String = "",          // ← NEW
+    val accountZohoId : String = "",
     val title         : String = "",
     val department    : String = "",
     val leadSource    : String = "-None-",
@@ -68,14 +68,19 @@ data class Deal(
     val leadSourceDrill : String = "",
 )
 
+// ── FIXED: @Parcelize so it can be passed via SavedStateHandle ────────────────
+// Added productZohoId so the real Zoho Products module ID is preserved and sent
+// to the API when saving/updating a quote.
+@Parcelize
 data class QuoteItem(
-    val sNo         : Int,
-    val brand       : String = "",
-    val productName : String = "Product name",
-    val description : String = "",
-    val quantity    : Int    = 1,
-    val price       : Double = 0.0,
-)
+    val sNo               : Int,
+    val productName       : String = "",
+    val productZohoId     : String = "",   // Zoho Products module record ID
+    val materialThickness : String = "",
+    val material          : String = "",
+    val quantity          : Int    = 1,
+    val price             : Double = 0.0,
+) : Parcelable
 
 data class Quote(
     val id            : Int,

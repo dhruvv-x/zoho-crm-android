@@ -39,6 +39,7 @@ sealed class Screen(val route: String) {
     object EditQuote     : Screen("edit_quote/{quoteId}") {
         fun createRoute(quoteId: Int) = "edit_quote/$quoteId"
     }
+    object AddQuoteItem  : Screen("add_quote_item")
 
     // ── Tasks ──────────────────────────────────────────────────────────────
     object Tasks        : Screen("tasks")

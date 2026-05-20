@@ -172,12 +172,14 @@ private fun QuoteDetailContent(quote: Quote) {
                         ) {
                             Text("${item.sNo}", fontSize = 13.sp, modifier = Modifier.width(40.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                if (item.brand.isNotEmpty())
-                                    Text(item.brand, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(item.productName, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                if (item.description.isNotEmpty())
-                                    Text(item.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Qty: ${item.quantity}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(item.productName, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                    if (item.materialThickness.isNotEmpty())
+                                        Text(item.materialThickness, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (item.material.isNotEmpty())
+                                        Text(item.material, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Qty: ${item.quantity}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                             Text(
                                 "₹${String.format("%.2f", item.price)}",

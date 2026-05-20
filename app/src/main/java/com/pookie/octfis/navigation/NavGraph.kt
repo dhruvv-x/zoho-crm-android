@@ -90,6 +90,7 @@ fun NavGraph(
         ) { back ->
             EditQuoteScreen(navController, back.arguments?.getInt("quoteId") ?: 0)
         }
+        composable(Screen.AddQuoteItem.route) { AddQuoteItemScreen(navController) }
 
         // ── Tasks ─────────────────────────────────────────────────────────
         composable(Screen.Tasks.route)      { TaskListScreen(navController) }

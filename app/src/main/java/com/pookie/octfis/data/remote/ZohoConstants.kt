@@ -5,11 +5,13 @@ object ZohoConstants {
     const val API_BASE_URL  = "https://www.zohoapis.com/crm/v2/"
     const val REDIRECT_URI  = "com.pookie.octfis://oauth/callback"
 
+    // ADDED: ZohoCRM.modules.products.READ so the app can fetch the Products module
     const val SCOPE =
         "ZohoCRM.modules.accounts.ALL," +
                 "ZohoCRM.modules.contacts.ALL," +
                 "ZohoCRM.modules.deals.ALL," +
                 "ZohoCRM.modules.quotes.ALL," +
+                "ZohoCRM.modules.products.READ," +
                 "ZohoCRM.modules.Tasks.ALL," +
                 "ZohoCRM.modules.Events.ALL," +
                 "ZohoCRM.modules.Calls.ALL," +

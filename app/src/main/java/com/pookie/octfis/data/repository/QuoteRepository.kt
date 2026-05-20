@@ -54,13 +54,16 @@ class QuoteRepository(private val api: ZohoApiService) {
         subTotal      = zoho.subTotal ?: 0.0,
         discount      = zoho.discount ?: 0.0,
         tax           = zoho.tax ?: 0.0,
+        // FIXED: correctly map productName and productZohoId from Zoho Product_Details
         items         = zoho.quotedItems?.mapIndexed { i, item ->
             QuoteItem(
-                sNo         = i + 1,
-                productName = item.product?.name.orEmpty().ifEmpty { "Product" },
-                description = item.description.orEmpty(),
-                quantity    = item.quantity?.toInt() ?: 1,
-                price       = item.unitPrice ?: 0.0,
+                sNo               = i + 1,
+                productName       = item.product?.name.orEmpty(),   // show blank if blank; no fake fallback
+                productZohoId     = item.product?.id.orEmpty(),     // preserve the Zoho product ID
+                materialThickness = item.description.orEmpty(),     // Zoho stores custom thickness in line description
+                material          = "",
+                quantity          = item.quantity?.toInt() ?: 1,
+                price             = item.unitPrice ?: 0.0,
             )
         } ?: emptyList(),
     )
@@ -105,26 +108,28 @@ class QuoteRepository(private val api: ZohoApiService) {
         val record = buildMap<String, Any> {
             put("Subject",     subject.ifBlank { "(No Subject)" })
             put("Quote_Stage", quoteStage.ifBlank { "Draft" })
-
-            // Always send totals computed from local items.
-            // We intentionally do NOT send Product_Details because Zoho requires each
-            // line item to reference a valid product id from the Products module.
-            // Without a product lookup feature, sending Product_Details always causes
-            // "required field not found [field: id]". Totals are sent manually instead.
             put("Sub_Total",   subTotal)
             put("Grand_Total", subTotal)
 
-            // Lookup fields — ONLY send when we have the Zoho id.
-            // Sending {"name": "..."} without "id" causes "required field not found [field: id]".
-            if (accountZohoId.isNotBlank()) {
-                put("Account_Name", mapOf("id" to accountZohoId))
+            // FIXED: send Product_Details when we have a valid Zoho product ID
+            // This makes the line items appear in Zoho CRM properly
+            val zohoItems = items.filter { it.productZohoId.isNotBlank() }
+            if (zohoItems.isNotEmpty()) {
+                put("Product_Details", zohoItems.map { item ->
+                    buildMap<String, Any> {
+                        put("product",    mapOf("id" to item.productZohoId))
+                        put("quantity",   item.quantity.toDouble())
+                        put("unit_price", item.price)
+                        put("total",      item.price * item.quantity)
+                        if (item.materialThickness.isNotBlank())
+                            put("description", item.materialThickness)
+                    }
+                })
             }
-            if (contactZohoId.isNotBlank()) {
-                put("Contact_Name", mapOf("id" to contactZohoId))
-            }
-            if (dealZohoId.isNotBlank()) {
-                put("Deal_Name", mapOf("id" to dealZohoId))
-            }
+
+            if (accountZohoId.isNotBlank()) put("Account_Name", mapOf("id" to accountZohoId))
+            if (contactZohoId.isNotBlank()) put("Contact_Name", mapOf("id" to contactZohoId))
+            if (dealZohoId.isNotBlank())    put("Deal_Name",    mapOf("id" to dealZohoId))
 
             val zohoDate = toZohoDate(validUntil)
             if (zohoDate.isNotBlank())    put("Valid_Till",  zohoDate)
@@ -182,22 +187,27 @@ class QuoteRepository(private val api: ZohoApiService) {
         val record = buildMap<String, Any> {
             put("Subject",     subject.ifBlank { "(No Subject)" })
             put("Quote_Stage", quoteStage.ifBlank { "Draft" })
-
-            // Always send totals computed from local items.
-            // We intentionally do NOT send Product_Details — see createQuote comment above.
             put("Sub_Total",   subTotal)
             put("Grand_Total", subTotal)
 
-            // Lookup fields — ONLY send when we have the Zoho id.
-            if (accountZohoId.isNotBlank()) {
-                put("Account_Name", mapOf("id" to accountZohoId))
+            // FIXED: send Product_Details when we have a valid Zoho product ID
+            val zohoItems = items.filter { it.productZohoId.isNotBlank() }
+            if (zohoItems.isNotEmpty()) {
+                put("Product_Details", zohoItems.map { item ->
+                    buildMap<String, Any> {
+                        put("product",    mapOf("id" to item.productZohoId))
+                        put("quantity",   item.quantity.toDouble())
+                        put("unit_price", item.price)
+                        put("total",      item.price * item.quantity)
+                        if (item.materialThickness.isNotBlank())
+                            put("description", item.materialThickness)
+                    }
+                })
             }
-            if (contactZohoId.isNotBlank()) {
-                put("Contact_Name", mapOf("id" to contactZohoId))
-            }
-            if (dealZohoId.isNotBlank()) {
-                put("Deal_Name", mapOf("id" to dealZohoId))
-            }
+
+            if (accountZohoId.isNotBlank()) put("Account_Name", mapOf("id" to accountZohoId))
+            if (contactZohoId.isNotBlank()) put("Contact_Name", mapOf("id" to contactZohoId))
+            if (dealZohoId.isNotBlank())    put("Deal_Name",    mapOf("id" to dealZohoId))
 
             val zohoDate = toZohoDate(validUntil)
             if (zohoDate.isNotBlank())    put("Valid_Till",  zohoDate)
