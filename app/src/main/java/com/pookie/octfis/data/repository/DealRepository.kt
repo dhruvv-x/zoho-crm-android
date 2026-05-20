@@ -60,8 +60,23 @@ class DealRepository(private val api: ZohoApiService) {
             put("Deal_Name", dealName)
             put("Stage", stage)
             if (closingDate.isNotBlank())                           put("Closing_Date",          closingDate)
-            if (accountZohoId.isNotBlank())                         put("Account_Name",           mapOf("id" to accountZohoId))
-            if (contactZohoId.isNotBlank())                         put("Contact_Name",           mapOf("id" to contactZohoId))
+
+            // ── FIX: Account_Name lookup ──────────────────────────────────────
+            // Zoho requires {"id": "<zohoId>"} for lookup fields.
+            // If we have the Zoho ID, use it. Otherwise fall back to name string
+            // so the field is never silently omitted.
+            when {
+                accountZohoId.isNotBlank() -> put("Account_Name", mapOf("id" to accountZohoId))
+                accountName.isNotBlank()   -> put("Account_Name", mapOf("name" to accountName))
+                // else: no account selected — omit the field entirely
+            }
+
+            // Contact_Name (same pattern — already worked, keep consistent)
+            when {
+                contactZohoId.isNotBlank() -> put("Contact_Name", mapOf("id" to contactZohoId))
+                contactName.isNotBlank()   -> put("Contact_Name", mapOf("name" to contactName))
+            }
+
             amount.toDoubleOrNull()?.let {                          put("Amount",                 it) }
             if (type.isNotBlank() && type != "-None-")              put("Type",                   type)
             if (email.isNotBlank())                                 put("Email",                  email)
@@ -71,7 +86,7 @@ class DealRepository(private val api: ZohoApiService) {
             if (dealOwner.isNotBlank())                              put("Owner",                  mapOf("id" to dealOwner))
         }
 
-        Log.d("DEAL_DEBUG", "PAYLOAD: $record")
+        Log.d("DEAL_DEBUG", "CREATE PAYLOAD: $record")
 
         val response = api.createDeal(mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
@@ -114,8 +129,20 @@ class DealRepository(private val api: ZohoApiService) {
             put("Deal_Name", dealName)
             put("Stage", stage)
             if (closingDate.isNotBlank())                           put("Closing_Date",          closingDate)
-            if (accountZohoId.isNotBlank())                         put("Account_Name",           mapOf("id" to accountZohoId))
-            if (contactZohoId.isNotBlank())                         put("Contact_Name",           mapOf("id" to contactZohoId))
+
+            // ── FIX: Account_Name lookup ──────────────────────────────────────
+            when {
+                accountZohoId.isNotBlank() -> put("Account_Name", mapOf("id" to accountZohoId))
+                accountName.isNotBlank()   -> put("Account_Name", mapOf("name" to accountName))
+                // else: user cleared the account — omit to leave unchanged in Zoho
+            }
+
+            // Contact_Name
+            when {
+                contactZohoId.isNotBlank() -> put("Contact_Name", mapOf("id" to contactZohoId))
+                contactName.isNotBlank()   -> put("Contact_Name", mapOf("name" to contactName))
+            }
+
             amount.toDoubleOrNull()?.let {                          put("Amount",                 it) }
             if (email.isNotBlank())                                 put("Email",                  email)
             if (description.isNotBlank())                           put("Description",            description)
