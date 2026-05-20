@@ -12,7 +12,6 @@ data class ZohoQuote(
     @SerializedName("Subject")          val subject: String?,
     @SerializedName("Account_Name")     val accountName: ZohoQuoteAccount?,
     @SerializedName("Contact_Name")     val contactName: ZohoQuoteContact?,
-    // FIX: Deal_Name was completely missing from this DTO
     @SerializedName("Deal_Name")        val dealName: ZohoQuoteDeal?,
     @SerializedName("Quote_Stage")      val quoteStage: String?,
     @SerializedName("Valid_Till")       val validUntil: String?,
@@ -35,25 +34,27 @@ data class ZohoQuoteContact(
     @SerializedName("id")   val id: String?,
 )
 
-// FIX: new DTO for the Deal lookup object
 data class ZohoQuoteDeal(
     @SerializedName("name") val name: String?,
     @SerializedName("id")   val id: String?,
 )
 
+// FIXED: "product_description" is the correct Zoho v2 field (not "description")
+// ZohoProductRef replaces old ZohoProduct to avoid clash with ProductsResponse.kt
 data class ZohoQuotedItem(
-    @SerializedName("product")          val product: ZohoProduct?,
-    @SerializedName("quantity")         val quantity: Double?,
-    @SerializedName("unit_price")       val unitPrice: Double?,
-    @SerializedName("total")            val total: Double?,
-    @SerializedName("net_total")        val netTotal: Double?,
-    @SerializedName("description")      val description: String?,
-    @SerializedName("discount")         val discount: Double?,
-    @SerializedName("product_discount") val productDiscount: Double?,
+    @SerializedName("product")             val product: ZohoProductRef?,
+    @SerializedName("quantity")            val quantity: Double?,
+    @SerializedName("unit_price")          val unitPrice: Double?,
+    @SerializedName("total")               val total: Double?,
+    @SerializedName("net_total")           val netTotal: Double?,
+    @SerializedName("product_description") val productDescription: String?,
+    @SerializedName("discount")            val discount: Double?,
+    @SerializedName("product_discount")    val productDiscount: Double?,
+    @SerializedName("list_price")          val listPrice: Double?,
 )
 
-data class ZohoProduct(
-    @SerializedName("name")         val name: String?,
-    @SerializedName("id")           val id: String?,
-    @SerializedName("Product_Code") val code: String?,
+// Zoho sends product inside Product_Details as { "name": "...", "id": "..." }
+data class ZohoProductRef(
+    @SerializedName("name") val name: String?,
+    @SerializedName("id")   val id: String?,
 )

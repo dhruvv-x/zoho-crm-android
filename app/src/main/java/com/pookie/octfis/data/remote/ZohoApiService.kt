@@ -81,11 +81,12 @@ interface ZohoApiService {
         @Query("sort_order") sortOrder: String = "desc",
     ): QuotesResponse
 
+    // FIXED: Removed ?fields= param entirely.
+    // When fields= is specified, Zoho treats Product_Details as a subform and
+    // silently excludes it from the response — so product names never arrive.
+    // Without the fields param, Zoho returns all fields including Product_Details.
     @GET("Quotes/{id}")
-    suspend fun getQuoteById(
-        @Path("id") id: String,
-        @Query("fields") fields: String = "Subject,Account_Name,Contact_Name,Deal_Name,Quote_Stage,Valid_Till,Description,Grand_Total,Sub_Total,Discount,Tax,Quote_Owner,Product_Details",
-    ): QuotesResponse
+    suspend fun getQuoteById(@Path("id") id: String): QuotesResponse
 
     @POST("Quotes")
     suspend fun createQuote(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
@@ -97,7 +98,6 @@ interface ZohoApiService {
     ): CreateRecordResponse
 
     // ── Products ──────────────────────────────────────────────────────────────
-    // ADDED: Fetch products from Zoho CRM Products module for lookup in quote items
 
     @GET("Products")
     suspend fun getProducts(

@@ -18,9 +18,7 @@ class QuoteRepository(private val api: ZohoApiService) {
                 val to   = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 from.isLenient = false
                 to.format(from.parse(uiDate)!!)
-            } catch (_: Exception) {
-                uiDate
-            }
+            } catch (_: Exception) { uiDate }
         }
 
         fun toUiDate(zohoDate: String): String {
@@ -30,9 +28,7 @@ class QuoteRepository(private val api: ZohoApiService) {
                 val to   = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
                 from.isLenient = false
                 to.format(from.parse(zohoDate)!!)
-            } catch (_: Exception) {
-                zohoDate
-            }
+            } catch (_: Exception) { zohoDate }
         }
     }
 
@@ -54,13 +50,13 @@ class QuoteRepository(private val api: ZohoApiService) {
         subTotal      = zoho.subTotal ?: 0.0,
         discount      = zoho.discount ?: 0.0,
         tax           = zoho.tax ?: 0.0,
-        // FIXED: correctly map productName and productZohoId from Zoho Product_Details
+        // FIXED: use ZohoProductRef (renamed from ZohoProduct) and productDescription field
         items         = zoho.quotedItems?.mapIndexed { i, item ->
             QuoteItem(
                 sNo               = i + 1,
-                productName       = item.product?.name.orEmpty(),   // show blank if blank; no fake fallback
-                productZohoId     = item.product?.id.orEmpty(),     // preserve the Zoho product ID
-                materialThickness = item.description.orEmpty(),     // Zoho stores custom thickness in line description
+                productName       = item.product?.name.orEmpty(),
+                productZohoId     = item.product?.id.orEmpty(),
+                materialThickness = item.productDescription.orEmpty(), // Zoho stores this in product_description
                 material          = "",
                 quantity          = item.quantity?.toInt() ?: 1,
                 price             = item.unitPrice ?: 0.0,
@@ -70,19 +66,14 @@ class QuoteRepository(private val api: ZohoApiService) {
 
     suspend fun getQuotes(page: Int = 1): Result<Pair<List<Quote>, Boolean>> = runCatching {
         val response = api.getQuotes(page = page, perPage = 100)
-        val quotes = response.data?.mapIndexed { index, zoho ->
-            mapQuote(index, page, zoho)
-        } ?: emptyList()
-
+        val quotes   = response.data?.mapIndexed { i, z -> mapQuote(i, page, z) } ?: emptyList()
         if (page == 1) cache.clear()
         cache.addAll(quotes)
-
         Pair(quotes, response.info?.moreRecords ?: false)
     }
 
     suspend fun getQuoteById(zohoId: String): Result<Quote> = runCatching {
-        val zoho = api.getQuoteById(zohoId).data?.firstOrNull()
-            ?: error("Quote not found: $zohoId")
+        val zoho     = api.getQuoteById(zohoId).data?.firstOrNull() ?: error("Quote not found: $zohoId")
         val cacheIdx = cache.indexOfFirst { it.zohoId == zohoId }
         val localId  = if (cacheIdx >= 0) cache[cacheIdx].id else 0
         val mapped   = mapQuote(localId - 1, 1, zoho).copy(id = localId)
@@ -111,18 +102,16 @@ class QuoteRepository(private val api: ZohoApiService) {
             put("Sub_Total",   subTotal)
             put("Grand_Total", subTotal)
 
-            // FIXED: send Product_Details when we have a valid Zoho product ID
-            // This makes the line items appear in Zoho CRM properly
             val zohoItems = items.filter { it.productZohoId.isNotBlank() }
             if (zohoItems.isNotEmpty()) {
                 put("Product_Details", zohoItems.map { item ->
                     buildMap<String, Any> {
-                        put("product",    mapOf("id" to item.productZohoId))
-                        put("quantity",   item.quantity.toDouble())
-                        put("unit_price", item.price)
-                        put("total",      item.price * item.quantity)
+                        put("product",             mapOf("id" to item.productZohoId))
+                        put("quantity",            item.quantity.toDouble())
+                        put("unit_price",          item.price)
+                        put("total",               item.price * item.quantity)
                         if (item.materialThickness.isNotBlank())
-                            put("description", item.materialThickness)
+                            put("product_description", item.materialThickness)
                     }
                 })
             }
@@ -130,7 +119,6 @@ class QuoteRepository(private val api: ZohoApiService) {
             if (accountZohoId.isNotBlank()) put("Account_Name", mapOf("id" to accountZohoId))
             if (contactZohoId.isNotBlank()) put("Contact_Name", mapOf("id" to contactZohoId))
             if (dealZohoId.isNotBlank())    put("Deal_Name",    mapOf("id" to dealZohoId))
-
             val zohoDate = toZohoDate(validUntil)
             if (zohoDate.isNotBlank())    put("Valid_Till",  zohoDate)
             if (description.isNotBlank()) put("Description", description)
@@ -138,34 +126,20 @@ class QuoteRepository(private val api: ZohoApiService) {
 
         val response = api.createQuote(mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
-
         if (result?.status != "success") {
-            val fieldHint = result?.details?.apiName?.let { " [field: $it]" } ?: ""
-            error((result?.message ?: "Create failed") + fieldHint)
+            error((result?.message ?: "Create failed") + (result?.details?.apiName?.let { " [field: $it]" } ?: ""))
         }
 
         val newZohoId = result.details?.id.orEmpty()
         val newId     = (cache.maxOfOrNull { it.id } ?: 0) + 1
-        cache.add(
-            Quote(
-                id            = newId,
-                zohoId        = newZohoId,
-                name          = subject.ifEmpty { "(No Subject)" },
-                subject       = subject,
-                accountName   = accountName,
-                accountZohoId = accountZohoId,
-                contactName   = contactName,
-                contactZohoId = contactZohoId,
-                dealName      = dealName,
-                dealZohoId    = dealZohoId,
-                validUntil    = validUntil,
-                quoteStage    = quoteStage,
-                description   = description,
-                subTotal      = subTotal,
-                grandTotal    = subTotal,
-                items         = items,
-            )
-        )
+        cache.add(Quote(
+            id = newId, zohoId = newZohoId, name = subject.ifEmpty { "(No Subject)" },
+            subject = subject, accountName = accountName, accountZohoId = accountZohoId,
+            contactName = contactName, contactZohoId = contactZohoId,
+            dealName = dealName, dealZohoId = dealZohoId,
+            validUntil = validUntil, quoteStage = quoteStage, description = description,
+            subTotal = subTotal, grandTotal = subTotal, items = items,
+        ))
     }
 
     suspend fun updateQuote(
@@ -190,17 +164,16 @@ class QuoteRepository(private val api: ZohoApiService) {
             put("Sub_Total",   subTotal)
             put("Grand_Total", subTotal)
 
-            // FIXED: send Product_Details when we have a valid Zoho product ID
             val zohoItems = items.filter { it.productZohoId.isNotBlank() }
             if (zohoItems.isNotEmpty()) {
                 put("Product_Details", zohoItems.map { item ->
                     buildMap<String, Any> {
-                        put("product",    mapOf("id" to item.productZohoId))
-                        put("quantity",   item.quantity.toDouble())
-                        put("unit_price", item.price)
-                        put("total",      item.price * item.quantity)
+                        put("product",             mapOf("id" to item.productZohoId))
+                        put("quantity",            item.quantity.toDouble())
+                        put("unit_price",          item.price)
+                        put("total",               item.price * item.quantity)
                         if (item.materialThickness.isNotBlank())
-                            put("description", item.materialThickness)
+                            put("product_description", item.materialThickness)
                     }
                 })
             }
@@ -208,7 +181,6 @@ class QuoteRepository(private val api: ZohoApiService) {
             if (accountZohoId.isNotBlank()) put("Account_Name", mapOf("id" to accountZohoId))
             if (contactZohoId.isNotBlank()) put("Contact_Name", mapOf("id" to contactZohoId))
             if (dealZohoId.isNotBlank())    put("Deal_Name",    mapOf("id" to dealZohoId))
-
             val zohoDate = toZohoDate(validUntil)
             if (zohoDate.isNotBlank())    put("Valid_Till",  zohoDate)
             if (description.isNotBlank()) put("Description", description)
@@ -216,29 +188,19 @@ class QuoteRepository(private val api: ZohoApiService) {
 
         val response = api.updateQuote(zohoId, mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
-
         if (result?.status != "success") {
-            val fieldHint = result?.details?.apiName?.let { " [field: $it]" } ?: ""
-            error((result?.message ?: "Update failed") + fieldHint)
+            error((result?.message ?: "Update failed") + (result?.details?.apiName?.let { " [field: $it]" } ?: ""))
         }
 
         val idx = cache.indexOfFirst { it.zohoId == zohoId }
         if (idx >= 0) {
             cache[idx] = cache[idx].copy(
-                name          = subject.ifEmpty { "(No Subject)" },
-                subject       = subject,
-                accountName   = accountName,
-                accountZohoId = accountZohoId,
-                contactName   = contactName,
-                contactZohoId = contactZohoId,
-                dealName      = dealName,
-                dealZohoId    = dealZohoId,
-                quoteStage    = quoteStage,
-                validUntil    = validUntil,
-                description   = description,
-                subTotal      = subTotal,
-                grandTotal    = subTotal,
-                items         = items,
+                name = subject.ifEmpty { "(No Subject)" }, subject = subject,
+                accountName = accountName, accountZohoId = accountZohoId,
+                contactName = contactName, contactZohoId = contactZohoId,
+                dealName = dealName, dealZohoId = dealZohoId,
+                quoteStage = quoteStage, validUntil = validUntil, description = description,
+                subTotal = subTotal, grandTotal = subTotal, items = items,
             )
         }
     }
