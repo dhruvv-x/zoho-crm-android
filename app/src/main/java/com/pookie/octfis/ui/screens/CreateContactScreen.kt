@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.ui.components.LookupField
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 
@@ -30,6 +31,9 @@ fun CreateContactScreen(
     var phone          by remember { mutableStateOf("") }
     var email          by remember { mutableStateOf("") }
     var accountName    by remember { mutableStateOf("") }
+    // FIX: track the Zoho ID alongside the display name so we can send the
+    // lookup object {"id": "..."} that Zoho requires for Account_Name.
+    var accountZohoId  by remember { mutableStateOf("") }
     var title          by remember { mutableStateOf("") }
     var department     by remember { mutableStateOf("") }
     var selectedOwner  by remember { mutableStateOf(Pair("", "-None-")) }
@@ -46,8 +50,9 @@ fun CreateContactScreen(
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val createState    by vm.createState.collectAsState()
+    // FIX: collect the account list for the lookup picker
+    val accountItems   by vm.accountItems.collectAsState()
 
-    // Navigate back on success, show snackbar on error
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(createState) {
@@ -82,6 +87,7 @@ fun CreateContactScreen(
                                 phone          = phone,
                                 email          = email,
                                 accountName    = accountName,
+                                accountZohoId  = accountZohoId,
                                 title          = title,
                                 department     = department,
                                 ownerEntry     = selectedOwner,
@@ -102,9 +108,9 @@ fun CreateContactScreen(
                     ) {
                         if (isSaving) {
                             CircularProgressIndicator(
-                                modifier  = Modifier.size(16.dp),
+                                modifier    = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color     = MaterialTheme.colorScheme.surface,
+                                color       = MaterialTheme.colorScheme.surface,
                             )
                         } else {
                             Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
@@ -133,7 +139,21 @@ fun CreateContactScreen(
                     ContactDivider()
                     ContactTextField("Email",        email,       "Enter Email ID")     { email = it }
                     ContactDivider()
-                    ContactTextField("Account Name", accountName, "Enter Company Name") { accountName = it }
+
+                    // FIX: was ContactTextField (free-text only) — changed to LookupField so
+                    // the user picks from real Zoho accounts and we capture their Zoho ID.
+                    LookupField(
+                        label       = "Account Name",
+                        value       = accountName,
+                        placeholder = "Select Account",
+                        items       = accountItems,
+                        loading     = optionsLoading && accountItems.isEmpty(),
+                        onSelect    = { item ->
+                            accountName   = item.name
+                            accountZohoId = item.zohoId   // ← capture the Zoho ID
+                        },
+                    )
+
                     ContactDivider()
                     ContactTextField("Title",        title,       "Enter Job Title")    { title = it }
                     ContactDivider()

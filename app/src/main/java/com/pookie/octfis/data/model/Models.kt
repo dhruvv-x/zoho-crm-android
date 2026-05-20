@@ -30,7 +30,11 @@ data class Contact(
     val phone         : String = "",
     val mobile        : String = "",
     val email         : String = "",
+    // FIX: store both name AND Zoho ID for the account lookup field.
+    // Previously only accountName was kept; accountZohoId was silently dropped
+    // after getContacts(), making it impossible to send a valid lookup object on update.
     val accountName   : String = "",
+    val accountZohoId : String = "",          // ← NEW
     val title         : String = "",
     val department    : String = "",
     val leadSource    : String = "-None-",
@@ -83,7 +87,6 @@ data class Quote(
     val accountZohoId : String = "",
     val contactName   : String = "",
     val contactZohoId : String = "",
-    // FIX: added deal lookup fields (were completely missing before)
     val dealName      : String = "",
     val dealZohoId    : String = "",
     val validUntil    : String = "",

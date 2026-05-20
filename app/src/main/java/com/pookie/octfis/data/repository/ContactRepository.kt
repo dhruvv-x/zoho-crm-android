@@ -24,6 +24,8 @@ class ContactRepository(private val api: ZohoApiService) {
                     mobile         = zoho.mobile.orEmpty(),
                     email          = zoho.email.orEmpty(),
                     accountName    = zoho.accountName?.name.orEmpty(),
+                    // FIX: preserve the account Zoho ID so edit/update can send a valid lookup object.
+                    accountZohoId  = zoho.accountName?.id.orEmpty(),
                     title          = zoho.title.orEmpty(),
                     department     = zoho.department.orEmpty(),
                     leadSource     = zoho.leadSource.orEmpty(),
@@ -50,6 +52,8 @@ class ContactRepository(private val api: ZohoApiService) {
         phone         : String,
         email         : String,
         accountName   : String,
+        // FIX: added accountZohoId — required to send Account_Name as a valid lookup object.
+        accountZohoId : String = "",
         title         : String,
         department    : String,
         contactOwner  : String,
@@ -75,9 +79,10 @@ class ContactRepository(private val api: ZohoApiService) {
             if (mailingState.isNotBlank())   put("Mailing_State",    mailingState)
             if (mailingZip.isNotBlank())     put("Mailing_Zip",      mailingZip)
             if (mailingCountry.isNotBlank()) put("Mailing_Country",  mailingCountry)
-            // FIX: Do NOT send Account_Name as {"name": "..."} — Zoho requires the "id" key
-            // inside any lookup object. Without an accountZohoId we simply omit the field.
-            if (contactOwner.isNotBlank())   put("Owner", mapOf("id" to contactOwner))
+            // FIX: send Account_Name as {"id": "..."} — Zoho requires the id key for all lookup fields.
+            // Without it, Zoho returns "required field not found [field: id]" and silently drops the value.
+            if (accountZohoId.isNotBlank())  put("Account_Name",     mapOf("id" to accountZohoId))
+            if (contactOwner.isNotBlank())   put("Owner",             mapOf("id" to contactOwner))
         }
         val response = api.createContact(mapOf("data" to listOf(record)))
         val result   = response.data?.firstOrNull()
@@ -96,6 +101,7 @@ class ContactRepository(private val api: ZohoApiService) {
                 phone          = phone,
                 email          = email,
                 accountName    = accountName,
+                accountZohoId  = accountZohoId,
                 title          = title,
                 department     = department,
                 leadSource     = leadSource,
@@ -119,6 +125,8 @@ class ContactRepository(private val api: ZohoApiService) {
         phone         : String,
         email         : String,
         accountName   : String,
+        // FIX: added accountZohoId — required to send Account_Name as a valid lookup object.
+        accountZohoId : String = "",
         title         : String,
         department    : String,
         contactOwner  : String,
@@ -131,7 +139,6 @@ class ContactRepository(private val api: ZohoApiService) {
         mailingCountry: String,
     ): Result<Unit> = runCatching {
         val record = buildMap<String, Any> {
-            // Required by Zoho — always send
             put("Last_Name", lastName.ifBlank { "(No Name)" })
 
             if (firstName.isNotBlank())      put("First_Name",      firstName)
@@ -149,9 +156,11 @@ class ContactRepository(private val api: ZohoApiService) {
             if (leadSource.isNotBlank() && leadSource != "-None-")
                 put("Lead_Source", leadSource)
 
-            // FIX: Do NOT send Account_Name as {"name": "..."} — Zoho requires the "id" key
-            // inside any lookup object. Without an accountZohoId we simply omit the field.
-            if (contactOwner.isNotBlank())   put("Owner", mapOf("id" to contactOwner))
+            // FIX: send Account_Name as {"id": "..."} — Zoho requires the id key for all lookup fields.
+            // Previously this field was never sent, so account changes made in the app
+            // were silently ignored by the CRM.
+            if (accountZohoId.isNotBlank())  put("Account_Name",     mapOf("id" to accountZohoId))
+            if (contactOwner.isNotBlank())   put("Owner",             mapOf("id" to contactOwner))
         }
 
         val response = api.updateContact(zohoId, mapOf("data" to listOf(record)))
@@ -167,6 +176,7 @@ class ContactRepository(private val api: ZohoApiService) {
                 phone          = phone,
                 email          = email,
                 accountName    = accountName,
+                accountZohoId  = accountZohoId,
                 title          = title,
                 department     = department,
                 leadSource     = leadSource,

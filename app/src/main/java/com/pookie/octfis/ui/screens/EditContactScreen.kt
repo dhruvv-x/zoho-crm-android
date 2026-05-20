@@ -54,7 +54,6 @@ class EditContactViewModel : ViewModel() {
     private val _saveState      = MutableStateFlow<EditContactState>(EditContactState.Idle)
     val saveState: StateFlow<EditContactState> = _saveState.asStateFlow()
 
-    // ── NEW: account lookup list ──────────────────────────────────────────────
     private val _accountItems   = MutableStateFlow<List<LookupItem>>(emptyList())
     val accountItems: StateFlow<List<LookupItem>> = _accountItems.asStateFlow()
 
@@ -81,16 +80,12 @@ class EditContactViewModel : ViewModel() {
             } finally {
                 _optionsLoading.value = false
             }
-
-            // Load accounts for lookup (use cache if already populated)
             loadAccountLookup()
         }
     }
 
-    // ── NEW ───────────────────────────────────────────────────────────────────
     private fun loadAccountLookup() {
         viewModelScope.launch {
-            // Use whatever is already in cache; if empty, fetch page 1
             val cached = AccountRepository.cache
             if (cached.isNotEmpty()) {
                 _accountItems.value = cached.map { LookupItem(it.zohoId, it.name, it.phone) }
@@ -114,6 +109,9 @@ class EditContactViewModel : ViewModel() {
         phone         : String,
         email         : String,
         accountName   : String,
+        // FIX: accountZohoId is now threaded all the way through so the repository
+        // can send Account_Name as {"id": "..."} — the format Zoho requires for lookup fields.
+        accountZohoId : String,
         title         : String,
         department    : String,
         ownerEntry    : Pair<String, String>,
@@ -135,6 +133,7 @@ class EditContactViewModel : ViewModel() {
                 phone          = phone,
                 email          = email,
                 accountName    = accountName,
+                accountZohoId  = accountZohoId,
                 title          = title,
                 department     = department,
                 contactOwner   = ownerEntry.first,
@@ -171,6 +170,10 @@ fun EditContactScreen(
     var phone          by remember { mutableStateOf(contact?.phone ?: "") }
     var email          by remember { mutableStateOf(contact?.email ?: "") }
     var accountName    by remember { mutableStateOf(contact?.accountName ?: "") }
+    // FIX: track the Zoho ID of the selected account so it can be sent as a lookup object.
+    // Previously only accountName (the display string) was tracked, so Account_Name was
+    // never sent to Zoho and account changes made in the app were silently discarded.
+    var accountZohoId  by remember { mutableStateOf(contact?.accountZohoId ?: "") }
     var title          by remember { mutableStateOf(contact?.title ?: "") }
     var department     by remember { mutableStateOf(contact?.department ?: "") }
     var selectedOwner  by remember { mutableStateOf(Pair("", contact?.contactOwner ?: "-None-")) }
@@ -185,7 +188,6 @@ fun EditContactScreen(
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val saveState      by vm.saveState.collectAsState()
-    // NEW
     val accountItems   by vm.accountItems.collectAsState()
     val snackbarHost    = remember { SnackbarHostState() }
 
@@ -219,6 +221,7 @@ fun EditContactScreen(
                                 phone          = phone,
                                 email          = email,
                                 accountName    = accountName,
+                                accountZohoId  = accountZohoId,
                                 title          = title,
                                 department     = department,
                                 ownerEntry     = selectedOwner,
@@ -265,16 +268,19 @@ fun EditContactScreen(
                     ECTextField("Email",        email,       "Enter Email ID")     { email = it }
                     ECDivider()
 
-                    // ── CHANGED: was ECTextField, now LookupField ─────────────
+                    // FIX: onSelect now captures both item.name AND item.id.
+                    // Previously only item.name was saved, losing the Zoho ID needed for the lookup.
                     LookupField(
                         label       = "Account Name",
                         value       = accountName,
                         placeholder = "Select Account",
                         items       = accountItems,
                         loading     = optionsLoading && accountItems.isEmpty(),
-                        onSelect    = { item -> accountName = item.name },
+                        onSelect    = { item ->
+                            accountName   = item.name
+                            accountZohoId = item.zohoId   // ← FIX: capture the Zoho ID
+                        },
                     )
-                    // ─────────────────────────────────────────────────────────
 
                     ECDivider()
                     ECTextField("Title",        title,       "Enter Job Title")    { title = it }

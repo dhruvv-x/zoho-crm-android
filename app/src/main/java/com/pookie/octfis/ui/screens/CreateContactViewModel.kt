@@ -3,7 +3,9 @@ package com.pookie.octfis.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pookie.octfis.data.remote.ZohoServiceLocator
+import com.pookie.octfis.data.repository.AccountRepository
 import com.pookie.octfis.data.repository.ContactRepository
+import com.pookie.octfis.ui.components.LookupItem
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,8 +26,9 @@ sealed class CreateContactState {
 
 class CreateContactViewModel : ViewModel() {
 
-    private val api  = ZohoServiceLocator.getApiService()
-    private val repo = ContactRepository(api)
+    private val api         = ZohoServiceLocator.getApiService()
+    private val repo        = ContactRepository(api)
+    private val accountRepo = AccountRepository(api)
 
     private val _options = MutableStateFlow(ContactPicklistOptions())
     val options: StateFlow<ContactPicklistOptions> = _options.asStateFlow()
@@ -35,6 +38,10 @@ class CreateContactViewModel : ViewModel() {
 
     private val _createState = MutableStateFlow<CreateContactState>(CreateContactState.Idle)
     val createState: StateFlow<CreateContactState> = _createState.asStateFlow()
+
+    // FIX: expose account lookup list so the screen can show a picker instead of a free-text field.
+    private val _accountItems = MutableStateFlow<List<LookupItem>>(emptyList())
+    val accountItems: StateFlow<List<LookupItem>> = _accountItems.asStateFlow()
 
     init { loadOptions() }
 
@@ -66,6 +73,26 @@ class CreateContactViewModel : ViewModel() {
             } finally {
                 _optionsLoading.value = false
             }
+
+            // FIX: load accounts for the lookup picker
+            loadAccountLookup()
+        }
+    }
+
+    private fun loadAccountLookup() {
+        viewModelScope.launch {
+            val cached = AccountRepository.cache
+            if (cached.isNotEmpty()) {
+                _accountItems.value = cached.map { LookupItem(it.zohoId, it.name, it.phone) }
+            } else {
+                runCatching { accountRepo.getAccounts(1) }
+                    .getOrNull()
+                    ?.getOrNull()
+                    ?.first
+                    ?.let { accounts ->
+                        _accountItems.value = accounts.map { LookupItem(it.zohoId, it.name, it.phone) }
+                    }
+            }
         }
     }
 
@@ -75,6 +102,9 @@ class CreateContactViewModel : ViewModel() {
         phone         : String,
         email         : String,
         accountName   : String,
+        // FIX: accept the Zoho ID alongside the display name so the repository
+        // can send Account_Name as {"id": "..."} — the format Zoho requires.
+        accountZohoId : String = "",
         title         : String,
         department    : String,
         ownerEntry    : Pair<String, String>,
@@ -99,6 +129,7 @@ class CreateContactViewModel : ViewModel() {
                 phone          = phone,
                 email          = email,
                 accountName    = accountName,
+                accountZohoId  = accountZohoId,
                 title          = title,
                 department     = department,
                 contactOwner   = ownerEntry.first,
