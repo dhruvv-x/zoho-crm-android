@@ -29,37 +29,40 @@ class ContactCallViewModel : ViewModel() {
     fun logCallToZoho(description: String) {
         val contactZohoId = CallStateHolder.contactZohoId
         val contactName   = CallStateHolder.contactName
+        val direction     = CallStateHolder.callDirection   // "Outbound" or "Inbound"
 
-        // Use callStartMillis when available; fall back to callInitiatedAtMillis
-        val startMillis = CallStateHolder.callStartMillis
-            .takeIf { it > 0L }
+        val startMillis = CallStateHolder.callStartMillis.takeIf { it > 0L }
             ?: CallStateHolder.callInitiatedAtMillis
 
-        val endMillis = CallStateHolder.callEndMillis
-            .takeIf { it > 0L }
+        val endMillis = CallStateHolder.callEndMillis.takeIf { it > 0L }
             ?: System.currentTimeMillis()
 
         val durationSeconds = ((endMillis - startMillis) / 1000).coerceAtLeast(0)
-        val minutes    = durationSeconds / 60
-        val seconds    = durationSeconds % 60
+        val minutes     = durationSeconds / 60
+        val seconds     = durationSeconds % 60
         val durationStr = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 
         val startTimeStr = SimpleDateFormat(
             "yyyy-MM-dd'T'HH:mm:ssXXX", Locale.getDefault()
         ).format(Date(startMillis))
 
+        val subject = if (direction == "Inbound")
+            "Incoming call from $contactName"
+        else
+            "Outgoing call to $contactName"
+
         Log.d(
             "CALL_LOG_DEBUG",
-            "whoId=$contactZohoId | name=$contactName | start=$startTimeStr | duration=$durationStr"
+            "whoId=$contactZohoId | name=$contactName | dir=$direction | start=$startTimeStr | duration=$durationStr"
         )
 
         viewModelScope.launch {
             _logState.value = LogCallState.Saving
             repo.createCall(
-                subject       = "Outgoing call to $contactName",
+                subject       = subject,
                 callStartTime = startTimeStr,
                 duration      = durationStr,
-                callType      = "Outbound",
+                callType      = direction,         // "Outbound" or "Inbound"
                 status        = "Completed",
                 description   = description,
                 ownerId       = "",

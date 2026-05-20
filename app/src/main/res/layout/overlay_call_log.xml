@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Floating overlay button shown after a call ends for a matched Zoho contact.
+    Placed in: app/src/main/res/layout/overlay_call_log.xml
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <ImageButton
+        android:id="@+id/btnOverlay"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:background="@drawable/overlay_button_bg"
+        android:src="@android:drawable/sym_call_incoming"
+        android:tint="#FFFFFF"
+        android:contentDescription="Log call to Zoho CRM"
+        android:elevation="8dp"
+        android:scaleType="center" />
+
+</FrameLayout>
