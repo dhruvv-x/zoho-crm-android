@@ -109,6 +109,8 @@ class CallRepository(
 
             put("Call_Status", status)
 
+            put("Outgoing_Call_Status", "Completed")
+
             if (description.isNotBlank()) {
                 put("Description", description)
             }
@@ -202,6 +204,8 @@ class CallRepository(
             put("Call_Type", callType)
 
             put("Call_Status", status)
+
+            put("Outgoing_Call_Status", "Completed")
 
             if (description.isNotBlank()) {
                 put("Description", description)

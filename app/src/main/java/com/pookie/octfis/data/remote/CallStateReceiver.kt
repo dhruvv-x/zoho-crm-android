@@ -17,13 +17,14 @@ object CallStateHolder {
 class CallStateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val state = intent.getStringExtra(TelephonyManager.EXTRA_STATE) ?: return
+
+        android.util.Log.d("CALL_RECEIVER", "State received = $state")
+
         when (state) {
             TelephonyManager.EXTRA_STATE_RINGING -> {
-                // Incoming call ringing — reset so polling doesn't trigger
                 CallStateHolder.callEndMillis = 0L
             }
             TelephonyManager.EXTRA_STATE_OFFHOOK -> {
-                // Call connected — reset end time and mark active
                 CallStateHolder.callEndMillis   = 0L
                 CallStateHolder.callStartMillis = System.currentTimeMillis()
                 CallStateHolder.isCallActive    = true
