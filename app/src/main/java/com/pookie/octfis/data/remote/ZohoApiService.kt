@@ -84,7 +84,8 @@ interface ZohoApiService {
     @GET("Quotes/{id}")
     suspend fun getQuoteById(
         @Path("id") id: String,
-        @Query("fields") fields: String = "Subject,Account_Name,Contact_Name,Quote_Stage,Valid_Till,Description,Grand_Total,Sub_Total,Discount,Tax,Quote_Owner,Product_Details",
+        // AFTER
+        @Query("fields") fields: String = "Subject,Account_Name,Contact_Name,Deal_Name,Quote_Stage,Valid_Till,Description,Grand_Total,Sub_Total,Discount,Tax,Quote_Owner,Product_Details",
     ): QuotesResponse
 
     @POST("Quotes")

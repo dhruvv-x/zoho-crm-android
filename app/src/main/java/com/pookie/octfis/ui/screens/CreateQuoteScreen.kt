@@ -19,35 +19,148 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.data.model.QuoteItem
 import com.pookie.octfis.data.remote.ZohoServiceLocator
+import com.pookie.octfis.data.repository.AccountRepository
+import com.pookie.octfis.data.repository.ContactRepository
+import com.pookie.octfis.data.repository.DealRepository
 import com.pookie.octfis.data.repository.QuoteRepository
 import com.pookie.octfis.ui.components.LookupField
+import com.pookie.octfis.ui.components.LookupItem
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+
+// ── ViewModel ─────────────────────────────────────────────────────────────────
+
+sealed class CreateQuoteState {
+    object Idle    : CreateQuoteState()
+    object Saving  : CreateQuoteState()
+    object Success : CreateQuoteState()
+    data class Error(val message: String) : CreateQuoteState()
+}
+
+class CreateQuoteViewModel : ViewModel() {
+
+    private val api         = ZohoServiceLocator.getApiService()
+    private val accountRepo = AccountRepository(api)
+    private val contactRepo = ContactRepository(api)
+    private val dealRepo    = DealRepository(api)
+
+    private val _accountItems  = MutableStateFlow<List<LookupItem>>(emptyList())
+    val accountItems: StateFlow<List<LookupItem>> = _accountItems.asStateFlow()
+
+    private val _contactItems  = MutableStateFlow<List<LookupItem>>(emptyList())
+    val contactItems: StateFlow<List<LookupItem>> = _contactItems.asStateFlow()
+
+    private val _dealItems     = MutableStateFlow<List<LookupItem>>(emptyList())
+    val dealItems: StateFlow<List<LookupItem>> = _dealItems.asStateFlow()
+
+    private val _lookupLoading = MutableStateFlow(true)
+    val lookupLoading: StateFlow<Boolean> = _lookupLoading.asStateFlow()
+
+    private val _state = MutableStateFlow<CreateQuoteState>(CreateQuoteState.Idle)
+    val state: StateFlow<CreateQuoteState> = _state.asStateFlow()
+
+    init { loadLookups() }
+
+    private fun loadLookups() {
+        viewModelScope.launch {
+            _lookupLoading.value = true
+
+            val cachedAccounts = AccountRepository.cache
+            if (cachedAccounts.isNotEmpty())
+                _accountItems.value = cachedAccounts.map { LookupItem(it.zohoId, it.name, it.phone) }
+            else
+                runCatching { accountRepo.getAccounts(1) }.getOrNull()?.getOrNull()?.first
+                    ?.let { _accountItems.value = it.map { a -> LookupItem(a.zohoId, a.name, a.phone) } }
+
+            val cachedContacts = ContactRepository.cache
+            if (cachedContacts.isNotEmpty())
+                _contactItems.value = cachedContacts.map { LookupItem(it.zohoId, it.fullName, it.email) }
+            else
+                runCatching { contactRepo.getContacts(1) }.getOrNull()?.getOrNull()?.first
+                    ?.let { _contactItems.value = it.map { c -> LookupItem(c.zohoId, c.fullName, c.email) } }
+
+            val cachedDeals = DealRepository.cache
+            if (cachedDeals.isNotEmpty())
+                _dealItems.value = cachedDeals.map { LookupItem(it.zohoId, it.dealName, it.accountName) }
+            else
+                runCatching { dealRepo.getDeals(1) }.getOrNull()?.getOrNull()?.first
+                    ?.let { _dealItems.value = it.map { d -> LookupItem(d.zohoId, d.dealName, d.accountName) } }
+
+            _lookupLoading.value = false
+        }
+    }
+
+    fun save(
+        subject       : String,
+        accountName   : String,
+        accountZohoId : String,
+        contactName   : String,
+        contactZohoId : String,
+        dealName      : String,
+        dealZohoId    : String,
+        quoteStage    : String,
+        validUntil    : String,
+        description   : String,
+        items         : List<QuoteItem>,
+    ) {
+        if (_state.value == CreateQuoteState.Saving) return
+        viewModelScope.launch {
+            _state.value = CreateQuoteState.Saving
+            QuoteRepository(api).createQuote(
+                subject       = subject,
+                accountName   = accountName,
+                accountZohoId = accountZohoId,
+                contactName   = contactName,
+                contactZohoId = contactZohoId,
+                dealName      = dealName,
+                dealZohoId    = dealZohoId,
+                quoteStage    = quoteStage,
+                validUntil    = validUntil,
+                description   = description,
+                items         = items,
+            ).fold(
+                onSuccess = { _state.value = CreateQuoteState.Success },
+                onFailure = { e -> _state.value = CreateQuoteState.Error(e.message ?: "Save failed") },
+            )
+        }
+    }
+
+    fun clearError() { _state.value = CreateQuoteState.Idle }
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateQuoteScreen(
     navController: NavController,
-    vm: EditQuoteViewModel = viewModel(),   // reuses the same ViewModel for lookup data
+    vm: CreateQuoteViewModel = viewModel(),
 ) {
     val accountItems  by vm.accountItems.collectAsState()
     val contactItems  by vm.contactItems.collectAsState()
+    val dealItems     by vm.dealItems.collectAsState()
     val lookupLoading by vm.lookupLoading.collectAsState()
+    val saveState     by vm.state.collectAsState()
 
     var subject        by remember { mutableStateOf("") }
     var accountName    by remember { mutableStateOf("") }
     var accountZohoId  by remember { mutableStateOf("") }
     var contactName    by remember { mutableStateOf("") }
     var contactZohoId  by remember { mutableStateOf("") }
+    var dealName       by remember { mutableStateOf("") }
+    var dealZohoId     by remember { mutableStateOf("") }
     var validUntil     by remember { mutableStateOf("") }
     var quoteStage     by remember { mutableStateOf("Draft") }
     var description    by remember { mutableStateOf("") }
@@ -55,14 +168,22 @@ fun CreateQuoteScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showItemDialog by remember { mutableStateOf(false) }
     var editingIndex   by remember { mutableStateOf<Int?>(null) }
-    var isSaving       by remember { mutableStateOf(false) }
-    var saveError      by remember { mutableStateOf<String?>(null) }
-    val scope          = rememberCoroutineScope()
 
-    val stageOptions = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
-    val items = remember { mutableStateListOf<QuoteItem>() }
+    val isSaving          = saveState == CreateQuoteState.Saving
+    val snackbarHostState = remember { SnackbarHostState() }
+    val stageOptions      = listOf("Draft", "Delivered", "On Hold", "Confirmed", "Closed Accepted", "Closed Lost")
+    val items             = remember { mutableStateListOf<QuoteItem>() }
 
-    // ── Date Picker Dialog ────────────────────────────────────────────────────
+    // Navigate on success / show snackbar on error — runs on viewModelScope, safe
+    LaunchedEffect(saveState) {
+        when (val s = saveState) {
+            is CreateQuoteState.Success -> navController.popBackStack()
+            is CreateQuoteState.Error   -> { snackbarHostState.showSnackbar(s.message); vm.clearError() }
+            else -> Unit
+        }
+    }
+
+    // Date Picker
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
     if (showDatePicker) {
         DatePickerDialog(
@@ -79,25 +200,25 @@ fun CreateQuoteScreen(
         ) { DatePicker(state = datePickerState) }
     }
 
-    // ── Add / Edit Item Dialog ────────────────────────────────────────────────
+    // Item Dialog
     if (showItemDialog) {
-        val editing  = editingIndex?.let { items.getOrNull(it) }
-        var dBrand   by remember(editingIndex) { mutableStateOf(editing?.brand ?: "") }
-        var dName    by remember(editingIndex) { mutableStateOf(editing?.productName?.takeIf { it != "Product name" } ?: "") }
-        var dDesc    by remember(editingIndex) { mutableStateOf(editing?.description ?: "") }
-        var dQty     by remember(editingIndex) { mutableStateOf((editing?.quantity ?: 1).toString()) }
-        var dPrice   by remember(editingIndex) { mutableStateOf(if ((editing?.price ?: 0.0) == 0.0) "" else (editing?.price ?: 0.0).toString()) }
+        val editing = editingIndex?.let { items.getOrNull(it) }
+        var dBrand  by remember(editingIndex) { mutableStateOf(editing?.brand ?: "") }
+        var dName   by remember(editingIndex) { mutableStateOf(editing?.productName?.takeIf { it != "Product name" } ?: "") }
+        var dDesc   by remember(editingIndex) { mutableStateOf(editing?.description ?: "") }
+        var dQty    by remember(editingIndex) { mutableStateOf((editing?.quantity ?: 1).toString()) }
+        var dPrice  by remember(editingIndex) { mutableStateOf(if ((editing?.price ?: 0.0) == 0.0) "" else (editing?.price ?: 0.0).toString()) }
 
         AlertDialog(
             onDismissRequest = { showItemDialog = false; editingIndex = null },
             title = { Text(if (editing != null) "Edit Item" else "Add Item", fontWeight = FontWeight.SemiBold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = dBrand, onValueChange = { dBrand = it }, label = { Text("Brand") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = dBrand, onValueChange = { dBrand = it }, label = { Text("Brand") },        singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = dName,  onValueChange = { dName = it },  label = { Text("Product Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = dDesc,  onValueChange = { dDesc = it },  label = { Text("Description") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = dQty,   onValueChange = { dQty = it },   label = { Text("Quantity") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    OutlinedTextField(value = dPrice, onValueChange = { dPrice = it }, label = { Text("Price") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                    OutlinedTextField(value = dDesc,  onValueChange = { dDesc = it },  label = { Text("Description") },  singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = dQty,   onValueChange = { dQty = it },   label = { Text("Quantity") },     singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                    OutlinedTextField(value = dPrice, onValueChange = { dPrice = it }, label = { Text("Price") },        singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                 }
             },
             confirmButton = {
@@ -105,9 +226,9 @@ fun CreateQuoteScreen(
                     val qty   = dQty.toIntOrNull() ?: 1
                     val price = dPrice.toDoubleOrNull() ?: 0.0
                     val idx   = editingIndex
-                    if (idx != null) {
+                    if (idx != null)
                         items[idx] = items[idx].copy(brand = dBrand, productName = dName.ifEmpty { "Product name" }, description = dDesc, quantity = qty, price = price)
-                    } else {
+                    else {
                         val nextId = (items.maxOfOrNull { it.sNo } ?: 0) + 1
                         items.add(QuoteItem(nextId, brand = dBrand, productName = dName.ifEmpty { "Product name" }, description = dDesc, quantity = qty, price = price))
                     }
@@ -118,8 +239,9 @@ fun CreateQuoteScreen(
         )
     }
 
-    // ── UI ────────────────────────────────────────────────────────────────────
     Scaffold(
+        snackbarHost   = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Create Quote", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
@@ -131,86 +253,68 @@ fun CreateQuoteScreen(
                 actions = {
                     Button(
                         onClick = {
-                            isSaving = true
-                            scope.launch {
-                                val repo = QuoteRepository(ZohoServiceLocator.getApiService())
-                                val result: Result<Unit> = withContext(Dispatchers.IO) {
-                                    repo.createQuote(
-                                        subject       = subject,
-                                        accountName   = accountName,
-                                        accountZohoId = accountZohoId,
-                                        contactName   = contactName,
-                                        contactZohoId = contactZohoId,
-                                        quoteStage    = quoteStage,
-                                        validUntil    = validUntil,
-                                        description   = description,
-                                        items         = items.toList(),
-                                    )
-                                }
-                                result.fold(
-                                    onSuccess = { navController.popBackStack() },
-                                    onFailure = { e -> saveError = e.message ?: "Save failed" },
-                                )
-                                isSaving = false
-                            }
+                            vm.save(
+                                subject       = subject,
+                                accountName   = accountName,
+                                accountZohoId = accountZohoId,
+                                contactName   = contactName,
+                                contactZohoId = contactZohoId,
+                                dealName      = dealName,
+                                dealZohoId    = dealZohoId,
+                                quoteStage    = quoteStage,
+                                validUntil    = validUntil,
+                                description   = description,
+                                items         = items.toList(),
+                            )
                         },
                         enabled  = !isSaving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
-                    ) { Text(if (isSaving) "Saving…" else "Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold) }
+                    ) {
+                        if (isSaving)
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.surface)
+                        else
+                            Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-        containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = {
-            saveError?.let { msg ->
-                Snackbar(
-                    action = { TextButton(onClick = { saveError = null }) { Text("OK") } },
-                    modifier = Modifier.padding(8.dp),
-                ) { Text(msg) }
-            }
-        },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
                     QuoteFormField("Subject", subject, "Enter Quote title") { subject = it }
                     QuoteDivider()
-
                     LookupField(
                         label       = "Account Name",
                         value       = accountName,
                         placeholder = "Select Account",
                         items       = accountItems,
                         loading     = lookupLoading && accountItems.isEmpty(),
-                        onSelect    = { item ->
-                            accountName   = item.name
-                            accountZohoId = item.zohoId
-                        },
+                        onSelect    = { item -> accountName = item.name; accountZohoId = item.zohoId },
                     )
                     QuoteDivider()
-
                     LookupField(
                         label       = "Contact Name",
                         value       = contactName,
                         placeholder = "Select Contact",
                         items       = contactItems,
                         loading     = lookupLoading && contactItems.isEmpty(),
-                        onSelect    = { item ->
-                            contactName   = item.name
-                            contactZohoId = item.zohoId
-                        },
+                        onSelect    = { item -> contactName = item.name; contactZohoId = item.zohoId },
                     )
                     QuoteDivider()
-
+                    LookupField(
+                        label       = "Deal",
+                        value       = dealName,
+                        placeholder = "Link a Deal (optional)",
+                        items       = dealItems,
+                        loading     = lookupLoading && dealItems.isEmpty(),
+                        onSelect    = { item -> dealName = item.name; dealZohoId = item.zohoId },
+                    )
+                    QuoteDivider()
                     TextButton(
                         onClick        = { showDatePicker = true },
                         modifier       = Modifier.fillMaxWidth(),
@@ -227,7 +331,6 @@ fun CreateQuoteScreen(
                         }
                     }
                     QuoteDivider()
-
                     ExposedDropdownMenuBox(expanded = stageExpanded, onExpandedChange = { stageExpanded = !stageExpanded }) {
                         Row(
                             modifier          = Modifier.fillMaxWidth().menuAnchor().padding(horizontal = 16.dp, vertical = 14.dp),
@@ -239,15 +342,11 @@ fun CreateQuoteScreen(
                         }
                         ExposedDropdownMenu(expanded = stageExpanded, onDismissRequest = { stageExpanded = false }) {
                             stageOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text    = { Text(option, fontSize = 13.sp) },
-                                    onClick = { quoteStage = option; stageExpanded = false },
-                                )
+                                DropdownMenuItem(text = { Text(option, fontSize = 13.sp) }, onClick = { quoteStage = option; stageExpanded = false })
                             }
                         }
                     }
                     QuoteDivider()
-
                     QuoteFormField("Description", description, "Short description") { description = it }
                 }
             }
@@ -276,13 +375,7 @@ fun CreateQuoteScreen(
                                 if (item.description.isNotEmpty()) Text(item.description, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text("Qty: ${item.quantity}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text(
-                                text       = "₹${String.format("%.2f", item.price)}",
-                                fontSize   = 13.sp,
-                                color      = CrmOnSurface,
-                                fontWeight = FontWeight.Medium,
-                                modifier   = Modifier.width(60.dp),
-                            )
+                            Text("₹${String.format("%.2f", item.price)}", fontSize = 13.sp, color = CrmOnSurface, fontWeight = FontWeight.Medium, modifier = Modifier.width(60.dp))
                             IconButton(onClick = { editingIndex = index; showItemDialog = true }, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary, modifier = Modifier.size(16.dp))
                             }
@@ -297,19 +390,13 @@ fun CreateQuoteScreen(
                     if (items.isNotEmpty()) {
                         val subTotal = items.sumOf { it.price * it.quantity }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-                        Row(
-                            modifier              = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Grand Total", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text("₹${String.format("%.2f", subTotal)}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CrmPrimary)
                         }
                     }
 
-                    TextButton(
-                        onClick  = { editingIndex = null; showItemDialog = true },
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    ) {
+                    TextButton(onClick = { editingIndex = null; showItemDialog = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
                         Text("+ Add Item", color = CrmPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
@@ -341,6 +428,4 @@ private fun QuoteFormField(label: String, value: String, placeholder: String, on
 }
 
 @Composable
-private fun QuoteDivider() {
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-}
+private fun QuoteDivider() = HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))

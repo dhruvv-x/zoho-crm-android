@@ -40,7 +40,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// ── Save State sealed class ────────────────────────────────────────────────────
+// ── Save State ────────────────────────────────────────────────────────────────
 
 sealed class SaveState {
     object Idle    : SaveState()
@@ -70,7 +70,6 @@ class EditQuoteViewModel : ViewModel() {
     private val _lookupLoading = MutableStateFlow(true)
     val lookupLoading: StateFlow<Boolean> = _lookupLoading.asStateFlow()
 
-    // ── FIX: Save state lives in ViewModel scope, not Compose scope ───────────
     private val _saveState = MutableStateFlow<SaveState>(SaveState.Idle)
     val saveState: StateFlow<SaveState> = _saveState.asStateFlow()
 
@@ -111,7 +110,6 @@ class EditQuoteViewModel : ViewModel() {
         }
     }
 
-    // ── FIX: Save runs on viewModelScope — survives navigation transitions ────
     fun saveQuote(
         zohoId        : String,
         subject       : String,
@@ -126,7 +124,7 @@ class EditQuoteViewModel : ViewModel() {
         description   : String,
         items         : List<QuoteItem>,
     ) {
-        if (_saveState.value == SaveState.Saving) return   // prevent double-tap
+        if (_saveState.value == SaveState.Saving) return
         viewModelScope.launch {
             _saveState.value = SaveState.Saving
             val repo = QuoteRepository(api)
@@ -150,11 +148,7 @@ class EditQuoteViewModel : ViewModel() {
         }
     }
 
-    // Called from the screen after the error snackbar is shown, so it doesn't
-    // fire again on recomposition.
-    fun clearError() {
-        _saveState.value = SaveState.Idle
-    }
+    fun clearError() { _saveState.value = SaveState.Idle }
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -196,27 +190,26 @@ fun EditQuoteScreen(
     val contactItems  by vm.contactItems.collectAsState()
     val dealItems     by vm.dealItems.collectAsState()
     val lookupLoading by vm.lookupLoading.collectAsState()
+    val saveState     by vm.saveState.collectAsState()
+    val isSaving       = saveState == SaveState.Saving
 
-    // ── FIX: Observe saveState from ViewModel ─────────────────────────────────
-    val saveState by vm.saveState.collectAsState()
-    val isSaving  = saveState == SaveState.Saving
+    // ── FIX: use proper SnackbarHostState ─────────────────────────────────────
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // React to save outcome — navigate on success, show snackbar on error.
-    // LaunchedEffect key = saveState so it re-runs only when state actually changes.
+    // Handle save outcomes via LaunchedEffect on ViewModel state
     LaunchedEffect(saveState) {
         when (val s = saveState) {
             is SaveState.Success -> {
-                // Tell QuoteDetailScreen to re-fetch after we pop back
                 navController.previousBackStackEntry
                     ?.savedStateHandle
                     ?.set("quoteUpdated", true)
                 navController.popBackStack()
-                // No need to reset state — ViewModel is cleared with the screen
             }
             is SaveState.Error -> {
-                // Error message is shown via snackbarHost below; no action needed here
+                snackbarHostState.showSnackbar(s.message)
+                vm.clearError()
             }
-            else -> { /* Idle / Saving — do nothing */ }
+            else -> Unit
         }
     }
 
@@ -285,6 +278,8 @@ fun EditQuoteScreen(
 
     // ── Scaffold ──────────────────────────────────────────────────────────────
     Scaffold(
+        // ── FIX: use SnackbarHost with SnackbarHostState, not raw Snackbar ────
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Edit Quote", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
@@ -295,7 +290,6 @@ fun EditQuoteScreen(
                 },
                 actions = {
                     Button(
-                        // ── FIX: delegate to ViewModel — no rememberCoroutineScope needed ──
                         onClick = {
                             vm.saveQuote(
                                 zohoId        = original.zohoId,
@@ -316,21 +310,19 @@ fun EditQuoteScreen(
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
-                    ) { Text(if (isSaving) "Saving…" else "Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold) }
+                    ) {
+                        if (isSaving)
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color       = MaterialTheme.colorScheme.surface,
+                            )
+                        else
+                            Text("Save", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.SemiBold)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
-        },
-        snackbarHost = {
-            // Show error from ViewModel state (not a local var anymore)
-            if (saveState is SaveState.Error) {
-                Snackbar(
-                    action = {
-                        TextButton(onClick = { vm.clearError() }) { Text("OK") }
-                    },
-                    modifier = Modifier.padding(8.dp),
-                ) { Text((saveState as SaveState.Error).message) }
-            }
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
@@ -473,6 +465,8 @@ fun EditQuoteScreen(
         }
     }
 }
+
+// ── Private composables ───────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

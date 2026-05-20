@@ -117,13 +117,13 @@ class QuoteRepository(private val api: ZohoApiService) {
             // Lookup fields — ONLY send when we have the Zoho id.
             // Sending {"name": "..."} without "id" causes "required field not found [field: id]".
             if (accountZohoId.isNotBlank()) {
-                put("Account_Name", mapOf("id" to accountZohoId, "name" to accountName))
+                put("Account_Name", mapOf("id" to accountZohoId))
             }
             if (contactZohoId.isNotBlank()) {
-                put("Contact_Name", mapOf("id" to contactZohoId, "name" to contactName))
+                put("Contact_Name", mapOf("id" to contactZohoId))
             }
             if (dealZohoId.isNotBlank()) {
-                put("Deal_Name", mapOf("id" to dealZohoId, "name" to dealName))
+                put("Deal_Name", mapOf("id" to dealZohoId))
             }
 
             val zohoDate = toZohoDate(validUntil)
@@ -190,13 +190,13 @@ class QuoteRepository(private val api: ZohoApiService) {
 
             // Lookup fields — ONLY send when we have the Zoho id.
             if (accountZohoId.isNotBlank()) {
-                put("Account_Name", mapOf("id" to accountZohoId, "name" to accountName))
+                put("Account_Name", mapOf("id" to accountZohoId))
             }
             if (contactZohoId.isNotBlank()) {
-                put("Contact_Name", mapOf("id" to contactZohoId, "name" to contactName))
+                put("Contact_Name", mapOf("id" to contactZohoId))
             }
             if (dealZohoId.isNotBlank()) {
-                put("Deal_Name", mapOf("id" to dealZohoId, "name" to dealName))
+                put("Deal_Name", mapOf("id" to dealZohoId))
             }
 
             val zohoDate = toZohoDate(validUntil)
