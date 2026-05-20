@@ -79,6 +79,7 @@ fun DashboardScreen(
             Column(modifier = Modifier.fillMaxSize()) {
 
                 // ── Top Bar ───────────────────────────────────────────────
+                var overflowExpanded by remember { mutableStateOf(false) }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -95,27 +96,66 @@ fun DashboardScreen(
                         color      = Color.White,
                         modifier   = Modifier.weight(1f),
                     )
-                    // Search icon to open master search
                     IconButton(onClick = { searchActive = true }) {
                         Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
                     }
                     IconButton(onClick = { vm.load() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
                     }
-                    IconButton(onClick = onToggleTheme) {
-                        Icon(
-                            imageVector        = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = "Toggle theme",
-                            tint               = Color.White,
-                        )
-                    }
-                    IconButton(onClick = {
-                        scope.launch { ZohoServiceLocator.getTokenStore().clear() }
-                        navController.navigate(Screen.SignIn.route) {
-                            popUpTo(0) { inclusive = true }
+                    // ── 3-dot overflow menu ───────────────────────────────
+                    Box {
+                        IconButton(onClick = { overflowExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More options", tint = Color.White)
                         }
-                    }) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout", tint = Color.White)
+                        DropdownMenu(
+                            expanded         = overflowExpanded,
+                            onDismissRequest = { overflowExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment     = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector        = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                            contentDescription = null,
+                                            tint               = MaterialTheme.colorScheme.onSurface,
+                                            modifier           = Modifier.size(18.dp),
+                                        )
+                                        Text(if (isDark) "Light Mode" else "Dark Mode")
+                                    }
+                                },
+                                onClick = {
+                                    overflowExpanded = false
+                                    onToggleTheme()
+                                },
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment     = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    ) {
+                                        Icon(
+                                            imageVector        = Icons.Default.Logout,
+                                            contentDescription = null,
+                                            tint               = MaterialTheme.colorScheme.error,
+                                            modifier           = Modifier.size(18.dp),
+                                        )
+                                        Text("Logout", color = MaterialTheme.colorScheme.error)
+                                    }
+                                },
+                                onClick = {
+                                    overflowExpanded = false
+                                    scope.launch { ZohoServiceLocator.getTokenStore().clear() }
+                                    navController.navigate(Screen.SignIn.route) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
 
