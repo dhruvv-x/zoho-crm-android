@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.ui.components.LookupField
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 
@@ -28,7 +29,9 @@ fun CreateDealScreen(
 ) {
     var dealName        by remember { mutableStateOf("") }
     var accountName     by remember { mutableStateOf("") }
+    var accountZohoId   by remember { mutableStateOf("") }   // ← NEW
     var contactName     by remember { mutableStateOf("") }
+    var contactZohoId   by remember { mutableStateOf("") }   // ← NEW
     var amount          by remember { mutableStateOf("") }
     var closingDate     by remember { mutableStateOf("") }
     var type            by remember { mutableStateOf("-None-") }
@@ -42,6 +45,8 @@ fun CreateDealScreen(
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val createState    by vm.createState.collectAsState()
+    val accountItems   by vm.accountItems.collectAsState()   // ← NEW
+    val contactItems   by vm.contactItems.collectAsState()   // ← NEW
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -83,7 +88,9 @@ fun CreateDealScreen(
                             vm.save(
                                 dealName        = dealName,
                                 accountName     = accountName,
+                                accountZohoId   = accountZohoId,   // ← NEW
                                 contactName     = contactName,
+                                contactZohoId   = contactZohoId,   // ← NEW
                                 amount          = amount,
                                 closingDate     = closingDate,
                                 type            = type,
@@ -121,24 +128,48 @@ fun CreateDealScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            // ── Key Information ───────────────────────────────────────────
             SectionHeader("Key Information")
 
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    DealFormField("Deal Name",    dealName,    "Deal Name")               { dealName = it }
+                    DealFormField("Deal Name", dealName, "Deal Name") { dealName = it }
                     DealDivider()
-                    DealFormField("Account Name", accountName, "Enter Company name")      { accountName = it }
+
+                    // ← FIXED: was plain text, now LookupField (captures Zoho ID)
+                    LookupField(
+                        label       = "Account Name",
+                        value       = accountName,
+                        placeholder = "Select Account",
+                        items       = accountItems,
+                        loading     = optionsLoading && accountItems.isEmpty(),
+                        onSelect    = { item ->
+                            accountName   = item.name
+                            accountZohoId = item.zohoId
+                        },
+                    )
                     DealDivider()
-                    DealFormField("Contact Name", contactName, "Enter Customer Name")     { contactName = it }
+
+                    // ← FIXED: was plain text, now LookupField (captures Zoho ID)
+                    LookupField(
+                        label       = "Contact Name",
+                        value       = contactName,
+                        placeholder = "Select Contact",
+                        items       = contactItems,
+                        loading     = optionsLoading && contactItems.isEmpty(),
+                        onSelect    = { item ->
+                            contactName   = item.name
+                            contactZohoId = item.zohoId
+                        },
+                    )
                     DealDivider()
-                    DealFormField("Amount",       amount,      "Enter Deal Amount")       { amount = it }
+
+                    DealFormField("Amount",       amount,      "Enter Deal Amount") { amount = it }
                     DealDivider()
-                    DealFormField("Closing Date", closingDate, "YYYY-MM-DD")              { closingDate = it }
+                    DealFormField("Closing Date", closingDate, "YYYY-MM-DD")        { closingDate = it }
                     DealDivider()
-                    DealPicklistField("Type", type, options.types, optionsLoading)        { type = it }
+                    DealPicklistField("Type", type, options.types, optionsLoading)  { type = it }
                     DealDivider()
-                    DealFormField("Email",        email,       "Enter Email ID")          { email = it }
+                    DealFormField("Email",        email,       "Enter Email ID")    { email = it }
                     DealDivider()
                     DealPicklistField(
                         label   = "Deal Owner",
@@ -147,20 +178,19 @@ fun CreateDealScreen(
                         loading = optionsLoading,
                     ) { name -> selectedOwner = options.owners.firstOrNull { it.second == name } ?: Pair("", name) }
                     DealDivider()
-                    DealFormField("Description",  description, "Short description")       { description = it }
+                    DealFormField("Description", description, "Short description") { description = it }
                 }
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // ── Additional Information ────────────────────────────────────
             SectionHeader("Additional Information")
 
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    DealPicklistField("Stage",       stage,      options.stages,      optionsLoading) { stage = it }
+                    DealPicklistField("Stage",           stage,      options.stages,      optionsLoading) { stage = it }
                     DealDivider()
-                    DealPicklistField("Lead Source",  leadSource, options.leadSources, optionsLoading) { leadSource = it }
+                    DealPicklistField("Lead Source",      leadSource, options.leadSources, optionsLoading) { leadSource = it }
                     DealDivider()
                     DealFormField("Lead Source Drill", leadSourceDrill, "Enter Source Reference") { leadSourceDrill = it }
                 }
@@ -184,25 +214,14 @@ private fun DealFormField(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text     = label,
-            fontSize = 13.sp,
-            color    = CrmSubtext,
-            modifier = Modifier.width(130.dp),
-        )
+        Text(text = label, fontSize = 13.sp, color = CrmSubtext, modifier = Modifier.width(130.dp))
         TextField(
             value         = value,
             onValueChange = onValueChange,
-            placeholder   = {
-                Text(
-                    text     = placeholder,
-                    color    = CrmSubtext.copy(alpha = 0.7f),
-                    fontSize = 13.sp,
-                )
-            },
-            singleLine = true,
-            modifier   = Modifier.weight(1f),
-            colors     = TextFieldDefaults.colors(
+            placeholder   = { Text(text = placeholder, color = CrmSubtext.copy(alpha = 0.7f), fontSize = 13.sp) },
+            singleLine    = true,
+            modifier      = Modifier.weight(1f),
+            colors        = TextFieldDefaults.colors(
                 focusedContainerColor   = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent,
                 focusedIndicatorColor   = Color.Transparent,
