@@ -98,6 +98,7 @@ class CallRepository(
         status: String,
         description: String,
         ownerId: String,
+        whoId: String = "",
     ): Result<String> = runCatching {
 
         val record = buildMap<String, Any> {
@@ -128,6 +129,17 @@ class CallRepository(
 
             if (duration.isNotBlank()) {
                 put("Call_Duration", duration)
+            }
+
+            if (whoId.isNotBlank()) {
+                put(
+                    "Who_Id",
+                    mapOf("id" to whoId)
+                )
+                put(
+                    "\$se_module",
+                    "Contacts"
+                )
             }
         }
 
