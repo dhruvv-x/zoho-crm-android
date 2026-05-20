@@ -1,10 +1,7 @@
 package com.pookie.octfis
 
 import android.content.Intent
-import android.content.IntentFilter
-import android.os.Build
 import android.os.Bundle
-import android.telephony.TelephonyManager
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,7 +12,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.pookie.octfis.data.remote.AuthState
-import com.pookie.octfis.data.remote.CallStateReceiver
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.navigation.NavGraph
 import com.pookie.octfis.ui.theme.OctfisCRMTheme
@@ -23,21 +19,11 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private val callReceiver = CallStateReceiver()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Log.d("OctfisAuth", "onCreate — intent data: ${intent?.data}")
         handleIntent(intent)
-
-        // Register call state receiver dynamically
-        val filter = IntentFilter(TelephonyManager.ACTION_PHONE_STATE_CHANGED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(callReceiver, filter, RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(callReceiver, filter)
-        }
 
         val themePrefs = ZohoServiceLocator.themePrefs
 
@@ -48,17 +34,12 @@ class MainActivity : ComponentActivity() {
             OctfisCRMTheme(darkTheme = isDark) {
                 val navController = rememberNavController()
                 NavGraph(
-                    navController   = navController,
-                    onToggleTheme   = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
-                    isDark          = isDark,
+                    navController = navController,
+                    onToggleTheme = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
+                    isDark        = isDark,
                 )
             }
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(callReceiver)
     }
 
     override fun onNewIntent(intent: Intent) {

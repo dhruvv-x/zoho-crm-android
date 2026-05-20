@@ -1,5 +1,6 @@
 package com.pookie.octfis.ui.screens
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pookie.octfis.data.remote.CallStateHolder
@@ -10,12 +11,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-import android.util.Log
 
 sealed class LogCallState {
-    object Idle    : LogCallState()
-    object Saving  : LogCallState()
-    object Done    : LogCallState()
+    object Idle   : LogCallState()
+    object Saving : LogCallState()
+    object Done   : LogCallState()
     data class Error(val message: String) : LogCallState()
 }
 
@@ -29,19 +29,29 @@ class ContactCallViewModel : ViewModel() {
     fun logCallToZoho(description: String) {
         val contactZohoId = CallStateHolder.contactZohoId
         val contactName   = CallStateHolder.contactName
-        val startMillis   = CallStateHolder.callStartMillis
-        val endMillis     = CallStateHolder.callEndMillis
+
+        // Use callStartMillis when available; fall back to callInitiatedAtMillis
+        val startMillis = CallStateHolder.callStartMillis
+            .takeIf { it > 0L }
+            ?: CallStateHolder.callInitiatedAtMillis
+
+        val endMillis = CallStateHolder.callEndMillis
+            .takeIf { it > 0L }
+            ?: System.currentTimeMillis()
 
         val durationSeconds = ((endMillis - startMillis) / 1000).coerceAtLeast(0)
-        val minutes = durationSeconds / 60
-        val seconds = durationSeconds % 60
+        val minutes    = durationSeconds / 60
+        val seconds    = durationSeconds % 60
         val durationStr = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 
         val startTimeStr = SimpleDateFormat(
             "yyyy-MM-dd'T'HH:mm:ssXXX", Locale.getDefault()
         ).format(Date(startMillis))
-        Log.d("CALL_LOG_DEBUG", "whoId=$contactZohoId | name=$contactName | start=$startTimeStr | duration=$durationStr")
 
+        Log.d(
+            "CALL_LOG_DEBUG",
+            "whoId=$contactZohoId | name=$contactName | start=$startTimeStr | duration=$durationStr"
+        )
 
         viewModelScope.launch {
             _logState.value = LogCallState.Saving
@@ -56,10 +66,14 @@ class ContactCallViewModel : ViewModel() {
                 whoId         = contactZohoId,
             ).fold(
                 onSuccess = { _logState.value = LogCallState.Done },
-                onFailure = { _logState.value = LogCallState.Error(it.message ?: "Failed to log call") },
+                onFailure = {
+                    _logState.value = LogCallState.Error(it.message ?: "Failed to log call")
+                },
             )
         }
     }
 
-    fun resetState() { _logState.value = LogCallState.Idle }
+    fun resetState() {
+        _logState.value = LogCallState.Idle
+    }
 }

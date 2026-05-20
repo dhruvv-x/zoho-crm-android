@@ -4,8 +4,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!--
+        READ_PHONE_STATE and READ_CALL_LOG are no longer needed:
+        we detect call completion via onResume, not via telephony broadcasts.
+        Remove them to reduce the permission footprint shown to users.
+    -->
 
     <application
         android:name=".OctfisApp"
@@ -42,13 +45,12 @@
 
         </activity>
 
-        <receiver
-            android:name=".data.remote.CallStateReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.PHONE_STATE" />
-            </intent-filter>
-        </receiver>
+        <!--
+            CallStateReceiver has been removed.
+            PHONE_STATE broadcasts are blocked for third-party apps on Android 9+.
+            Post-call detection is now handled via Lifecycle.Event.ON_RESUME
+            in ContactDetailScreen.
+        -->
 
     </application>
 

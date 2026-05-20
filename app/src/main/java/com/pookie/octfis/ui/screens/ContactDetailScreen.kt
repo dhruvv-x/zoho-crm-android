@@ -18,10 +18,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.data.remote.CallStateHolder
@@ -30,73 +33,82 @@ import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactDetailScreen(navController: NavController, contactId: Int) {
 
-    val contact = ContactRepository.cache.firstOrNull { it.id == contactId }
-    val context = LocalContext.current
+    val contact      = ContactRepository.cache.firstOrNull { it.id == contactId }
+    val context      = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val callVm: ContactCallViewModel = viewModel()
     val logState by callVm.logState.collectAsState()
 
     var showPostCallDialog by remember { mutableStateOf(false) }
     var description        by remember { mutableStateOf("") }
 
-    // Safely poll on main thread every 500ms
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(500)
-            if (CallStateHolder.callEndMillis > 0 && !CallStateHolder.isCallActive) {
-                if (!showPostCallDialog) {
-                    showPostCallDialog = true
-                }
+    // ── Core fix: detect return from dialer via onResume ──────────────────────
+    //
+    // When the user taps the call button we:
+    //   1. Write contactZohoId / contactName into CallStateHolder
+    //   2. Record callInitiatedAtMillis  ← the "we left the app" timestamp
+    //   3. Set isCallActive = true
+    //   4. Fire ACTION_CALL → dialer takes the foreground
+    //
+    // When the user finishes the call and comes back:
+    //   onResume fires → we see isCallActive == true → show the dialog.
+    //
+    // This works on ALL Android versions with zero permissions beyond CALL_PHONE.
+    //
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && CallStateHolder.isCallActive) {
+                // Record when we got back as the end-of-call proxy
+                CallStateHolder.callEndMillis = System.currentTimeMillis()
+                CallStateHolder.isCallActive  = false
+                showPostCallDialog = true
             }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Close dialog automatically on success
+    // Close dialog automatically after a successful save
     LaunchedEffect(logState) {
         if (logState is LogCallState.Done) {
             showPostCallDialog = false
-            description = ""
+            description        = ""
             callVm.resetState()
-            // Reset so it doesn't re-trigger
-            CallStateHolder.callEndMillis = 0L
+            CallStateHolder.reset()
         }
     }
 
+    // ── Permission launcher ───────────────────────────────────────────────────
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            val number = contact?.mobile?.ifBlank { contact.phone } ?: return@rememberLauncherForActivityResult
-            if (number.isBlank()) return@rememberLauncherForActivityResult
-            CallStateHolder.contactZohoId = contact.zohoId
-            CallStateHolder.contactName   = contact.fullName
-            context.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
-        }
+        if (!granted) return@rememberLauncherForActivityResult
+        val number = contact?.mobile?.ifBlank { contact.phone } ?: return@rememberLauncherForActivityResult
+        if (number.isBlank()) return@rememberLauncherForActivityResult
+        launchCall(context, contact.zohoId, contact.fullName, number)
     }
 
     fun initiateCall() {
         val number = contact?.mobile?.ifBlank { contact.phone } ?: return
         if (number.isBlank()) return
-        CallStateHolder.contactZohoId = contact.zohoId
-        CallStateHolder.contactName   = contact.fullName
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE)
             == PackageManager.PERMISSION_GRANTED
         ) {
-            context.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
+            launchCall(context, contact.zohoId, contact.fullName, number)
         } else {
             permissionLauncher.launch(Manifest.permission.CALL_PHONE)
         }
     }
 
-    // Post-call dialog
+    // ── Post-call dialog ──────────────────────────────────────────────────────
     if (showPostCallDialog) {
         AlertDialog(
-            onDismissRequest = {},
+            onDismissRequest = { /* force explicit choice */ },
             title = { Text("Log Call to Zoho") },
             text  = {
                 Column {
@@ -124,11 +136,15 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
             },
             confirmButton = {
                 Button(
-                    onClick  = { callVm.logCallToZoho(description) },
-                    enabled  = logState !is LogCallState.Saving,
+                    onClick = { callVm.logCallToZoho(description) },
+                    enabled = logState !is LogCallState.Saving,
                 ) {
                     if (logState is LogCallState.Saving) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                        CircularProgressIndicator(
+                            modifier    = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color       = Color.White,
+                        )
                     } else {
                         Text("Save to Zoho")
                     }
@@ -137,14 +153,15 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
             dismissButton = {
                 TextButton(onClick = {
                     showPostCallDialog = false
-                    description = ""
+                    description        = ""
                     callVm.resetState()
-                    CallStateHolder.callEndMillis = 0L
+                    CallStateHolder.reset()
                 }) { Text("Skip") }
             },
         )
     }
 
+    // ── Scaffold / UI ─────────────────────────────────────────────────────────
     Scaffold(
         topBar = {
             TopAppBar(
@@ -170,7 +187,9 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
                         Icon(Icons.Default.Edit, "Edit", tint = CrmPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -178,7 +197,11 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
 
         if (contact == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                Text("Contact not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                Text(
+                    "Contact not found",
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
             }
             return@Scaffold
         }
@@ -238,4 +261,24 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
             Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+// ── Helper (top-level, not inside the composable) ─────────────────────────────
+/**
+ * Writes to CallStateHolder and fires ACTION_CALL.
+ * Called both from the permission-granted branch and the already-granted branch.
+ */
+private fun launchCall(
+    context: android.content.Context,
+    zohoId: String,
+    name: String,
+    number: String,
+) {
+    CallStateHolder.contactZohoId        = zohoId
+    CallStateHolder.contactName          = name
+    CallStateHolder.callInitiatedAtMillis = System.currentTimeMillis()
+    CallStateHolder.callStartMillis      = CallStateHolder.callInitiatedAtMillis
+    CallStateHolder.callEndMillis        = 0L
+    CallStateHolder.isCallActive         = true
+    context.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
 }
