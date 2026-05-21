@@ -87,6 +87,25 @@ class CallMonitorService : Service() {
         Log.d(TAG, "Service destroyed")
     }
 
+    // Issue 2 fix: restart the service if it is killed (e.g. swiped from recents)
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "Task removed — scheduling restart")
+        val restart = Intent(applicationContext, CallMonitorService::class.java)
+        val pendingIntent = android.app.PendingIntent.getService(
+            applicationContext,
+            1,
+            restart,
+            android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarm = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        alarm.set(
+            android.app.AlarmManager.ELAPSED_REALTIME,
+            android.os.SystemClock.elapsedRealtime() + 1_000L,
+            pendingIntent
+        )
+    }
+
     // ── Cache warm-up (Step 2 — retry-safe) ───────────────────────────────────
 
     private fun ensureContactCacheLoaded() {
@@ -203,6 +222,20 @@ class CallMonitorService : Service() {
                 ) {
                     CallStateHolder.callEndMillis = System.currentTimeMillis()
 
+                    // Issue 1 fix: for in-app calls (ContactDetailScreen set isCallActive),
+                    // all contact info is already in CallStateHolder. Launch PostCallLogActivity
+                    // immediately — no need for number lookup or overlay.
+                    if (CallStateHolder.isCallActive) {
+                        CallStateHolder.isCallActive  = false
+                        CallStateHolder.isFromService = true
+                        incomingNumber = ""
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            openPostCallActivity()
+                        }
+                        previousState = state
+                        return
+                    }
+
                     // On API 31+ the number isn't delivered via TelephonyCallback,
                     // so we read it from CallLog a moment after the call ends.
                     val knownNumber = incomingNumber.ifBlank { CallStateHolder.phoneNumber }
@@ -227,7 +260,7 @@ class CallMonitorService : Service() {
         previousState = state
     }
 
-    // ── Step 6 — Robust onCallEnded with fallbacks ─────────────────────────────
+    // ── Robust onCallEnded with fallbacks ─────────────────────────────────────
 
     private fun onCallEnded(number: String) {
         if (number.isBlank()) {
@@ -288,7 +321,7 @@ class CallMonitorService : Service() {
                 if (it.moveToFirst()) {
                     val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER)) ?: ""
                     val date   = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
-                    // Only trust if the call ended in the last 30 seconds
+                    // Only trust if the call ended in the last 60 seconds
                     if (System.currentTimeMillis() - date < 60_000L) number else ""
                 } else ""
             }
@@ -298,7 +331,7 @@ class CallMonitorService : Service() {
         }
     }
 
-    // ── Step 1 — Improved contact matching with number normalization ───────────
+    // ── Contact matching with number normalization ─────────────────────────────
 
     private fun findContactByNumber(rawNumber: String): com.pookie.octfis.data.model.Contact? {
         if (rawNumber.isBlank()) return null
@@ -322,23 +355,19 @@ class CallMonitorService : Service() {
      * reduce to the same 10-digit string (for Indian numbers; logic is generic).
      */
     private fun normalizePhone(number: String): String {
-        // Remove everything that is not a digit
         var digits = number.replace(Regex("[^0-9]"), "")
-
-        // Strip common international prefixes: 00<cc> or leading 0
         digits = when {
-            digits.startsWith("0091") && digits.length > 12 -> digits.drop(4)  // 0091 + 10 digits
-            digits.startsWith("91")   && digits.length == 12 -> digits.drop(2) // 91 + 10 digits
-            digits.startsWith("0")    && digits.length == 11 -> digits.drop(1) // 0 + 10 digits
+            digits.startsWith("0091") && digits.length > 12 -> digits.drop(4)
+            digits.startsWith("91")   && digits.length == 12 -> digits.drop(2)
+            digits.startsWith("0")    && digits.length == 11 -> digits.drop(1)
             else -> digits
         }
         return digits
     }
 
-    // ── Step 5 — Robust overlay show/hide for MIUI + Android 12/13/14 ─────────
+    // ── Robust overlay show/hide for MIUI + Android 12/13/14 ──────────────────
 
     private fun canShowOverlay(): Boolean {
-        // Standard check
         if (android.provider.Settings.canDrawOverlays(this)) return true
 
         // MIUI workaround: try to detect MIUI permission via AppOpsManager
@@ -379,7 +408,6 @@ class CallMonitorService : Service() {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
 
-        // FLAG_NOT_TOUCH_MODAL ensures touches outside the overlay pass through
         val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
@@ -394,7 +422,6 @@ class CallMonitorService : Service() {
             gravity = Gravity.BOTTOM or Gravity.END
             x = 24
             y = 120
-            // On Android 12+ set softInputMode to avoid interaction issues
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 softInputMode = android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED
             }
@@ -412,7 +439,6 @@ class CallMonitorService : Service() {
             Log.d(TAG, "Overlay shown")
         } catch (e: Exception) {
             Log.e(TAG, "addView failed (${e.message}) — launching PostCallLogActivity directly")
-            // Last-resort fallback: skip overlay, go straight to logging dialog
             openPostCallActivity()
         }
     }

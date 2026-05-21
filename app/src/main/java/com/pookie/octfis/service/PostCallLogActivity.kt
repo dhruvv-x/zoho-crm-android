@@ -17,8 +17,14 @@ import com.pookie.octfis.ui.theme.OctfisCRMTheme
 import java.util.Locale
 
 /**
- * Transparent, dialog-themed Activity launched by the floating overlay button.
- * Uses the same ContactCallViewModel + CallRepository as the in-app flow.
+ * Transparent, dialog-themed Activity launched by CallMonitorService immediately
+ * when CALL_STATE_IDLE fires — regardless of which app is currently in foreground.
+ *
+ * ISSUE 1 FIX: This Activity is always launched by the service on IDLE.
+ * ContactDetailScreen has NO onResume dialog logic.
+ *
+ * ISSUE 3 FIX: durationDisplay reads callStartMillis (set by OFFHOOK) first,
+ * then callInitiatedAtMillis, then System.currentTimeMillis() as last resort.
  */
 class PostCallLogActivity : ComponentActivity() {
 
@@ -42,10 +48,12 @@ private fun PostCallLogDialog(onDismiss: () -> Unit) {
 
     var description by remember { mutableStateOf("") }
 
-    // Compute duration once
+    // Compute duration once when the dialog opens.
+    // Priority: OFFHOOK time → initiated time → now (last resort).
     val durationDisplay = remember {
         val start = CallStateHolder.callStartMillis.takeIf { it > 0L }
-            ?: CallStateHolder.callInitiatedAtMillis
+            ?: CallStateHolder.callInitiatedAtMillis.takeIf { it > 0L }
+            ?: System.currentTimeMillis()
         val end = CallStateHolder.callEndMillis.takeIf { it > 0L }
             ?: System.currentTimeMillis()
         val totalSecs = ((end - start) / 1000).coerceAtLeast(0)
@@ -54,7 +62,7 @@ private fun PostCallLogDialog(onDismiss: () -> Unit) {
         String.format(Locale.getDefault(), "%02d:%02d", m, s)
     }
 
-    // Auto-dismiss on success
+    // Auto-dismiss on successful save
     LaunchedEffect(logState) {
         if (logState is LogCallState.Done) {
             CallStateHolder.reset()

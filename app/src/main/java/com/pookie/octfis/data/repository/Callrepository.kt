@@ -12,6 +12,16 @@ class CallRepository(
         val cache = mutableListOf<CrmCall>()
     }
 
+    /**
+     * ISSUE 4 FIX — duration display format.
+     *
+     * Zoho returns two fields for duration:
+     *   Call_Duration            → "HH:MM" string (e.g. "00:02" = 2 minutes) — confusing
+     *   Call_Duration_In_Seconds → Int (e.g. 120 = 2 minutes)                — precise
+     *
+     * We prefer Call_Duration_In_Seconds and convert it to "MM:SS" (e.g. "02:00").
+     * Fall back to the raw Call_Duration string only when seconds are unavailable.
+     */
     private fun map(
         z: com.pookie.octfis.data.remote.dto.ZohoCall
     ) = CrmCall(
@@ -27,9 +37,10 @@ class CallRepository(
         duration = run {
             val secs = z.durationSeconds
             if (secs != null && secs > 0) {
-                // Convert raw seconds → "MM:SS" for consistent display
+                // Prefer seconds field → display as "MM:SS"
                 String.format("%02d:%02d", secs / 60, secs % 60)
             } else {
+                // Fallback to "HH:MM" string Zoho returns
                 z.duration.orEmpty()
             }
         },
@@ -138,9 +149,6 @@ class CallRepository(
                 )
             }
 
-            // TEMPORARILY OPTIONAL
-            // Zoho may reject invalid formats
-
             if (callStartTime.isNotBlank()) {
                 put("Call_Start_Time", callStartTime)
             }
@@ -234,7 +242,6 @@ class CallRepository(
                 )
             }
 
-            // optional fields
             if (callStartTime.isNotBlank()) {
                 put(
                     "Call_Start_Time",

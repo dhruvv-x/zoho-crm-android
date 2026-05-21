@@ -21,14 +21,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.pookie.octfis.data.remote.CallStateHolder
@@ -44,54 +41,14 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
 
     val contact      = ContactRepository.cache.firstOrNull { it.id == contactId }
     val context      = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val callVm: ContactCallViewModel = viewModel()
-    val logState by callVm.logState.collectAsState()
 
     val detailVm: ContactDetailViewModel = viewModel()
     val contactCalls by detailVm.calls.collectAsState()
     val callsLoading by detailVm.loading.collectAsState()
 
-    var showPostCallDialog by remember { mutableStateOf(false) }
-    var description        by remember { mutableStateOf("") }
-
-    // ── Core fix: detect return from dialer via onResume ──────────────────────
-    //
-    // When the user taps the call button we:
-    //   1. Write contactZohoId / contactName into CallStateHolder
-    //   2. Record callInitiatedAtMillis  ← the "we left the app" timestamp
-    //   3. Set isCallActive = true
-    //   4. Fire ACTION_CALL → dialer takes the foreground
-    //
-    // When the user finishes the call and comes back:
-    //   onResume fires → we see isCallActive == true → show the dialog.
-    //
-    // This works on ALL Android versions with zero permissions beyond CALL_PHONE.
-    //
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && CallStateHolder.isCallActive) {
-                // Only use onResume time if the service hasn't already set a precise end time
-                if (CallStateHolder.callEndMillis == 0L) {
-                    CallStateHolder.callEndMillis = System.currentTimeMillis()
-                }
-                CallStateHolder.isCallActive = false
-                showPostCallDialog = true
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    // Close dialog automatically after a successful save
-    LaunchedEffect(logState) {
-        if (logState is LogCallState.Done) {
-            showPostCallDialog = false
-            description        = ""
-            callVm.resetState()
-            CallStateHolder.reset()
-        }
-    }
+    // ISSUE 1 FIX: Post-call logging is handled entirely by PostCallLogActivity,
+    // which is launched by CallMonitorService the moment CALL_STATE_IDLE fires.
+    // This screen has NO onResume dialog logic and NO inline call-logging dialog.
 
     // Load linked calls whenever contact zohoId is available
     LaunchedEffect(contact?.zohoId) {
@@ -118,62 +75,6 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
         } else {
             permissionLauncher.launch(Manifest.permission.CALL_PHONE)
         }
-    }
-
-    // ── Post-call dialog ──────────────────────────────────────────────────────
-    if (showPostCallDialog) {
-        AlertDialog(
-            onDismissRequest = { /* force explicit choice */ },
-            title = { Text("Log Call to Zoho") },
-            text  = {
-                Column {
-                    Text(
-                        text  = "Call with ${CallStateHolder.contactName} ended.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value         = description,
-                        onValueChange = { description = it },
-                        label         = { Text("Description (optional)") },
-                        modifier      = Modifier.fillMaxWidth(),
-                        minLines      = 3,
-                    )
-                    if (logState is LogCallState.Error) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text  = (logState as LogCallState.Error).message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { callVm.logCallToZoho(description) },
-                    enabled = logState !is LogCallState.Saving,
-                ) {
-                    if (logState is LogCallState.Saving) {
-                        CircularProgressIndicator(
-                            modifier    = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color       = Color.White,
-                        )
-                    } else {
-                        Text("Save to Zoho")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showPostCallDialog = false
-                    description        = ""
-                    callVm.resetState()
-                    CallStateHolder.reset()
-                }) { Text("Skip") }
-            },
-        )
     }
 
     // ── Scaffold / UI ─────────────────────────────────────────────────────────
@@ -274,6 +175,8 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
             }
 
             Spacer(Modifier.height(24.dp))
+
+            // ── Closed Activities ─────────────────────────────────────────────
             SectionHeader("Closed Activities")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 if (callsLoading) {
@@ -298,6 +201,8 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
                                     Text(call.subject, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 },
                                 supportingContent = {
+                                    // ISSUE 4 FIX: call.duration is already "MM:SS" (converted
+                                    // from Call_Duration_In_Seconds in CallRepository.map())
                                     Text(
                                         text = "${call.callType} · ${call.duration} · ${call.callStartTime.take(10)}",
                                         style = MaterialTheme.typography.bodySmall,
@@ -323,10 +228,15 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
     }
 }
 
-// ── Helper (top-level, not inside the composable) ─────────────────────────────
+// ── Helper (top-level function, not inside the composable) ────────────────────
 /**
- * Writes to CallStateHolder and fires ACTION_CALL.
- * Called both from the permission-granted branch and the already-granted branch.
+ * Sets CallStateHolder and fires ACTION_CALL.
+ *
+ * ISSUE 3 FIX:
+ *   callInitiatedAtMillis = now  (fallback if service never fires OFFHOOK)
+ *   callStartMillis       = 0L   (will be set precisely by CALL_STATE_OFFHOOK in service)
+ *   callEndMillis         = 0L   (will be set precisely by CALL_STATE_IDLE in service)
+ *   isCallActive          = true (tells service to launch PostCallLogActivity immediately on IDLE)
  */
 private fun launchCall(
     context: android.content.Context,
@@ -337,8 +247,8 @@ private fun launchCall(
     CallStateHolder.contactZohoId         = zohoId
     CallStateHolder.contactName           = name
     CallStateHolder.callInitiatedAtMillis = System.currentTimeMillis()
-    CallStateHolder.callStartMillis       = 0L   // let CALL_STATE_OFFHOOK set the precise start
-    CallStateHolder.callEndMillis         = 0L
+    CallStateHolder.callStartMillis       = 0L   // set precisely by CALL_STATE_OFFHOOK
+    CallStateHolder.callEndMillis         = 0L   // set precisely by CALL_STATE_IDLE
     CallStateHolder.isCallActive          = true
     context.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
 }

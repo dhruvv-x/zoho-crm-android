@@ -6,25 +6,21 @@ import android.content.Intent
 import android.util.Log
 
 /**
- * Restarts CallMonitorService after device reboot.
- * Only starts the service if the user has previously granted permissions
- * (we check via the same SharedPreferences flag MainActivity uses).
+ * Issue 2 fix: restart CallMonitorService after device reboot (and MIUI quick-boot).
+ *
+ * Declared in AndroidManifest.xml with RECEIVE_BOOT_COMPLETED permission and
+ * intent-filters for BOOT_COMPLETED + QUICKBOOT_POWERON.
+ * The manifest already has the correct declaration — this was the missing implementation.
  */
 class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent.action != "android.intent.action.QUICKBOOT_POWERON"
-        ) return
-
-        val prefs = context.getSharedPreferences("octfis_prefs", Context.MODE_PRIVATE)
-        val overlayAsked = prefs.getBoolean("overlay_permission_asked", false)
-
-        if (overlayAsked) {
-            Log.d("BootReceiver", "Boot complete — starting CallMonitorService")
+        val action = intent.action ?: return
+        if (action == Intent.ACTION_BOOT_COMPLETED ||
+            action == "android.intent.action.QUICKBOOT_POWERON"
+        ) {
+            Log.d("BootReceiver", "Boot completed — starting CallMonitorService")
             CallMonitorService.start(context)
-        } else {
-            Log.d("BootReceiver", "Boot complete — skipping service start (user hasn't onboarded)")
         }
     }
 }

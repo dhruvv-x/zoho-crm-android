@@ -19,7 +19,7 @@ data class ZohoTask(
     @SerializedName("Owner")        val owner: ZohoOwner?,
     @SerializedName("What_Id")      val whatId: ZohoTaskRelated?,
     @SerializedName("Who_Id")       val whoId: ZohoTaskRelated?,
-    @SerializedName("Remind_At")    val remindAt: FlexibleReminder?,  // FIX: was String?
+    @SerializedName("Remind_At")    val remindAt: FlexibleReminder?,
     @SerializedName("Closed_Time")  val closedTime: String?,
 )
 
@@ -44,7 +44,7 @@ data class ZohoEvent(
     @SerializedName("Location")         val location: String?,
     @SerializedName("Owner")            val owner: ZohoOwner?,
     @SerializedName("All_day")          val allDay: Boolean?,
-    @SerializedName("Remind_At")        val remindAt: FlexibleReminder?,  // FIX: was ZohoEventReminder?
+    @SerializedName("Remind_At")        val remindAt: FlexibleReminder?,
     @SerializedName("Participants")     val participants: List<ZohoParticipant>?,
 )
 
@@ -67,6 +67,12 @@ data class CallsResponse(
     @SerializedName("info") val info: PageInfo?,
 )
 
+/**
+ * ISSUE 4 FIX:
+ * "Call_Duration_In_Seconds" is mapped to [durationSeconds].
+ * CallRepository.map() converts it to "MM:SS" format.
+ * "Call_Duration" (HH:MM string from Zoho) is kept as fallback.
+ */
 data class ZohoCall(
     @SerializedName("id")                       val id: String,
     @SerializedName("Subject")                  val subject: String?,

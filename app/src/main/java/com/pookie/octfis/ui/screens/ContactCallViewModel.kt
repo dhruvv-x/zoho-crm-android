@@ -27,12 +27,19 @@ class ContactCallViewModel : ViewModel() {
     private val _logState = MutableStateFlow<LogCallState>(LogCallState.Idle)
     val logState: StateFlow<LogCallState> = _logState
 
+    /**
+     * ISSUE 3 FIX — timestamp priority:
+     *   1. callStartMillis   — set by CALL_STATE_OFFHOOK  (most accurate)
+     *   2. callInitiatedAtMillis — set before ACTION_CALL fires (fallback)
+     *   3. current time      (last resort)
+     *
+     * callEndMillis is set by CALL_STATE_IDLE in CallMonitorService.
+     */
     fun logCallToZoho(description: String) {
         val contactZohoId = CallStateHolder.contactZohoId
         val contactName   = CallStateHolder.contactName
         val direction     = CallStateHolder.callDirection   // "Outbound" or "Inbound"
 
-        // Priority: service OFFHOOK time > initiated time > now
         val startMillis = when {
             CallStateHolder.callStartMillis > 0L       -> CallStateHolder.callStartMillis
             CallStateHolder.callInitiatedAtMillis > 0L -> CallStateHolder.callInitiatedAtMillis
@@ -69,14 +76,14 @@ class ContactCallViewModel : ViewModel() {
                 subject       = subject,
                 callStartTime = startTimeStr,
                 duration      = durationStr,
-                callType      = direction,         // "Outbound" or "Inbound"
+                callType      = direction,
                 status        = "Completed",
                 description   = description,
                 ownerId       = "",
                 whoId         = contactZohoId,
             ).fold(
                 onSuccess = {
-                    AppEvents.notifyCallLogged()          // ← Step 3b: triggers Dashboard refresh
+                    AppEvents.notifyCallLogged()   // triggers Dashboard refresh
                     _logState.value = LogCallState.Done
                 },
                 onFailure = {

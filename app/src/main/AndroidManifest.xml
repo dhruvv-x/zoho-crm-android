@@ -2,13 +2,33 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- ── Permissions ──────────────────────────────────────────────────────── -->
+
+    <!-- Basic network access -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- In-app call button (ACTION_CALL) -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
+
+    <!-- TelephonyCallback / PhoneStateListener (ISSUE 1, 2, 3) -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- CallLog fallback for API 31+ where TelephonyCallback gives no number (ISSUE 2) -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+    <!-- Floating overlay button after call ends (ISSUE 2) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Auto-start CallMonitorService on boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Required to call startForeground() -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- PostCallLogActivity shown over lock screen (ISSUE 1) -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Required foreground service type for phone-state monitoring on API 34+ -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"
         tools:ignore="ProtectedPermissions" />
 
@@ -23,6 +43,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Octfis">
 
+        <!-- ── Main Activity ──────────────────────────────────────────────── -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -44,21 +65,40 @@
             </intent-filter>
         </activity>
 
-        <!-- Transparent dialog activity for post-call logging (launched by overlay button) -->
+        <!--
+            ISSUE 1 FIX — PostCallLogActivity
+            ─────────────────────────────────
+            • launchMode="singleTop"    — prevents stacking duplicate dialogs
+            • excludeFromRecents="true" — invisible in the task switcher
+            • showWhenLocked="true"     — appears even on the lock screen
+            • turnScreenOn="true"       — wakes the screen if it is off
+            These four attributes together ensure the dialog fires immediately
+            after the call ends regardless of which app is in the foreground.
+        -->
         <activity
             android:name=".service.PostCallLogActivity"
             android:exported="false"
             android:theme="@style/Theme.Octfis"
             android:launchMode="singleTop"
-            android:excludeFromRecents="true" />
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
 
-        <!-- Foreground service that monitors all calls (in & out of app) -->
+        <!--
+            CallMonitorService
+            ──────────────────
+            foregroundServiceType="phoneCall" is required on API 34+
+            for a service that reads phone state.
+        -->
         <service
             android:name=".service.CallMonitorService"
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
 
-        <!-- Restarts CallMonitorService after device reboot -->
+        <!--
+            BootReceiver — restarts CallMonitorService after device reboot.
+            QUICKBOOT_POWERON is the MIUI fast-boot equivalent.
+        -->
         <receiver
             android:name=".service.BootReceiver"
             android:exported="true">
