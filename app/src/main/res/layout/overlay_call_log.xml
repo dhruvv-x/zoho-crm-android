@@ -1,21 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    Floating overlay button shown after a call ends for a matched Zoho contact.
-    Placed in: app/src/main/res/layout/overlay_call_log.xml
--->
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="320dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#FFFFFFFF"
+    android:elevation="16dp"
+    android:padding="20dp">
 
-    <ImageButton
-        android:id="@+id/btnOverlay"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:background="@drawable/overlay_button_bg"
-        android:src="@android:drawable/sym_call_incoming"
-        android:tint="#FFFFFF"
-        android:contentDescription="Log call to Zoho CRM"
-        android:elevation="8dp"
-        android:scaleType="center" />
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Log Call to Zoho?"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FF000000"
+        android:paddingBottom="8dp"/>
 
-</FrameLayout>
+    <TextView
+        android:id="@+id/tvContact"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="14sp"
+        android:textColor="#FF444444"
+        android:paddingBottom="4dp"/>
+
+    <TextView
+        android:id="@+id/tvDuration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="13sp"
+        android:textColor="#FF888888"
+        android:paddingBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/etDescription"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Description (optional)"
+        android:minLines="2"
+        android:maxLines="4"
+        android:inputType="textMultiLine"
+        android:paddingBottom="16dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/btnSkip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Skip"
+            style="@android:style/Widget.Material.Button.Borderless"
+            android:textColor="#FF666666"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Save to Zoho"
+            android:backgroundTint="#FF1976D2"
+            android:textColor="#FFFFFFFF"/>
+
+    </LinearLayout>
+
+</LinearLayout>

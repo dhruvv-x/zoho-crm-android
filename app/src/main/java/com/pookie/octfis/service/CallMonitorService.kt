@@ -18,7 +18,6 @@ import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.WindowManager
-import android.widget.ImageButton
 import androidx.core.app.NotificationCompat
 import com.pookie.octfis.R
 import com.pookie.octfis.data.remote.CallStateHolder
@@ -33,9 +32,11 @@ import kotlinx.coroutines.launch
 class CallMonitorService : Service() {
 
     companion object {
-        const val CHANNEL_ID = "octfis_call_monitor"
-        const val NOTIF_ID   = 1001
-        const val TAG        = "CallMonitorService"
+        const val CHANNEL_ID          = "octfis_call_monitor"
+        const val POST_CALL_CHANNEL_ID = "octfis_post_call"
+        const val NOTIF_ID            = 1001
+        const val POST_CALL_NOTIF_ID  = 1002
+        const val TAG                 = "CallMonitorService"
 
         fun start(context: Context) {
             val intent = Intent(context, CallMonitorService::class.java)
@@ -68,7 +69,7 @@ class CallMonitorService : Service() {
         registerPhoneListener()
         // Pre-warm contact cache so number matching works even if app was never opened
         ensureContactCacheLoaded()
-        Log.d(TAG, "Service started")
+        Log.e(TAG, ">>> Service started and phone listener registered")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -200,12 +201,13 @@ class CallMonitorService : Service() {
     // ── State machine ──────────────────────────────────────────────────────────
 
     private fun handleStateChange(state: Int, rawNumber: String) {
-        Log.d(TAG, "State: $previousState → $state  number='$rawNumber'")
+        Log.e(TAG, ">>> STATE CHANGE: $previousState → $state  number='$rawNumber'")
 
         when (state) {
             TelephonyManager.CALL_STATE_RINGING -> {
                 incomingNumber = rawNumber
                 CallStateHolder.callDirection = "Inbound"
+                Log.e(TAG, ">>> RINGING: incomingNumber='$incomingNumber'")
             }
 
             TelephonyManager.CALL_STATE_OFFHOOK -> {
@@ -214,18 +216,18 @@ class CallMonitorService : Service() {
                     incomingNumber = rawNumber
                 }
                 CallStateHolder.callStartMillis = System.currentTimeMillis()
+                Log.e(TAG, ">>> OFFHOOK: direction=${CallStateHolder.callDirection} number='$incomingNumber'")
             }
 
             TelephonyManager.CALL_STATE_IDLE -> {
+                Log.e(TAG, ">>> IDLE: previousState=$previousState isCallActive=${CallStateHolder.isCallActive}")
                 if (previousState == TelephonyManager.CALL_STATE_OFFHOOK ||
                     previousState == TelephonyManager.CALL_STATE_RINGING
                 ) {
                     CallStateHolder.callEndMillis = System.currentTimeMillis()
 
-                    // Issue 1 fix: for in-app calls (ContactDetailScreen set isCallActive),
-                    // all contact info is already in CallStateHolder. Launch PostCallLogActivity
-                    // immediately — no need for number lookup or overlay.
                     if (CallStateHolder.isCallActive) {
+                        Log.e(TAG, ">>> IDLE: in-app call path → opening PostCallLogActivity")
                         CallStateHolder.isCallActive  = false
                         CallStateHolder.isFromService = true
                         incomingNumber = ""
@@ -236,23 +238,26 @@ class CallMonitorService : Service() {
                         return
                     }
 
-                    // On API 31+ the number isn't delivered via TelephonyCallback,
-                    // so we read it from CallLog a moment after the call ends.
                     val knownNumber = incomingNumber.ifBlank { CallStateHolder.phoneNumber }
+                    Log.e(TAG, ">>> IDLE: knownNumber='$knownNumber' SDK=${Build.VERSION.SDK_INT}")
                     if (knownNumber.isNotBlank()) {
+                        Log.e(TAG, ">>> IDLE: calling onCallEnded with knownNumber")
                         onCallEnded(knownNumber)
                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        // Give CallLog a second to write the record, then look it up
+                        Log.e(TAG, ">>> IDLE: API31+ no number, waiting 2.5s then reading CallLog")
                         serviceScope.launch {
-                            delay(2_500)  // give CallLog more time to write
+                            delay(2_500)
                             val number = readLastCallLogNumber()
+                            Log.e(TAG, ">>> IDLE: CallLog returned number='$number'")
                             onCallEnded(number)
                         }
                     } else {
-                        Log.d(TAG, "Call ended but number is blank — skipping")
+                        Log.e(TAG, ">>> IDLE: number is blank and API<31 — skipping")
                     }
 
                     incomingNumber = ""
+                } else {
+                    Log.e(TAG, ">>> IDLE: ignoring — previousState=$previousState (not OFFHOOK/RINGING)")
                 }
             }
         }
@@ -263,46 +268,39 @@ class CallMonitorService : Service() {
     // ── Robust onCallEnded with fallbacks ─────────────────────────────────────
 
     private fun onCallEnded(number: String) {
+        Log.e(TAG, ">>> onCallEnded: number='$number'")
         if (number.isBlank()) {
-            Log.d(TAG, "onCallEnded: number is blank after all lookups")
-            // Fallback A: if a contact was pre-populated (e.g. call from ContactDetailScreen)
+            Log.e(TAG, ">>> onCallEnded: number blank — contactZohoId='${CallStateHolder.contactZohoId}'")
             if (CallStateHolder.contactZohoId.isNotBlank()) {
-                Log.d(TAG, "Fallback A: using pre-set contactZohoId=${CallStateHolder.contactZohoId}")
+                Log.e(TAG, ">>> onCallEnded: Fallback A → opening PostCallLogActivity")
                 CallStateHolder.isFromService = true
-                android.os.Handler(android.os.Looper.getMainLooper()).post { showOverlay() }
+                android.os.Handler(android.os.Looper.getMainLooper()).post { openPostCallActivity() }
                 return
             }
-            // Fallback B: open PostCallLogActivity in "unknown number" mode
-            // The user can still pick a contact manually inside that screen
-            Log.d(TAG, "Fallback B: launching PostCallLogActivity with unknown number")
+            Log.e(TAG, ">>> onCallEnded: Fallback B → unknown number, opening PostCallLogActivity")
             CallStateHolder.contactName = "Unknown"
             CallStateHolder.phoneNumber = ""
             CallStateHolder.isFromService = true
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                openPostCallActivity()
-            }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { openPostCallActivity() }
             return
         }
 
         val matchedContact = findContactByNumber(number)
+        Log.e(TAG, ">>> onCallEnded: matchedContact=${matchedContact?.fullName ?: "null"}")
         if (matchedContact != null) {
-            Log.d(TAG, "Matched: ${matchedContact.fullName} (${matchedContact.zohoId})")
             CallStateHolder.contactZohoId = matchedContact.zohoId
             CallStateHolder.contactName   = matchedContact.fullName
             CallStateHolder.phoneNumber   = number
             CallStateHolder.isFromService = true
-            // Always show overlay for service-detected calls
-            android.os.Handler(android.os.Looper.getMainLooper()).post { showOverlay() }
+            Log.e(TAG, ">>> onCallEnded: matched → opening PostCallLogActivity")
+            android.os.Handler(android.os.Looper.getMainLooper()).post { openPostCallActivity() }
         } else {
-            Log.d(TAG, "No Zoho contact found for number='$number'")
-            // Optional: still show overlay for manual logging with unmatched numbers
-            // Uncomment the block below if you want to log calls to unknown contacts too:
-            //
-            // CallStateHolder.contactName = number   // show the raw number as name
-            // CallStateHolder.phoneNumber = number
-            // CallStateHolder.contactZohoId = ""     // no Who_Id — will log without contact link
-            // CallStateHolder.isFromService = true
-            // android.os.Handler(android.os.Looper.getMainLooper()).post { showOverlay() }
+            Log.e(TAG, ">>> onCallEnded: no match → opening PostCallLogActivity with raw number")
+            CallStateHolder.contactName   = number
+            CallStateHolder.phoneNumber   = number
+            CallStateHolder.contactZohoId = ""
+            CallStateHolder.isFromService = true
+            android.os.Handler(android.os.Looper.getMainLooper()).post { openPostCallActivity() }
         }
     }
 
@@ -367,40 +365,24 @@ class CallMonitorService : Service() {
 
     // ── Robust overlay show/hide for MIUI + Android 12/13/14 ──────────────────
 
-    private fun canShowOverlay(): Boolean {
-        if (android.provider.Settings.canDrawOverlays(this)) return true
-
-        // MIUI workaround: try to detect MIUI permission via AppOpsManager
-        return try {
-            val appOps = getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
-            val op = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                android.app.AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW
-            } else {
-                @Suppress("DEPRECATION")
-                "android:system_alert_window"
+    private fun openPostCallActivity() {
+        Log.e(TAG, ">>> openPostCallActivity: launching PostCallLogActivity")
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            Log.e(TAG, ">>> No overlay permission — falling back to Activity")
+            val intent = Intent(this, PostCallLogActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
             }
-            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                appOps.unsafeCheckOpNoThrow(op, android.os.Process.myUid(), packageName)
-            } else {
-                @Suppress("DEPRECATION")
-                appOps.checkOpNoThrow(op, android.os.Process.myUid(), packageName)
-            }
-            mode == android.app.AppOpsManager.MODE_ALLOWED
-        } catch (e: Exception) {
-            Log.w(TAG, "AppOps overlay check failed: ${e.message}")
-            false
-        }
-    }
-
-    private fun showOverlay() {
-        if (overlayView != null) return
-
-        if (!canShowOverlay()) {
-            Log.w(TAG, "Overlay permission not granted — cannot show overlay")
-            // Fallback: launch PostCallLogActivity directly without overlay
-            openPostCallActivity()
+            startActivity(intent)
             return
         }
+        showDialogOverlay()
+    }
+
+    @SuppressLint("InflateParams", "SetTextI18n")
+    private fun showDialogOverlay() {
+        if (overlayView != null) return
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -408,38 +390,86 @@ class CallMonitorService : Service() {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
 
-        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            flags,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.BOTTOM or Gravity.END
-            x = 24
-            y = 120
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                softInputMode = android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED
-            }
+            gravity = Gravity.CENTER
         }
 
         val view = LayoutInflater.from(this).inflate(R.layout.overlay_call_log, null)
-        view.findViewById<ImageButton>(R.id.btnOverlay).setOnClickListener {
+
+        // Populate fields
+        val dir = if (CallStateHolder.callDirection == "Inbound") "Incoming call from" else "Outgoing call to"
+        view.findViewById<android.widget.TextView>(R.id.tvContact).text =
+            "$dir ${CallStateHolder.contactName}"
+
+        val start = CallStateHolder.callStartMillis.takeIf { it > 0L }
+            ?: CallStateHolder.callInitiatedAtMillis.takeIf { it > 0L }
+            ?: System.currentTimeMillis()
+        val end = CallStateHolder.callEndMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
+        val secs = ((end - start) / 1000).coerceAtLeast(0)
+        view.findViewById<android.widget.TextView>(R.id.tvDuration).text =
+            "Duration: %02d:%02d".format(secs / 60, secs % 60)
+
+        val etDesc = view.findViewById<android.widget.EditText>(R.id.etDescription)
+
+        view.findViewById<android.widget.Button>(R.id.btnSkip).setOnClickListener {
             removeOverlay()
-            openPostCallActivity()
+            CallStateHolder.reset()
+        }
+
+        view.findViewById<android.widget.Button>(R.id.btnSave).setOnClickListener {
+            val description = etDesc.text.toString()
+            val startMillis = CallStateHolder.callStartMillis.takeIf { it > 0L }
+                ?: CallStateHolder.callInitiatedAtMillis.takeIf { it > 0L }
+                ?: System.currentTimeMillis()
+            val endMillis = CallStateHolder.callEndMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
+            val durationSeconds = ((endMillis - startMillis) / 1000).coerceAtLeast(0)
+            val durationStr = "%02d:%02d".format(durationSeconds / 60, durationSeconds % 60)
+            val startTimeStr = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.getDefault())
+                .format(java.util.Date(startMillis))
+            val subject = if (CallStateHolder.callDirection == "Inbound")
+                "Incoming call from ${CallStateHolder.contactName}"
+            else
+                "Outgoing call to ${CallStateHolder.contactName}"
+
+            serviceScope.launch {
+                try {
+                    val repo = com.pookie.octfis.data.repository.CallRepository(
+                        ZohoServiceLocator.getApiService()
+                    )
+                    repo.createCall(
+                        subject       = subject,
+                        callStartTime = startTimeStr,
+                        duration      = durationStr,
+                        callType      = CallStateHolder.callDirection,
+                        status        = "Completed",
+                        description   = description,
+                        ownerId       = "",
+                        whoId         = CallStateHolder.contactZohoId,
+                    )
+                    Log.e(TAG, ">>> Call logged successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, ">>> Failed to log call: ${e.message}")
+                }
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    removeOverlay()
+                    CallStateHolder.reset()
+                }
+            }
         }
 
         try {
             windowManager.addView(view, params)
             overlayView = view
-            Log.d(TAG, "Overlay shown")
+            Log.e(TAG, ">>> Overlay dialog shown")
         } catch (e: Exception) {
-            Log.e(TAG, "addView failed (${e.message}) — launching PostCallLogActivity directly")
-            openPostCallActivity()
+            Log.e(TAG, ">>> addView failed: ${e.message}")
         }
     }
 
@@ -447,15 +477,7 @@ class CallMonitorService : Service() {
         overlayView?.let {
             runCatching { windowManager.removeView(it) }
             overlayView = null
-            Log.d(TAG, "Overlay removed")
         }
-    }
-
-    private fun openPostCallActivity() {
-        val intent = Intent(this, PostCallLogActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        startActivity(intent)
     }
 
     // ── Notification ───────────────────────────────────────────────────────────

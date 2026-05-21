@@ -53,10 +53,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPhonePermissionsIfNeeded() {
-        val perms = arrayOf(
+        val perms = mutableListOf(
             Manifest.permission.READ_PHONE_STATE,
             Manifest.permission.READ_CALL_LOG,
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            perms.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
         val missing = perms.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }

@@ -7,6 +7,9 @@
     <!-- Basic network access -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Post-call notification prompt (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- In-app call button (ACTION_CALL) -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
 
@@ -78,7 +81,7 @@
         <activity
             android:name=".service.PostCallLogActivity"
             android:exported="false"
-            android:theme="@style/Theme.Octfis"
+            android:theme="@style/Theme.Octfis.Dialog"
             android:launchMode="singleTop"
             android:excludeFromRecents="true"
             android:showWhenLocked="true"
