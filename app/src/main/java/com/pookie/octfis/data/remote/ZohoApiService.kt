@@ -171,6 +171,13 @@ interface ZohoApiService {
     @GET("Calls/{id}")
     suspend fun getCallById(@Path("id") id: String): CallsResponse
 
+    @GET("Contacts/{contactId}/Calls")
+    suspend fun getCallsForContact(
+        @Path("contactId") contactId: String,
+        @Query("page")     page: Int = 1,
+        @Query("per_page") perPage: Int = 50,
+    ): CallsResponse
+
     @POST("Calls")
     suspend fun createCall(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
 

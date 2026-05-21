@@ -13,13 +13,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.CallMade
+import androidx.compose.material.icons.filled.CallReceived
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -44,6 +48,10 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
     val callVm: ContactCallViewModel = viewModel()
     val logState by callVm.logState.collectAsState()
 
+    val detailVm: ContactDetailViewModel = viewModel()
+    val contactCalls by detailVm.calls.collectAsState()
+    val callsLoading by detailVm.loading.collectAsState()
+
     var showPostCallDialog by remember { mutableStateOf(false) }
     var description        by remember { mutableStateOf("") }
 
@@ -63,9 +71,11 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && CallStateHolder.isCallActive) {
-                // Record when we got back as the end-of-call proxy
-                CallStateHolder.callEndMillis = System.currentTimeMillis()
-                CallStateHolder.isCallActive  = false
+                // Only use onResume time if the service hasn't already set a precise end time
+                if (CallStateHolder.callEndMillis == 0L) {
+                    CallStateHolder.callEndMillis = System.currentTimeMillis()
+                }
+                CallStateHolder.isCallActive = false
                 showPostCallDialog = true
             }
         }
@@ -81,6 +91,11 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
             callVm.resetState()
             CallStateHolder.reset()
         }
+    }
+
+    // Load linked calls whenever contact zohoId is available
+    LaunchedEffect(contact?.zohoId) {
+        contact?.zohoId?.let { detailVm.loadCallsForContact(it) }
     }
 
     // ── Permission launcher ───────────────────────────────────────────────────
@@ -259,6 +274,51 @@ fun ContactDetailScreen(navController: NavController, contactId: Int) {
             }
 
             Spacer(Modifier.height(24.dp))
+            SectionHeader("Closed Activities")
+            Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
+                if (callsLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(modifier = Modifier.size(24.dp)) }
+                } else if (contactCalls.isEmpty()) {
+                    Text(
+                        text = "No logged calls yet",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                } else {
+                    Column {
+                        contactCalls.forEach { call ->
+                            val icon = if (call.callType.equals("Inbound", ignoreCase = true))
+                                Icons.Default.CallReceived else Icons.Default.CallMade
+                            ListItem(
+                                headlineContent = {
+                                    Text(call.subject, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                },
+                                supportingContent = {
+                                    Text(
+                                        text = "${call.callType} · ${call.duration} · ${call.callStartTime.take(10)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                                leadingContent = {
+                                    Icon(icon, contentDescription = call.callType, tint = CrmPrimary)
+                                },
+                            )
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outline,
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
@@ -274,11 +334,11 @@ private fun launchCall(
     name: String,
     number: String,
 ) {
-    CallStateHolder.contactZohoId        = zohoId
-    CallStateHolder.contactName          = name
+    CallStateHolder.contactZohoId         = zohoId
+    CallStateHolder.contactName           = name
     CallStateHolder.callInitiatedAtMillis = System.currentTimeMillis()
-    CallStateHolder.callStartMillis      = CallStateHolder.callInitiatedAtMillis
-    CallStateHolder.callEndMillis        = 0L
-    CallStateHolder.isCallActive         = true
+    CallStateHolder.callStartMillis       = 0L   // let CALL_STATE_OFFHOOK set the precise start
+    CallStateHolder.callEndMillis         = 0L
+    CallStateHolder.isCallActive          = true
     context.startActivity(Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")))
 }

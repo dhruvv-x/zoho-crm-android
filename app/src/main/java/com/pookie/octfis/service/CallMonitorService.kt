@@ -71,7 +71,11 @@ class CallMonitorService : Service() {
         Log.d(TAG, "Service started")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // RESTART_STICKY re-creates the service if killed; re-delivers last intent
+        Log.d(TAG, "onStartCommand called")
+        return START_STICKY
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,28 +87,49 @@ class CallMonitorService : Service() {
         Log.d(TAG, "Service destroyed")
     }
 
-    // ── Cache warm-up ──────────────────────────────────────────────────────────
+    // ── Cache warm-up (Step 2 — retry-safe) ───────────────────────────────────
 
-    /**
-     * If the cache is empty (e.g. after reboot), fetch contacts from Zoho so
-     * number-matching works for calls that happen before the app is opened.
-     */
     private fun ensureContactCacheLoaded() {
         if (ContactRepository.cache.isNotEmpty()) return
         serviceScope.launch {
-            try {
-                val repo = ContactRepository(ZohoServiceLocator.getApiService())
-                var page = 1
-                var hasMore = true
-                while (hasMore) {
-                    val result = repo.getContacts(page)
-                    hasMore = result.getOrNull()?.second == true
-                    page++
+            var attempt = 0
+            val maxAttempts = 3
+            val retryDelayMs = 5_000L
+
+            while (attempt < maxAttempts) {
+                attempt++
+                try {
+                    // Guard: check token is present before hitting network
+                    val tokenStore = ZohoServiceLocator.getTokenStore()
+                    val hasToken = tokenStore.getAccessToken()?.isNotBlank() == true
+                            || tokenStore.getRefreshToken()?.isNotBlank() == true
+
+                    if (!hasToken) {
+                        Log.w(TAG, "Cache warm-up attempt $attempt/$maxAttempts: no token yet, retrying in ${retryDelayMs/1000}s")
+                        delay(retryDelayMs)
+                        continue
+                    }
+
+                    val repo = ContactRepository(ZohoServiceLocator.getApiService())
+                    var page = 1
+                    var hasMore = true
+
+                    while (hasMore) {
+                        val result = repo.getContacts(page)
+                        hasMore = result.getOrNull()?.second == true
+                        page++
+                    }
+
+                    Log.d(TAG, "Cache loaded on attempt $attempt: ${ContactRepository.cache.size} contacts")
+                    return@launch   // success — exit the retry loop
+
+                } catch (e: Exception) {
+                    Log.w(TAG, "Cache warm-up attempt $attempt/$maxAttempts failed: ${e.message}")
+                    if (attempt < maxAttempts) delay(retryDelayMs)
                 }
-                Log.d(TAG, "Cache loaded: ${ContactRepository.cache.size} contacts")
-            } catch (e: Exception) {
-                Log.w(TAG, "Cache warm-up failed (user may not be logged in yet): ${e.message}")
             }
+
+            Log.w(TAG, "Cache warm-up gave up after $maxAttempts attempts (user may not be logged in)")
         }
     }
 
@@ -186,7 +211,7 @@ class CallMonitorService : Service() {
                     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         // Give CallLog a second to write the record, then look it up
                         serviceScope.launch {
-                            delay(1_500)
+                            delay(2_500)  // give CallLog more time to write
                             val number = readLastCallLogNumber()
                             onCallEnded(number)
                         }
@@ -202,9 +227,27 @@ class CallMonitorService : Service() {
         previousState = state
     }
 
+    // ── Step 6 — Robust onCallEnded with fallbacks ─────────────────────────────
+
     private fun onCallEnded(number: String) {
         if (number.isBlank()) {
-            Log.d(TAG, "onCallEnded: number still blank after CallLog lookup")
+            Log.d(TAG, "onCallEnded: number is blank after all lookups")
+            // Fallback A: if a contact was pre-populated (e.g. call from ContactDetailScreen)
+            if (CallStateHolder.contactZohoId.isNotBlank()) {
+                Log.d(TAG, "Fallback A: using pre-set contactZohoId=${CallStateHolder.contactZohoId}")
+                CallStateHolder.isFromService = true
+                android.os.Handler(android.os.Looper.getMainLooper()).post { showOverlay() }
+                return
+            }
+            // Fallback B: open PostCallLogActivity in "unknown number" mode
+            // The user can still pick a contact manually inside that screen
+            Log.d(TAG, "Fallback B: launching PostCallLogActivity with unknown number")
+            CallStateHolder.contactName = "Unknown"
+            CallStateHolder.phoneNumber = ""
+            CallStateHolder.isFromService = true
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                openPostCallActivity()
+            }
             return
         }
 
@@ -215,22 +258,23 @@ class CallMonitorService : Service() {
             CallStateHolder.contactName   = matchedContact.fullName
             CallStateHolder.phoneNumber   = number
             CallStateHolder.isFromService = true
-            if (!CallStateHolder.isCallActive) {
-                // Post to main thread — WindowManager requires it
-                android.os.Handler(android.os.Looper.getMainLooper()).post { showOverlay() }
-            }
+            // Always show overlay for service-detected calls
+            android.os.Handler(android.os.Looper.getMainLooper()).post { showOverlay() }
         } else {
             Log.d(TAG, "No Zoho contact found for number='$number'")
+            // Optional: still show overlay for manual logging with unmatched numbers
+            // Uncomment the block below if you want to log calls to unknown contacts too:
+            //
+            // CallStateHolder.contactName = number   // show the raw number as name
+            // CallStateHolder.phoneNumber = number
+            // CallStateHolder.contactZohoId = ""     // no Who_Id — will log without contact link
+            // CallStateHolder.isFromService = true
+            // android.os.Handler(android.os.Looper.getMainLooper()).post { showOverlay() }
         }
     }
 
     // ── CallLog lookup (API 31+ fallback) ─────────────────────────────────────
 
-    /**
-     * Reads the most recent entry from the system CallLog.
-     * Only called on Android 12+ where TelephonyCallback gives no number.
-     * Requires READ_CALL_LOG permission.
-     */
     @SuppressLint("MissingPermission")
     private fun readLastCallLogNumber(): String {
         return try {
@@ -245,7 +289,7 @@ class CallMonitorService : Service() {
                     val number = it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER)) ?: ""
                     val date   = it.getLong(it.getColumnIndexOrThrow(CallLog.Calls.DATE))
                     // Only trust if the call ended in the last 30 seconds
-                    if (System.currentTimeMillis() - date < 30_000L) number else ""
+                    if (System.currentTimeMillis() - date < 60_000L) number else ""
                 } else ""
             }
         } catch (e: Exception) {
@@ -254,24 +298,80 @@ class CallMonitorService : Service() {
         }
     }
 
-    // ── Contact matching ───────────────────────────────────────────────────────
+    // ── Step 1 — Improved contact matching with number normalization ───────────
 
-    private fun findContactByNumber(number: String): com.pookie.octfis.data.model.Contact? {
-        if (number.isBlank()) return null
-        val normalized = number.replace(Regex("[\\s\\-().]+"), "")
+    private fun findContactByNumber(rawNumber: String): com.pookie.octfis.data.model.Contact? {
+        if (rawNumber.isBlank()) return null
+
+        val normalized = normalizePhone(rawNumber)
+        if (normalized.length < 7) return null   // too short to be meaningful
+
         return ContactRepository.cache.firstOrNull { contact ->
             listOf(contact.mobile, contact.phone).any { stored ->
                 if (stored.isBlank()) return@any false
-                val storedNorm = stored.replace(Regex("[\\s\\-().]+"), "")
+                val storedNorm = normalizePhone(stored)
+                // Compare last 10 digits — works regardless of country-code format
                 storedNorm.takeLast(10) == normalized.takeLast(10)
             }
         }
     }
 
-    // ── Floating overlay ───────────────────────────────────────────────────────
+    /**
+     * Strips all non-digit characters, then removes leading country-code prefixes
+     * so that +91XXXXXXXXXX, 0091XXXXXXXXXX, 0XXXXXXXXXX and XXXXXXXXXX all
+     * reduce to the same 10-digit string (for Indian numbers; logic is generic).
+     */
+    private fun normalizePhone(number: String): String {
+        // Remove everything that is not a digit
+        var digits = number.replace(Regex("[^0-9]"), "")
+
+        // Strip common international prefixes: 00<cc> or leading 0
+        digits = when {
+            digits.startsWith("0091") && digits.length > 12 -> digits.drop(4)  // 0091 + 10 digits
+            digits.startsWith("91")   && digits.length == 12 -> digits.drop(2) // 91 + 10 digits
+            digits.startsWith("0")    && digits.length == 11 -> digits.drop(1) // 0 + 10 digits
+            else -> digits
+        }
+        return digits
+    }
+
+    // ── Step 5 — Robust overlay show/hide for MIUI + Android 12/13/14 ─────────
+
+    private fun canShowOverlay(): Boolean {
+        // Standard check
+        if (android.provider.Settings.canDrawOverlays(this)) return true
+
+        // MIUI workaround: try to detect MIUI permission via AppOpsManager
+        return try {
+            val appOps = getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+            val op = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                android.app.AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW
+            } else {
+                @Suppress("DEPRECATION")
+                "android:system_alert_window"
+            }
+            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appOps.unsafeCheckOpNoThrow(op, android.os.Process.myUid(), packageName)
+            } else {
+                @Suppress("DEPRECATION")
+                appOps.checkOpNoThrow(op, android.os.Process.myUid(), packageName)
+            }
+            mode == android.app.AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            Log.w(TAG, "AppOps overlay check failed: ${e.message}")
+            false
+        }
+    }
 
     private fun showOverlay() {
         if (overlayView != null) return
+
+        if (!canShowOverlay()) {
+            Log.w(TAG, "Overlay permission not granted — cannot show overlay")
+            // Fallback: launch PostCallLogActivity directly without overlay
+            openPostCallActivity()
+            return
+        }
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -279,17 +379,25 @@ class CallMonitorService : Service() {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
 
+        // FLAG_NOT_TOUCH_MODAL ensures touches outside the overlay pass through
+        val flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            flags,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.END
             x = 24
             y = 120
+            // On Android 12+ set softInputMode to avoid interaction issues
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                softInputMode = android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED
+            }
         }
 
         val view = LayoutInflater.from(this).inflate(R.layout.overlay_call_log, null)
@@ -298,9 +406,15 @@ class CallMonitorService : Service() {
             openPostCallActivity()
         }
 
-        windowManager.addView(view, params)
-        overlayView = view
-        Log.d(TAG, "Overlay shown")
+        try {
+            windowManager.addView(view, params)
+            overlayView = view
+            Log.d(TAG, "Overlay shown")
+        } catch (e: Exception) {
+            Log.e(TAG, "addView failed (${e.message}) — launching PostCallLogActivity directly")
+            // Last-resort fallback: skip overlay, go straight to logging dialog
+            openPostCallActivity()
+        }
     }
 
     private fun removeOverlay() {

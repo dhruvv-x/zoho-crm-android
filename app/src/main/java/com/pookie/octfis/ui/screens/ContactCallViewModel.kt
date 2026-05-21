@@ -3,6 +3,7 @@ package com.pookie.octfis.ui.screens
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pookie.octfis.data.remote.AppEvents
 import com.pookie.octfis.data.remote.CallStateHolder
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.data.repository.CallRepository
@@ -31,11 +32,17 @@ class ContactCallViewModel : ViewModel() {
         val contactName   = CallStateHolder.contactName
         val direction     = CallStateHolder.callDirection   // "Outbound" or "Inbound"
 
-        val startMillis = CallStateHolder.callStartMillis.takeIf { it > 0L }
-            ?: CallStateHolder.callInitiatedAtMillis
+        // Priority: service OFFHOOK time > initiated time > now
+        val startMillis = when {
+            CallStateHolder.callStartMillis > 0L       -> CallStateHolder.callStartMillis
+            CallStateHolder.callInitiatedAtMillis > 0L -> CallStateHolder.callInitiatedAtMillis
+            else                                        -> System.currentTimeMillis()
+        }
 
-        val endMillis = CallStateHolder.callEndMillis.takeIf { it > 0L }
-            ?: System.currentTimeMillis()
+        val endMillis = if (CallStateHolder.callEndMillis > 0L)
+            CallStateHolder.callEndMillis
+        else
+            System.currentTimeMillis()
 
         val durationSeconds = ((endMillis - startMillis) / 1000).coerceAtLeast(0)
         val minutes     = durationSeconds / 60
@@ -68,7 +75,10 @@ class ContactCallViewModel : ViewModel() {
                 ownerId       = "",
                 whoId         = contactZohoId,
             ).fold(
-                onSuccess = { _logState.value = LogCallState.Done },
+                onSuccess = {
+                    AppEvents.notifyCallLogged()          // ← Step 3b: triggers Dashboard refresh
+                    _logState.value = LogCallState.Done
+                },
                 onFailure = {
                     _logState.value = LogCallState.Error(it.message ?: "Failed to log call")
                 },

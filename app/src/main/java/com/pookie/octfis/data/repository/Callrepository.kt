@@ -24,7 +24,15 @@ class CallRepository(
 
         callStartTime = z.callStartTime.orEmpty(),
 
-        duration = z.duration.orEmpty(),
+        duration = run {
+            val secs = z.durationSeconds
+            if (secs != null && secs > 0) {
+                // Convert raw seconds → "MM:SS" for consistent display
+                String.format("%02d:%02d", secs / 60, secs % 60)
+            } else {
+                z.duration.orEmpty()
+            }
+        },
 
         callType = z.callType
             .orEmpty()
@@ -74,6 +82,14 @@ class CallRepository(
             items,
             r.info?.moreRecords ?: false
         )
+    }
+
+    suspend fun getCallsForContact(
+        contactId: String,
+        page: Int = 1,
+    ): Result<List<CrmCall>> = runCatching {
+        val r = api.getCallsForContact(contactId, page)
+        r.data?.map { map(it) } ?: emptyList()
     }
 
     suspend fun getCallById(
