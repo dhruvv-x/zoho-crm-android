@@ -190,6 +190,30 @@ fun NavGraph(
             EditMeetingScreen(navController = navController, meetingId = meetingId)
         }
 
+        // ── Permissions ───────────────────────────────────────────────────
+        composable(Screen.Permissions.route) {
+            PermissionsScreen(
+                navController          = navController,
+                phoneStateGranted      = phoneStateGranted,
+                callLogGranted         = callLogGranted,
+                notifGranted           = notifGranted,
+                overlayGranted         = overlayGranted,
+                onSetPhoneStateEnabled = { enabled ->
+                    if (!phoneStateGranted || !enabled) onOpenPhonePermSettings()
+                    // enabling when already granted is handled inside screen
+                },
+                onSetCallLogEnabled    = { enabled ->
+                    if (!callLogGranted || !enabled) onOpenCallLogPermSettings()
+                },
+                onSetNotifEnabled      = { enabled ->
+                    if (!notifGranted || !enabled) onOpenNotifSettings()
+                },
+                onSetOverlayEnabled    = { enabled ->
+                    if (!overlayGranted || !enabled) onOpenAppSettings()
+                },
+            )
+        }
+
         // ── Calls ─────────────────────────────────────────────────────────
         composable(Screen.Calls.route) {
             CallListScreen(navController = navController)

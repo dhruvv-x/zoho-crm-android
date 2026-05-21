@@ -41,7 +41,6 @@ sealed class Screen(val route: String) {
     }
     object AddQuoteItem  : Screen("add_quote_item")
 
-    // ── Tasks ──────────────────────────────────────────────────────────────
     object Tasks        : Screen("tasks")
     object CreateTask   : Screen("create_task")
     object TaskDetail   : Screen("task_detail/{taskId}") {
@@ -51,7 +50,6 @@ sealed class Screen(val route: String) {
         fun createRoute(taskId: String) = "edit_task/$taskId"
     }
 
-    // ── Meetings ───────────────────────────────────────────────────────────
     object Meetings       : Screen("meetings")
     object CreateMeeting  : Screen("create_meeting")
     object MeetingDetail  : Screen("meeting_detail/{meetingId}") {
@@ -61,7 +59,6 @@ sealed class Screen(val route: String) {
         fun createRoute(meetingId: String) = "edit_meeting/$meetingId"
     }
 
-    // ── Calls ──────────────────────────────────────────────────────────────
     object Calls        : Screen("calls")
     object CreateCall   : Screen("create_call")
     object CallDetail   : Screen("call_detail/{callId}") {
@@ -70,4 +67,6 @@ sealed class Screen(val route: String) {
     object EditCall     : Screen("edit_call/{callId}") {
         fun createRoute(callId: String) = "edit_call/$callId"
     }
+
+    object Permissions  : Screen("permissions")
 }

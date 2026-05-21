@@ -61,6 +61,7 @@ fun DashboardScreen(
     onOpenNotifSettings       : () -> Unit = {},
     onOpenPhonePermSettings   : () -> Unit = {},
     onOpenCallLogPermSettings : () -> Unit = {},
+    onNavigateToPermissions   : () -> Unit = {},
     vm                    : DashboardViewModel = viewModel(),
     searchVm              : MasterSearchViewModel = viewModel(),
 ) {
@@ -144,6 +145,12 @@ fun DashboardScreen(
                     onOpenNotifSettings       = onOpenNotifSettings,
                     onOpenPhonePermSettings   = onOpenPhonePermSettings,
                     onOpenCallLogPermSettings = onOpenCallLogPermSettings,
+                    onNavigateToPermissions = {
+                        scope.launch {
+                            drawerState.close()
+                            navController.navigate(Screen.Permissions.route)
+                        }
+                    },
                     onLogout = {
                         scope.launch {
                             drawerState.close()
@@ -390,6 +397,7 @@ private fun CrmDrawerContent(
     onOpenNotifSettings       : () -> Unit,
     onOpenPhonePermSettings   : () -> Unit,
     onOpenCallLogPermSettings : () -> Unit,
+    onNavigateToPermissions   : () -> Unit,
     onLogout                  : () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxHeight()) {
@@ -424,97 +432,16 @@ private fun CrmDrawerContent(
         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
 
         // ── Permissions ───────────────────────────────────────────────────
-        var permissionsExpanded by remember { mutableStateOf(false) }
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
 
-        // Collapsible "App Permissions" header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { permissionsExpanded = !permissionsExpanded }
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(
-                    imageVector        = Icons.Default.Security,
-                    contentDescription = null,
-                    tint               = if (permissionsExpanded) CrmPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier           = Modifier.size(20.dp),
-                )
-                Text(
-                    text       = "App Permissions",
-                    fontSize   = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color      = if (permissionsExpanded) CrmPrimary else MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            Icon(
-                imageVector        = if (permissionsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                tint               = if (permissionsExpanded) CrmPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier           = Modifier.size(20.dp),
-            )
-        }
-
-        AnimatedVisibility(
-            visible = permissionsExpanded,
-            enter   = expandVertically() + fadeIn(),
-            exit    = shrinkVertically() + fadeOut(),
-        ) {
-            Column {
-                DrawerSwitchRow(
-                    icon     = Icons.Default.Phone,
-                    label    = "Phone State",
-                    subtitle = when {
-                        !phoneStateGranted -> "Tap to enable in Settings"
-                        phoneStateEnabled  -> "Active — tap to disable in Settings"
-                        else               -> "Granted but disabled"
-                    },
-                    checked         = phoneStateEnabled && phoneStateGranted,
-                    onCheckedChange = onSetPhoneStateEnabled,
-                )
-
-                DrawerSwitchRow(
-                    icon     = Icons.Default.PhoneCallback,
-                    label    = "Call Log",
-                    subtitle = when {
-                        !callLogGranted -> "Tap to enable in Settings"
-                        callLogEnabled  -> "Active — tap to disable in Settings"
-                        else            -> "Granted but disabled"
-                    },
-                    checked         = callLogEnabled && callLogGranted,
-                    onCheckedChange = onSetCallLogEnabled,
-                )
-
-                DrawerSwitchRow(
-                    icon     = Icons.Default.Notifications,
-                    label    = "Notifications",
-                    subtitle = when {
-                        !notifGranted -> "Tap to enable in Settings"
-                        notifEnabled  -> "Active — tap to disable in Settings"
-                        else          -> "Granted but disabled"
-                    },
-                    checked         = notifEnabled && notifGranted,
-                    onCheckedChange = onSetNotifEnabled,
-                )
-
-                DrawerSwitchRow(
-                    icon     = Icons.Default.Layers,
-                    label    = "Display Over Apps",
-                    subtitle = when {
-                        !overlayGranted -> "Tap to enable in Settings"
-                        overlayEnabled  -> "Active — tap to disable in Settings"
-                        else            -> "Granted but disabled"
-                    },
-                    checked         = overlayEnabled && overlayGranted,
-                    onCheckedChange = onSetOverlayEnabled,
-                )
-            }
-        }
+        NavigationDrawerItem(
+            icon     = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary) },
+            label    = { Text("App Permissions", fontWeight = FontWeight.Medium) },
+            badge    = { Icon(Icons.Default.ArrowForwardIos, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp)) },
+            selected = false,
+            onClick  = { onNavigateToPermissions() },
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
 
         Spacer(Modifier.weight(1f))
         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -761,7 +688,7 @@ private fun SearchResultRow(result: SearchResult, onClick: () -> Unit) {
                 Text(result.badge, fontSize = 10.sp, color = CrmPrimary, fontWeight = FontWeight.SemiBold)
             }
         }
-        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+        Icon(Icons.Default.ArrowForwardIos, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
     }
 }
 
