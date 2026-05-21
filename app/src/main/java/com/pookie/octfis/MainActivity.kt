@@ -1,7 +1,9 @@
 package com.pookie.octfis
 
+import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -11,9 +13,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -22,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.pookie.octfis.data.remote.AuthState
@@ -35,21 +35,122 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: SharedPreferences
 
-    // After user returns from the overlay settings screen, just start the service.
-    // We never check canDrawOverlays() again — MIUI lies about it.
+    // ── Permission state (observed by the drawer) ──────────────────────────
+    private val phoneStateGranted  = mutableStateOf(false)
+    private val callLogGranted     = mutableStateOf(false)
+    private val notifGranted       = mutableStateOf(false)
+    private val overlayGranted     = mutableStateOf(false)
+
+    // ── Launchers ──────────────────────────────────────────────────────────
+
     private val overlaySettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         prefs.edit().putBoolean(KEY_OVERLAY_ASKED, true).apply()
+        overlayGranted.value = Settings.canDrawOverlays(this)
         CallMonitorService.start(this)
     }
 
-    /** Requests READ_PHONE_STATE + READ_CALL_LOG together. */
     private val phonePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        val granted = grants.values.any { it }
-        if (granted) CallMonitorService.start(this)
+        phoneStateGranted.value =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) ==
+                    PackageManager.PERMISSION_GRANTED
+        callLogGranted.value =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) ==
+                    PackageManager.PERMISSION_GRANTED
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notifGranted.value =
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                        PackageManager.PERMISSION_GRANTED
+        }
+        if (grants.values.any { it }) CallMonitorService.start(this)
+    }
+
+    private val notifPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        notifGranted.value = granted
+    }
+
+    private val singlePhonePermLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        phoneStateGranted.value =
+            grants[Manifest.permission.READ_PHONE_STATE] == true ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+        callLogGranted.value =
+            grants[Manifest.permission.READ_CALL_LOG] == true ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+        if (phoneStateGranted.value || callLogGranted.value) CallMonitorService.start(this)
+    }
+
+    // ── Launcher for opening app settings (to let user revoke perms) ───────
+    private val appSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        // User returned from Settings — re-check all permission states
+        refreshPermissionStates()
+    }
+
+    // ── Launcher for opening notification settings directly ────────────────
+    private val notifSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        refreshPermissionStates()
+    }
+
+    // ── Public callbacks passed to the drawer ──────────────────────────────
+
+    fun requestPhoneAndCallLogPerms() {
+        singlePhonePermLauncher.launch(
+            arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.READ_CALL_LOG)
+        )
+    }
+
+    fun requestNotifPerm() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    fun requestOverlayPerm() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")
+        )
+        overlaySettingsLauncher.launch(intent)
+    }
+
+    fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        appSettingsLauncher.launch(intent)   // use launcher so we catch the return
+    }
+
+    fun openNotifSettings() {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        }
+        notifSettingsLauncher.launch(intent)
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    private fun refreshPermissionStates() {
+        phoneStateGranted.value =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) ==
+                    PackageManager.PERMISSION_GRANTED
+        callLogGranted.value =
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) ==
+                    PackageManager.PERMISSION_GRANTED
+        notifGranted.value = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+        else true
+        overlayGranted.value = Settings.canDrawOverlays(this)
     }
 
     private fun requestPhonePermissionsIfNeeded() {
@@ -63,9 +164,7 @@ class MainActivity : ComponentActivity() {
         val missing = perms.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        if (missing.isNotEmpty()) {
-            phonePermissionLauncher.launch(missing.toTypedArray())
-        }
+        if (missing.isNotEmpty()) phonePermissionLauncher.launch(missing.toTypedArray())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,17 +173,16 @@ class MainActivity : ComponentActivity() {
         prefs = getSharedPreferences("octfis_prefs", MODE_PRIVATE)
         Log.d("OctfisAuth", "onCreate — intent data: ${intent?.data}")
         handleIntent(intent)
+        refreshPermissionStates()
         requestPhonePermissionsIfNeeded()
 
         val themePrefs   = ZohoServiceLocator.themePrefs
-        // Has the user already seen the overlay permission dialog?
         val overlayAsked = prefs.getBoolean(KEY_OVERLAY_ASKED, false)
 
         setContent {
             val isDark by themePrefs.isDarkTheme.collectAsState(initial = false)
             val scope  = rememberCoroutineScope()
 
-            // Show permission rationale dialog only on first run
             var showOverlayDialog by remember { mutableStateOf(!overlayAsked) }
 
             OctfisCRMTheme(darkTheme = isDark) {
@@ -103,14 +201,13 @@ class MainActivity : ComponentActivity() {
                         confirmButton = {
                             Button(onClick = {
                                 showOverlayDialog = false
-                                openOverlaySettings()
+                                requestOverlayPerm()
                             }) { Text("Allow") }
                         },
                         dismissButton = {
                             TextButton(onClick = {
                                 showOverlayDialog = false
                                 prefs.edit().putBoolean(KEY_OVERLAY_ASKED, true).apply()
-                                // Start service anyway — overlay button just won't show
                                 CallMonitorService.start(this@MainActivity)
                             }) { Text("Skip") }
                         },
@@ -119,19 +216,30 @@ class MainActivity : ComponentActivity() {
 
                 val navController = rememberNavController()
                 NavGraph(
-                    navController = navController,
-                    onToggleTheme = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
-                    isDark        = isDark,
+                    navController       = navController,
+                    onToggleTheme       = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
+                    isDark              = isDark,
+                    phoneStateGranted   = phoneStateGranted.value,
+                    callLogGranted      = callLogGranted.value,
+                    notifGranted        = notifGranted.value,
+                    overlayGranted      = overlayGranted.value,
+                    onRequestPhonePerms = ::requestPhoneAndCallLogPerms,
+                    onRequestNotif      = ::requestNotifPerm,
+                    onRequestOverlay    = ::requestOverlayPerm,
+                    onOpenAppSettings   = ::openAppSettings,   // ← new
+                    onOpenNotifSettings = ::openNotifSettings,
                 )
             }
 
-            // Always start the service on subsequent launches (overlayAsked == true)
             LaunchedEffect(Unit) {
-                if (overlayAsked) {
-                    CallMonitorService.start(this@MainActivity)
-                }
+                if (overlayAsked) CallMonitorService.start(this@MainActivity)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshPermissionStates()   // re-check all perms when returning from anywhere
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -139,14 +247,6 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         Log.d("OctfisAuth", "onNewIntent — intent data: ${intent.data}")
         handleIntent(intent)
-    }
-
-    private fun openOverlaySettings() {
-        val intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName")
-        )
-        overlaySettingsLauncher.launch(intent)
     }
 
     private fun handleIntent(intent: Intent?) {

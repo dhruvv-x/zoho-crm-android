@@ -10,134 +10,202 @@ import com.pookie.octfis.ui.screens.*
 
 @Composable
 fun NavGraph(
-    navController : NavHostController,
-    onToggleTheme : () -> Unit,
-    isDark        : Boolean,
+    navController       : NavHostController,
+    onToggleTheme       : () -> Unit,
+    isDark              : Boolean,
+    phoneStateGranted   : Boolean,
+    callLogGranted      : Boolean,
+    notifGranted        : Boolean,
+    overlayGranted      : Boolean,
+    onRequestPhonePerms : () -> Unit,
+    onRequestNotif      : () -> Unit,
+    onRequestOverlay    : () -> Unit,
+    onOpenAppSettings   : () -> Unit,
+    onOpenNotifSettings : () -> Unit,
 ) {
     NavHost(
         navController    = navController,
         startDestination = Screen.SignIn.route,
     ) {
-        composable(Screen.SignIn.route)    { SignInScreen(navController) }
+
+        // ── Auth ──────────────────────────────────────────────────────────
+        composable(Screen.SignIn.route) {
+            SignInScreen(navController = navController)
+        }
+
+        // ── Dashboard ─────────────────────────────────────────────────────
         composable(Screen.Dashboard.route) {
             DashboardScreen(
-                navController  = navController,
-                onToggleTheme  = onToggleTheme,
-                isDark         = isDark,
+                navController       = navController,
+                onToggleTheme       = onToggleTheme,
+                isDark              = isDark,
+                phoneStateGranted   = phoneStateGranted,
+                callLogGranted      = callLogGranted,
+                notifGranted        = notifGranted,
+                overlayGranted      = overlayGranted,
+                onRequestPhonePerms = onRequestPhonePerms,
+                onRequestNotif      = onRequestNotif,
+                onRequestOverlay    = onRequestOverlay,
+                onOpenAppSettings   = onOpenAppSettings,
+                onOpenNotifSettings = onOpenNotifSettings,
             )
         }
 
         // ── Accounts ──────────────────────────────────────────────────────
-        composable(Screen.Accounts.route)      { AccountsScreen(navController) }
-        composable(Screen.CreateAccount.route) { CreateAccountScreen(navController) }
+        composable(Screen.Accounts.route) {
+            AccountsScreen(navController = navController)
+        }
+        composable(Screen.CreateAccount.route) {
+            CreateAccountScreen(navController = navController)
+        }
         composable(
             route     = Screen.AccountDetail.route,
             arguments = listOf(navArgument("zohoId") { type = NavType.StringType }),
-        ) { back ->
-            AccountDetailScreen(navController, back.arguments?.getString("zohoId") ?: "")
+        ) { backStack ->
+            val zohoId = backStack.arguments?.getString("zohoId") ?: ""
+            AccountDetailScreen(navController = navController, zohoId = zohoId)
         }
         composable(
             route     = Screen.EditAccount.route,
             arguments = listOf(navArgument("zohoId") { type = NavType.StringType }),
-        ) { back ->
-            EditAccountScreen(navController, back.arguments?.getString("zohoId") ?: "")
+        ) { backStack ->
+            val zohoId = backStack.arguments?.getString("zohoId") ?: ""
+            EditAccountScreen(navController = navController, zohoId = zohoId)
         }
 
         // ── Contacts ──────────────────────────────────────────────────────
-        composable(Screen.Contacts.route)      { ContactsScreen(navController) }
-        composable(Screen.CreateContact.route) { CreateContactScreen(navController) }
+        composable(Screen.Contacts.route) {
+            ContactsScreen(navController = navController)
+        }
+        composable(Screen.CreateContact.route) {
+            CreateContactScreen(navController = navController)
+        }
         composable(
             route     = Screen.ContactDetail.route,
             arguments = listOf(navArgument("contactId") { type = NavType.IntType }),
-        ) { back ->
-            ContactDetailScreen(navController, back.arguments?.getInt("contactId") ?: 0)
+        ) { backStack ->
+            val contactId = backStack.arguments?.getInt("contactId") ?: 0
+            ContactDetailScreen(navController = navController, contactId = contactId)
         }
         composable(
             route     = Screen.EditContact.route,
             arguments = listOf(navArgument("contactId") { type = NavType.IntType }),
-        ) { back ->
-            EditContactScreen(navController, back.arguments?.getInt("contactId") ?: 0)
+        ) { backStack ->
+            val contactId = backStack.arguments?.getInt("contactId") ?: 0
+            EditContactScreen(navController = navController, contactId = contactId)
         }
 
         // ── Deals ─────────────────────────────────────────────────────────
-        composable(Screen.Deals.route)      { DealsScreen(navController) }
-        composable(Screen.CreateDeal.route) { CreateDealScreen(navController) }
+        composable(Screen.Deals.route) {
+            DealsScreen(navController = navController)
+        }
+        composable(Screen.CreateDeal.route) {
+            CreateDealScreen(navController = navController)
+        }
         composable(
             route     = Screen.DealDetail.route,
             arguments = listOf(navArgument("dealId") { type = NavType.IntType }),
-        ) { back ->
-            DealDetailScreen(navController, back.arguments?.getInt("dealId") ?: 0)
+        ) { backStack ->
+            val dealId = backStack.arguments?.getInt("dealId") ?: 0
+            DealDetailScreen(navController = navController, dealId = dealId)
         }
         composable(
             route     = Screen.EditDeal.route,
             arguments = listOf(navArgument("dealId") { type = NavType.IntType }),
-        ) { back ->
-            EditDealScreen(navController, back.arguments?.getInt("dealId") ?: 0)
+        ) { backStack ->
+            val dealId = backStack.arguments?.getInt("dealId") ?: 0
+            EditDealScreen(navController = navController, dealId = dealId)
         }
 
         // ── Quotes ────────────────────────────────────────────────────────
-        composable(Screen.Quotes.route)      { QuotesScreen(navController) }
-        composable(Screen.CreateQuote.route) { CreateQuoteScreen(navController) }
+        composable(Screen.Quotes.route) {
+            QuotesScreen(navController = navController)
+        }
+        composable(Screen.CreateQuote.route) {
+            CreateQuoteScreen(navController = navController)
+        }
         composable(
             route     = Screen.QuoteDetail.route,
             arguments = listOf(navArgument("quoteId") { type = NavType.IntType }),
-        ) { back ->
-            QuoteDetailScreen(navController, back.arguments?.getInt("quoteId") ?: 0)
+        ) { backStack ->
+            val quoteId = backStack.arguments?.getInt("quoteId") ?: 0
+            QuoteDetailScreen(navController = navController, quoteId = quoteId)
         }
         composable(
             route     = Screen.EditQuote.route,
             arguments = listOf(navArgument("quoteId") { type = NavType.IntType }),
-        ) { back ->
-            EditQuoteScreen(navController, back.arguments?.getInt("quoteId") ?: 0)
+        ) { backStack ->
+            val quoteId = backStack.arguments?.getInt("quoteId") ?: 0
+            EditQuoteScreen(navController = navController, quoteId = quoteId)
         }
-        composable(Screen.AddQuoteItem.route) { AddQuoteItemScreen(navController) }
+        composable(Screen.AddQuoteItem.route) {
+            AddQuoteItemScreen(navController = navController)
+        }
 
         // ── Tasks ─────────────────────────────────────────────────────────
-        composable(Screen.Tasks.route)      { TaskListScreen(navController) }
-        composable(Screen.CreateTask.route) { CreateTaskScreen(navController) }
+        composable(Screen.Tasks.route) {
+            TaskListScreen(navController = navController)
+        }
+        composable(Screen.CreateTask.route) {
+            CreateTaskScreen(navController = navController)
+        }
         composable(
             route     = Screen.TaskDetail.route,
             arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
-        ) { back ->
-            TaskDetailScreen(navController, back.arguments?.getString("taskId") ?: "")
+        ) { backStack ->
+            val taskId = backStack.arguments?.getString("taskId") ?: ""
+            TaskDetailScreen(navController = navController, taskId = taskId)
         }
         composable(
             route     = Screen.EditTask.route,
             arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
-        ) { back ->
-            EditTaskScreen(navController, back.arguments?.getString("taskId") ?: "")
+        ) { backStack ->
+            val taskId = backStack.arguments?.getString("taskId") ?: ""
+            EditTaskScreen(navController = navController, taskId = taskId)
         }
 
         // ── Meetings ──────────────────────────────────────────────────────
-        composable(Screen.Meetings.route)      { MeetingListScreen(navController) }
-        composable(Screen.CreateMeeting.route) { CreateMeetingScreen(navController) }
+        composable(Screen.Meetings.route) {
+            MeetingListScreen(navController = navController)
+        }
+        composable(Screen.CreateMeeting.route) {
+            CreateMeetingScreen(navController = navController)
+        }
         composable(
             route     = Screen.MeetingDetail.route,
             arguments = listOf(navArgument("meetingId") { type = NavType.StringType }),
-        ) { back ->
-            MeetingDetailScreen(navController, back.arguments?.getString("meetingId") ?: "")
+        ) { backStack ->
+            val meetingId = backStack.arguments?.getString("meetingId") ?: ""
+            MeetingDetailScreen(navController = navController, meetingId = meetingId)
         }
         composable(
             route     = Screen.EditMeeting.route,
             arguments = listOf(navArgument("meetingId") { type = NavType.StringType }),
-        ) { back ->
-            EditMeetingScreen(navController, back.arguments?.getString("meetingId") ?: "")
+        ) { backStack ->
+            val meetingId = backStack.arguments?.getString("meetingId") ?: ""
+            EditMeetingScreen(navController = navController, meetingId = meetingId)
         }
 
         // ── Calls ─────────────────────────────────────────────────────────
-        composable(Screen.Calls.route)      { CallListScreen(navController) }
-        composable(Screen.CreateCall.route) { CreateCallScreen(navController) }
+        composable(Screen.Calls.route) {
+            CallListScreen(navController = navController)
+        }
+        composable(Screen.CreateCall.route) {
+            CreateCallScreen(navController = navController)
+        }
         composable(
             route     = Screen.CallDetail.route,
             arguments = listOf(navArgument("callId") { type = NavType.StringType }),
-        ) { back ->
-            CallDetailScreen(navController, back.arguments?.getString("callId") ?: "")
+        ) { backStack ->
+            val callId = backStack.arguments?.getString("callId") ?: ""
+            CallDetailScreen(navController = navController, callId = callId)
         }
         composable(
             route     = Screen.EditCall.route,
             arguments = listOf(navArgument("callId") { type = NavType.StringType }),
-        ) { back ->
-            EditCallScreen(navController, back.arguments?.getString("callId") ?: "")
+        ) { backStack ->
+            val callId = backStack.arguments?.getString("callId") ?: ""
+            EditCallScreen(navController = navController, callId = callId)
         }
     }
 }
