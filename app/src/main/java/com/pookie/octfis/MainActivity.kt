@@ -13,10 +13,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,6 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import com.pookie.octfis.data.remote.AuthState
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.navigation.NavGraph
+import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.service.CallMonitorService
 import com.pookie.octfis.ui.theme.OctfisCRMTheme
 import kotlinx.coroutines.launch
@@ -35,43 +32,32 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: SharedPreferences
 
-    // ── Permission state (observed by the drawer) ──────────────────────────
-    private val phoneStateGranted  = mutableStateOf(false)
-    private val callLogGranted     = mutableStateOf(false)
-    private val notifGranted       = mutableStateOf(false)
-    private val overlayGranted     = mutableStateOf(false)
+    // ── Permission state (observed by the drawer & permissions screen) ─────
+    private val phoneStateGranted = mutableStateOf(false)
+    private val callLogGranted    = mutableStateOf(false)
+    private val notifGranted      = mutableStateOf(false)
+    private val overlayGranted    = mutableStateOf(false)
 
     // ── Launchers ──────────────────────────────────────────────────────────
 
     private val overlaySettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        prefs.edit().putBoolean(KEY_OVERLAY_ASKED, true).apply()
         overlayGranted.value = Settings.canDrawOverlays(this)
-        CallMonitorService.start(this)
+        if (overlayGranted.value) CallMonitorService.start(this)
     }
 
-    private val phonePermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { grants ->
-        phoneStateGranted.value =
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) ==
-                    PackageManager.PERMISSION_GRANTED
-        callLogGranted.value =
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) ==
-                    PackageManager.PERMISSION_GRANTED
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notifGranted.value =
-                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
-                        PackageManager.PERMISSION_GRANTED
-        }
-        if (grants.values.any { it }) CallMonitorService.start(this)
+    private val appSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        // User returned from Settings — re-check all permission states
+        refreshPermissionStates()
     }
 
-    private val notifPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        notifGranted.value = granted
+    private val notifSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        refreshPermissionStates()
     }
 
     private val singlePhonePermLauncher = registerForActivityResult(
@@ -86,22 +72,7 @@ class MainActivity : ComponentActivity() {
         if (phoneStateGranted.value || callLogGranted.value) CallMonitorService.start(this)
     }
 
-    // ── Launcher for opening app settings (to let user revoke perms) ───────
-    private val appSettingsLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        // User returned from Settings — re-check all permission states
-        refreshPermissionStates()
-    }
-
-    // ── Launcher for opening notification settings directly ────────────────
-    private val notifSettingsLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        refreshPermissionStates()
-    }
-
-    // ── Public callbacks passed to the drawer ──────────────────────────────
+    // ── Public callbacks passed to NavGraph / screens ──────────────────────
 
     fun requestPhoneAndCallLogPerms() {
         singlePhonePermLauncher.launch(
@@ -111,7 +82,8 @@ class MainActivity : ComponentActivity() {
 
     fun requestNotifPerm() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            // Direct runtime request for notifications
+            singlePhonePermLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
         }
     }
 
@@ -127,7 +99,7 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.parse("package:$packageName")
         }
-        appSettingsLauncher.launch(intent)   // use launcher so we catch the return
+        appSettingsLauncher.launch(intent)
     }
 
     fun openNotifSettings() {
@@ -137,7 +109,7 @@ class MainActivity : ComponentActivity() {
         notifSettingsLauncher.launch(intent)
     }
 
-    // Opens Settings → Apps → Octfis → Permissions where Phone can be toggled
+    // Opens Settings → Apps → Octfis → Permissions (Phone)
     fun openPhonePermSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.parse("package:$packageName")
@@ -145,7 +117,7 @@ class MainActivity : ComponentActivity() {
         appSettingsLauncher.launch(intent)
     }
 
-    // Opens Settings → Apps → Octfis → Permissions where Call Log can be toggled
+    // Opens Settings → Apps → Octfis → Permissions (Call Log)
     fun openCallLogPermSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.parse("package:$packageName")
@@ -169,95 +141,52 @@ class MainActivity : ComponentActivity() {
         overlayGranted.value = Settings.canDrawOverlays(this)
     }
 
-    private fun requestPhonePermissionsIfNeeded() {
-        val perms = mutableListOf(
-            Manifest.permission.READ_PHONE_STATE,
-            Manifest.permission.READ_CALL_LOG,
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            perms.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        val missing = perms.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missing.isNotEmpty()) phonePermissionLauncher.launch(missing.toTypedArray())
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         prefs = getSharedPreferences("octfis_prefs", MODE_PRIVATE)
         Log.d("OctfisAuth", "onCreate — intent data: ${intent?.data}")
         handleIntent(intent)
-        refreshPermissionStates()
-        requestPhonePermissionsIfNeeded()
+        refreshPermissionStates()   // just read states, never auto-request
 
-        val themePrefs   = ZohoServiceLocator.themePrefs
-        val overlayAsked = prefs.getBoolean(KEY_OVERLAY_ASKED, false)
+        val themePrefs = ZohoServiceLocator.themePrefs
 
         setContent {
             val isDark by themePrefs.isDarkTheme.collectAsState(initial = false)
             val scope  = rememberCoroutineScope()
 
-            var showOverlayDialog by remember { mutableStateOf(!overlayAsked) }
-
             OctfisCRMTheme(darkTheme = isDark) {
-
-                if (showOverlayDialog) {
-                    AlertDialog(
-                        onDismissRequest = {},
-                        title = { Text("Enable call logging") },
-                        text  = {
-                            Text(
-                                "Octfis needs \"Display over other apps\" permission to show " +
-                                        "a quick-log button after calls made outside the app.\n\n" +
-                                        "Tap Allow, find Octfis in the list, and turn it on."
-                            )
-                        },
-                        confirmButton = {
-                            Button(onClick = {
-                                showOverlayDialog = false
-                                requestOverlayPerm()
-                            }) { Text("Allow") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = {
-                                showOverlayDialog = false
-                                prefs.edit().putBoolean(KEY_OVERLAY_ASKED, true).apply()
-                                CallMonitorService.start(this@MainActivity)
-                            }) { Text("Skip") }
-                        },
-                    )
-                }
-
                 val navController = rememberNavController()
                 NavGraph(
-                    navController           = navController,
-                    onToggleTheme           = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
-                    isDark                  = isDark,
-                    phoneStateGranted       = phoneStateGranted.value,
-                    callLogGranted          = callLogGranted.value,
-                    notifGranted            = notifGranted.value,
-                    overlayGranted          = overlayGranted.value,
-                    onRequestPhonePerms     = ::requestPhoneAndCallLogPerms,
-                    onRequestNotif          = ::requestNotifPerm,
-                    onRequestOverlay        = ::requestOverlayPerm,
-                    onOpenAppSettings       = ::openAppSettings,
-                    onOpenNotifSettings     = ::openNotifSettings,
-                    onOpenPhonePermSettings = ::openPhonePermSettings,
+                    navController             = navController,
+                    onToggleTheme             = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
+                    isDark                    = isDark,
+                    phoneStateGranted         = phoneStateGranted.value,
+                    callLogGranted            = callLogGranted.value,
+                    notifGranted              = notifGranted.value,
+                    overlayGranted            = overlayGranted.value,
+                    onRequestPhonePerms       = ::requestPhoneAndCallLogPerms,
+                    onRequestNotif            = ::requestNotifPerm,
+                    onRequestOverlay          = ::requestOverlayPerm,
+                    onOpenAppSettings         = ::openAppSettings,
+                    onOpenNotifSettings       = ::openNotifSettings,
+                    onOpenPhonePermSettings   = ::openPhonePermSettings,
                     onOpenCallLogPermSettings = ::openCallLogPermSettings,
                 )
-            }
 
-            LaunchedEffect(Unit) {
-                if (overlayAsked) CallMonitorService.start(this@MainActivity)
+                LaunchedEffect(Unit) {
+                    // Start service only if permissions already granted from a previous session
+                    if (phoneStateGranted.value || callLogGranted.value) {
+                        CallMonitorService.start(this@MainActivity)
+                    }
+                }
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        refreshPermissionStates()   // re-check all perms when returning from anywhere
+        refreshPermissionStates()   // re-check all perms when returning from Settings
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -277,9 +206,5 @@ class MainActivity : ComponentActivity() {
                 if (success) AuthState.onLoginSuccess()
             }
         }
-    }
-
-    companion object {
-        private const val KEY_OVERLAY_ASKED = "overlay_permission_asked"
     }
 }

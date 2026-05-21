@@ -6,6 +6,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
@@ -39,6 +41,12 @@ class CallMonitorService : Service() {
         const val TAG                 = "CallMonitorService"
 
         fun start(context: Context) {
+            // Do not start if READ_PHONE_STATE is not granted — would crash on registerTelephonyCallback
+            val hasPhoneState = ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.READ_PHONE_STATE
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!hasPhoneState) return
+
             val intent = Intent(context, CallMonitorService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -66,7 +74,17 @@ class CallMonitorService : Service() {
         windowManager    = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         startForeground(NOTIF_ID, buildNotification())
-        registerPhoneListener()
+        // Guard: only register listener if permission is granted
+        val hasPermission = ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.READ_PHONE_STATE
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            registerPhoneListener()
+        } else {
+            // No permission — stop self gracefully instead of crashing
+            stopSelf()
+            return
+        }
         // Pre-warm contact cache so number matching works even if app was never opened
         ensureContactCacheLoaded()
         Log.e(TAG, ">>> Service started and phone listener registered")
