@@ -1,5 +1,6 @@
 package com.pookie.octfis.ui.screens
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -10,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.pookie.octfis.ui.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -186,8 +188,11 @@ private fun PermissionCard(
                 checked         = enabled,
                 onCheckedChange = onToggle,
                 colors          = SwitchDefaults.colors(
-                    checkedThumbColor   = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor   = MaterialTheme.colorScheme.primaryContainer,
+                    checkedThumbColor       = CrmOnAccent,
+                    checkedTrackColor       = CrmAccent,
+                    uncheckedThumbColor     = if (isSystemInDarkTheme()) CrmSubtextDark else CrmSubtext,
+                    uncheckedTrackColor     = if (isSystemInDarkTheme()) CrmSurfaceAltDark else CrmSurfaceAlt,
+                    uncheckedBorderColor    = if (isSystemInDarkTheme()) CrmDividerDark else CrmDivider,
                 ),
             )
         }
