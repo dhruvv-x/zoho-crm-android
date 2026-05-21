@@ -137,6 +137,22 @@ class MainActivity : ComponentActivity() {
         notifSettingsLauncher.launch(intent)
     }
 
+    // Opens Settings → Apps → Octfis → Permissions where Phone can be toggled
+    fun openPhonePermSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        appSettingsLauncher.launch(intent)
+    }
+
+    // Opens Settings → Apps → Octfis → Permissions where Call Log can be toggled
+    fun openCallLogPermSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        appSettingsLauncher.launch(intent)
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private fun refreshPermissionStates() {
@@ -216,18 +232,20 @@ class MainActivity : ComponentActivity() {
 
                 val navController = rememberNavController()
                 NavGraph(
-                    navController       = navController,
-                    onToggleTheme       = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
-                    isDark              = isDark,
-                    phoneStateGranted   = phoneStateGranted.value,
-                    callLogGranted      = callLogGranted.value,
-                    notifGranted        = notifGranted.value,
-                    overlayGranted      = overlayGranted.value,
-                    onRequestPhonePerms = ::requestPhoneAndCallLogPerms,
-                    onRequestNotif      = ::requestNotifPerm,
-                    onRequestOverlay    = ::requestOverlayPerm,
-                    onOpenAppSettings   = ::openAppSettings,   // ← new
-                    onOpenNotifSettings = ::openNotifSettings,
+                    navController           = navController,
+                    onToggleTheme           = { scope.launch { themePrefs.setDarkTheme(!isDark) } },
+                    isDark                  = isDark,
+                    phoneStateGranted       = phoneStateGranted.value,
+                    callLogGranted          = callLogGranted.value,
+                    notifGranted            = notifGranted.value,
+                    overlayGranted          = overlayGranted.value,
+                    onRequestPhonePerms     = ::requestPhoneAndCallLogPerms,
+                    onRequestNotif          = ::requestNotifPerm,
+                    onRequestOverlay        = ::requestOverlayPerm,
+                    onOpenAppSettings       = ::openAppSettings,
+                    onOpenNotifSettings     = ::openNotifSettings,
+                    onOpenPhonePermSettings = ::openPhonePermSettings,
+                    onOpenCallLogPermSettings = ::openCallLogPermSettings,
                 )
             }
 

@@ -10,18 +10,20 @@ import com.pookie.octfis.ui.screens.*
 
 @Composable
 fun NavGraph(
-    navController       : NavHostController,
-    onToggleTheme       : () -> Unit,
-    isDark              : Boolean,
-    phoneStateGranted   : Boolean,
-    callLogGranted      : Boolean,
-    notifGranted        : Boolean,
-    overlayGranted      : Boolean,
-    onRequestPhonePerms : () -> Unit,
-    onRequestNotif      : () -> Unit,
-    onRequestOverlay    : () -> Unit,
-    onOpenAppSettings   : () -> Unit,
-    onOpenNotifSettings : () -> Unit,
+    navController             : NavHostController,
+    onToggleTheme             : () -> Unit,
+    isDark                    : Boolean,
+    phoneStateGranted         : Boolean,
+    callLogGranted            : Boolean,
+    notifGranted              : Boolean,
+    overlayGranted            : Boolean,
+    onRequestPhonePerms       : () -> Unit,
+    onRequestNotif            : () -> Unit,
+    onRequestOverlay          : () -> Unit,
+    onOpenAppSettings         : () -> Unit,
+    onOpenNotifSettings       : () -> Unit,
+    onOpenPhonePermSettings   : () -> Unit,
+    onOpenCallLogPermSettings : () -> Unit,
 ) {
     NavHost(
         navController    = navController,
@@ -36,18 +38,20 @@ fun NavGraph(
         // ── Dashboard ─────────────────────────────────────────────────────
         composable(Screen.Dashboard.route) {
             DashboardScreen(
-                navController       = navController,
-                onToggleTheme       = onToggleTheme,
-                isDark              = isDark,
-                phoneStateGranted   = phoneStateGranted,
-                callLogGranted      = callLogGranted,
-                notifGranted        = notifGranted,
-                overlayGranted      = overlayGranted,
-                onRequestPhonePerms = onRequestPhonePerms,
-                onRequestNotif      = onRequestNotif,
-                onRequestOverlay    = onRequestOverlay,
-                onOpenAppSettings   = onOpenAppSettings,
-                onOpenNotifSettings = onOpenNotifSettings,
+                navController             = navController,
+                onToggleTheme             = onToggleTheme,
+                isDark                    = isDark,
+                phoneStateGranted         = phoneStateGranted,
+                callLogGranted            = callLogGranted,
+                notifGranted              = notifGranted,
+                overlayGranted            = overlayGranted,
+                onRequestPhonePerms       = onRequestPhonePerms,
+                onRequestNotif            = onRequestNotif,
+                onRequestOverlay          = onRequestOverlay,
+                onOpenAppSettings         = onOpenAppSettings,
+                onOpenNotifSettings       = onOpenNotifSettings,
+                onOpenPhonePermSettings   = onOpenPhonePermSettings,
+                onOpenCallLogPermSettings = onOpenCallLogPermSettings,
             )
         }
 

@@ -54,11 +54,13 @@ fun DashboardScreen(
     callLogGranted        : Boolean    = false,
     notifGranted          : Boolean    = false,
     overlayGranted        : Boolean    = false,
-    onRequestPhonePerms   : () -> Unit = {},
-    onRequestNotif        : () -> Unit = {},
-    onRequestOverlay      : () -> Unit = {},
-    onOpenAppSettings     : () -> Unit = {},
-    onOpenNotifSettings   : () -> Unit = {},
+    onRequestPhonePerms       : () -> Unit = {},
+    onRequestNotif            : () -> Unit = {},
+    onRequestOverlay          : () -> Unit = {},
+    onOpenAppSettings         : () -> Unit = {},
+    onOpenNotifSettings       : () -> Unit = {},
+    onOpenPhonePermSettings   : () -> Unit = {},
+    onOpenCallLogPermSettings : () -> Unit = {},
     vm                    : DashboardViewModel = viewModel(),
     searchVm              : MasterSearchViewModel = viewModel(),
 ) {
@@ -74,7 +76,8 @@ fun DashboardScreen(
 
     // Defaults to ON when permission is granted. User can toggle OFF to pause
     // the feature without revoking the OS permission. Auto-disables if OS revokes.
-    var phoneEnabled   by remember(phoneStateGranted, callLogGranted) { mutableStateOf(phoneStateGranted && callLogGranted) }
+    var phoneStateEnabled by remember(phoneStateGranted) { mutableStateOf(phoneStateGranted) }
+    var callLogEnabled    by remember(callLogGranted)   { mutableStateOf(callLogGranted) }
     var notifEnabled   by remember(notifGranted)   { mutableStateOf(notifGranted) }
     var overlayEnabled by remember(overlayGranted) { mutableStateOf(overlayGranted) }
 
@@ -91,51 +94,56 @@ fun DashboardScreen(
                 modifier             = Modifier.widthIn(max = 280.dp),
             ) {
                 CrmDrawerContent(
-                    isDark              = isDark,
-                    phoneEnabled        = phoneEnabled,
-                    notifEnabled        = notifEnabled,
-                    overlayEnabled      = overlayEnabled,
-                    phoneStateGranted   = phoneStateGranted && callLogGranted,
-                    notifGranted        = notifGranted,
-                    overlayGranted      = overlayGranted,
-                    onToggleTheme       = { onToggleTheme() },   // NO close — drawer stays open
-                    onSetPhoneEnabled   = { enabled ->
-                        if (!(phoneStateGranted && callLogGranted)) {
-                            // Permission not granted — always open app Settings
-                            // (OS dialog is shown once on launch; after denial the only
-                            //  path is Settings → Apps → Octfis → Permissions)
-                            onOpenAppSettings()
+                    isDark                    = isDark,
+                    phoneStateEnabled         = phoneStateEnabled,
+                    callLogEnabled            = callLogEnabled,
+                    notifEnabled              = notifEnabled,
+                    overlayEnabled            = overlayEnabled,
+                    phoneStateGranted         = phoneStateGranted,
+                    callLogGranted            = callLogGranted,
+                    notifGranted              = notifGranted,
+                    overlayGranted            = overlayGranted,
+                    onToggleTheme             = { onToggleTheme() },
+                    onSetPhoneStateEnabled    = { enabled ->
+                        if (!phoneStateGranted) {
+                            onOpenPhonePermSettings()
                         } else if (enabled) {
-                            phoneEnabled = true
+                            phoneStateEnabled = true
                         } else {
-                            // Granted but user is turning it OFF — go to Settings to revoke
-                            onOpenAppSettings()
+                            onOpenPhonePermSettings()
                         }
                     },
-                    onSetNotifEnabled   = { enabled ->
+                    onSetCallLogEnabled       = { enabled ->
+                        if (!callLogGranted) {
+                            onOpenCallLogPermSettings()
+                        } else if (enabled) {
+                            callLogEnabled = true
+                        } else {
+                            onOpenCallLogPermSettings()
+                        }
+                    },
+                    onSetNotifEnabled         = { enabled ->
                         if (!notifGranted) {
-                            // Not granted — open directly to Octfis notification settings
                             onOpenNotifSettings()
                         } else if (enabled) {
                             notifEnabled = true
                         } else {
-                            // Granted but turning OFF — open notification settings to revoke
                             onOpenNotifSettings()
                         }
                     },
-                    onSetOverlayEnabled = { enabled ->
+                    onSetOverlayEnabled       = { enabled ->
                         if (!overlayGranted) {
-                            // Overlay has its own dedicated Settings page for both grant & revoke
                             onRequestOverlay()
                         } else if (enabled) {
                             overlayEnabled = true
                         } else {
-                            // Granted but user is turning it OFF — go to overlay Settings to revoke
                             onRequestOverlay()
                         }
                     },
-                    onOpenAppSettings   = onOpenAppSettings,
-                    onOpenNotifSettings = onOpenNotifSettings,
+                    onOpenAppSettings         = onOpenAppSettings,
+                    onOpenNotifSettings       = onOpenNotifSettings,
+                    onOpenPhonePermSettings   = onOpenPhonePermSettings,
+                    onOpenCallLogPermSettings = onOpenCallLogPermSettings,
                     onLogout = {
                         scope.launch {
                             drawerState.close()
@@ -364,20 +372,25 @@ fun DashboardScreen(
 
 @Composable
 private fun CrmDrawerContent(
-    isDark              : Boolean,
-    phoneEnabled        : Boolean,
-    notifEnabled        : Boolean,
-    overlayEnabled      : Boolean,
-    phoneStateGranted   : Boolean,
-    notifGranted        : Boolean,
-    overlayGranted      : Boolean,
-    onToggleTheme       : () -> Unit,
-    onSetPhoneEnabled   : (Boolean) -> Unit,
-    onSetNotifEnabled   : (Boolean) -> Unit,
-    onSetOverlayEnabled : (Boolean) -> Unit,
-    onOpenAppSettings   : () -> Unit,
-    onOpenNotifSettings : () -> Unit,
-    onLogout            : () -> Unit,
+    isDark                    : Boolean,
+    phoneStateEnabled         : Boolean,
+    callLogEnabled            : Boolean,
+    notifEnabled              : Boolean,
+    overlayEnabled            : Boolean,
+    phoneStateGranted         : Boolean,
+    callLogGranted            : Boolean,
+    notifGranted              : Boolean,
+    overlayGranted            : Boolean,
+    onToggleTheme             : () -> Unit,
+    onSetPhoneStateEnabled    : (Boolean) -> Unit,
+    onSetCallLogEnabled       : (Boolean) -> Unit,
+    onSetNotifEnabled         : (Boolean) -> Unit,
+    onSetOverlayEnabled       : (Boolean) -> Unit,
+    onOpenAppSettings         : () -> Unit,
+    onOpenNotifSettings       : () -> Unit,
+    onOpenPhonePermSettings   : () -> Unit,
+    onOpenCallLogPermSettings : () -> Unit,
+    onLogout                  : () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxHeight()) {
         // ── Header ────────────────────────────────────────────────────────
@@ -415,14 +428,26 @@ private fun CrmDrawerContent(
 
         DrawerSwitchRow(
             icon     = Icons.Default.Phone,
-            label    = "Phone & Call Log",
+            label    = "Phone State",
             subtitle = when {
                 !phoneStateGranted -> "Tap to enable in Settings"
-                phoneEnabled       -> "Active — tap to disable in Settings"
+                phoneStateEnabled  -> "Active — tap to disable in Settings"
                 else               -> "Granted but disabled"
             },
-            checked         = phoneEnabled && phoneStateGranted,
-            onCheckedChange = onSetPhoneEnabled,
+            checked         = phoneStateEnabled && phoneStateGranted,
+            onCheckedChange = onSetPhoneStateEnabled,
+        )
+
+        DrawerSwitchRow(
+            icon     = Icons.Default.PhoneCallback,
+            label    = "Call Log",
+            subtitle = when {
+                !callLogGranted -> "Tap to enable in Settings"
+                callLogEnabled  -> "Active — tap to disable in Settings"
+                else            -> "Granted but disabled"
+            },
+            checked         = callLogEnabled && callLogGranted,
+            onCheckedChange = onSetCallLogEnabled,
         )
 
         DrawerSwitchRow(
