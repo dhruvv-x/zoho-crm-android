@@ -39,7 +39,8 @@ data class CrmCall(
     val zohoId        : String,
     val subject       : String,
     val callStartTime : String = "",
-    val duration      : String = "",
+    val duration      : String = "",   // display format "MM:SS" — for list/detail only
+    val durationRaw   : String = "",   // original "HH:MM" from Zoho — used when saving back
     val callType      : String = "Outbound",
     val status        : String = "Scheduled",
     val description   : String = "",

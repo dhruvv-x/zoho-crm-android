@@ -20,7 +20,7 @@ class TaskRepository(private val api: ZohoApiService) {
         ownerId     = z.owner?.id.orEmpty(),
         relatedTo   = z.whatId?.name.orEmpty(),
         contactName = z.whoId?.name.orEmpty(),
-        remindAt    = "",  // FIX: remindAt is FlexibleReminder? object, not used in UI
+        remindAt    = "",  // FlexibleReminder? object, not used in UI
         closedTime  = z.closedTime.orEmpty(),
     )
 
@@ -71,11 +71,13 @@ class TaskRepository(private val api: ZohoApiService) {
     ): Result<Unit> = runCatching {
         val record = buildMap<String, Any> {
             put("Subject",     subject)
-            put("Due_Date",    dueDate)
-            put("Status",      status)
-            put("Priority",    priority)
-            put("Description", description)
-            if (ownerId.isNotBlank()) put("Owner", mapOf("id" to ownerId))
+            // FIX: guard with isNotBlank() — sending an empty string for a date
+            // field causes Zoho to return "invalid data"
+            if (dueDate.isNotBlank())     put("Due_Date",    dueDate)
+            if (status.isNotBlank())      put("Status",      status)
+            if (priority.isNotBlank())    put("Priority",    priority)
+            if (description.isNotBlank()) put("Description", description)
+            if (ownerId.isNotBlank())     put("Owner",       mapOf("id" to ownerId))
         }
         val r = api.updateTask(zohoId, mapOf("data" to listOf(record)))
         if (r.data?.firstOrNull()?.status != "success")

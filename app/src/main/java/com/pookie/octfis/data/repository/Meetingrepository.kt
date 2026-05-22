@@ -12,8 +12,11 @@ class MeetingRepository(private val api: ZohoApiService) {
     private fun map(z: com.pookie.octfis.data.remote.dto.ZohoEvent) = Meeting(
         zohoId        = z.id,
         title         = z.title.orEmpty().ifEmpty { "(No Title)" },
-        startDateTime = z.startDateTime.orEmpty(),
-        endDateTime   = z.endDateTime.orEmpty(),
+        // FIX: take(19) strips the timezone offset Zoho appends (e.g. "+05:30").
+        // Zoho's write API expects exactly "yyyy-MM-ddTHH:mm:ss" — sending the
+        // offset back causes "invalid data" on update.
+        startDateTime = z.startDateTime?.take(19).orEmpty(),
+        endDateTime   = z.endDateTime?.take(19).orEmpty(),
         description   = z.description.orEmpty(),
         location      = z.location.orEmpty(),
         ownerName     = z.owner?.name.orEmpty(),
@@ -73,9 +76,10 @@ class MeetingRepository(private val api: ZohoApiService) {
             put("Event_Title",    title)
             put("Start_DateTime", startDateTime)
             put("End_DateTime",   endDateTime)
-            put("Description",    description)
-            put("Location",       location)
-            if (ownerId.isNotBlank()) put("Owner", mapOf("id" to ownerId))
+            // FIX: guard optional fields with isNotBlank() — consistent with createMeeting
+            if (description.isNotBlank()) put("Description", description)
+            if (location.isNotBlank())    put("Location",    location)
+            if (ownerId.isNotBlank())     put("Owner",       mapOf("id" to ownerId))
         }
         val r = api.updateEvent(zohoId, mapOf("data" to listOf(record)))
         if (r.data?.firstOrNull()?.status != "success")

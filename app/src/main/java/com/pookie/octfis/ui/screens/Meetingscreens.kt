@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.pookie.octfis.data.repository.MeetingRepository
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
@@ -34,7 +33,6 @@ fun MeetingDetailScreen(
     vm: MeetingsViewModel = viewModel(),
     detailVm: MeetingDetailViewModel = viewModel(factory = MeetingDetailViewModel.Factory(meetingId)),
 ) {
-    // FIX: Use MeetingDetailViewModel (fetches from API) instead of cache lookup
     val detailState by detailVm.uiState.collectAsState()
     val meeting = (detailState as? MeetingDetailUiState.Success)?.meeting
 
@@ -47,6 +45,22 @@ fun MeetingDetailScreen(
             is MeetingActionState.Done  -> { vm.resetActionState(); navController.popBackStack() }
             is MeetingActionState.Error -> { snackbarHost.showSnackbar(s.message); vm.resetActionState() }
             else -> Unit
+        }
+    }
+
+    // ✅ FIX: observe the refresh signal set by EditMeetingScreen after a successful save
+    val shouldRefresh by navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow("shouldRefresh", false)
+        ?.collectAsState()
+        ?: remember { mutableStateOf(false) }
+
+    LaunchedEffect(shouldRefresh) {
+        if (shouldRefresh == true) {
+            detailVm.load()
+            navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.set("shouldRefresh", false)
         }
     }
 
@@ -98,7 +112,6 @@ fun MeetingDetailScreen(
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
 
-        // Loading state
         if (detailState is MeetingDetailUiState.Loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = CrmPrimary)
@@ -106,13 +119,12 @@ fun MeetingDetailScreen(
             return@Scaffold
         }
 
-        // Error state
         if (detailState is MeetingDetailUiState.Error || meeting == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
                 Text(
-                    text = (detailState as? MeetingDetailUiState.Error)?.message ?: "Meeting not found",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp)
+                    text     = (detailState as? MeetingDetailUiState.Error)?.message ?: "Meeting not found",
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
                 )
             }
             return@Scaffold
@@ -134,15 +146,15 @@ fun MeetingDetailScreen(
             SectionHeader("Meeting Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    FormRow("Title",       meeting.title.ifEmpty { "—" })
+                    FormRow("Title",        meeting.title.ifEmpty { "—" })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Start",       meeting.startDateTime.replace("T", " ").ifEmpty { "—" })
+                    FormRow("Start",        meeting.startDateTime.replace("T", " ").ifEmpty { "—" })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("End",         meeting.endDateTime.replace("T", " ").ifEmpty { "—" })
+                    FormRow("End",          meeting.endDateTime.replace("T", " ").ifEmpty { "—" })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Location",    meeting.location.ifEmpty { "—" })
+                    FormRow("Location",     meeting.location.ifEmpty { "—" })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
-                    FormRow("Owner",       meeting.ownerName.ifEmpty { "—" })
+                    FormRow("Owner",        meeting.ownerName.ifEmpty { "—" })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp, modifier = Modifier.padding(horizontal = 16.dp))
                     FormRow("Participants", meeting.participants.ifEmpty { "—" })
                 }
@@ -222,7 +234,7 @@ fun CreateMeetingScreen(
             SectionHeader("Meeting Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    ActivityTextField("Title",          title,         "Enter meeting title", required = true) { title = it }
+                    ActivityTextField("Title",           title,         "Enter meeting title", required = true) { title = it }
                     ActivityDivider()
                     ActivityTextField("Start Date/Time", startDateTime, "YYYY-MM-DDTHH:MM:SS", required = true) { startDateTime = it }
                     ActivityDivider()
@@ -259,24 +271,47 @@ fun EditMeetingScreen(
     navController: NavController,
     meetingId: String,
     vm: MeetingFormViewModel = viewModel(),
+    detailVm: MeetingDetailViewModel = viewModel(factory = MeetingDetailViewModel.Factory(meetingId)),
 ) {
-    val meeting = MeetingRepository.cache.firstOrNull { it.zohoId == meetingId }
+    val detailState by detailVm.uiState.collectAsState()
+    val meeting = (detailState as? MeetingDetailUiState.Success)?.meeting
 
-    var title         by remember { mutableStateOf(meeting?.title ?: "") }
-    var startDateTime by remember { mutableStateOf(meeting?.startDateTime ?: "") }
-    var endDateTime   by remember { mutableStateOf(meeting?.endDateTime ?: "") }
-    var location      by remember { mutableStateOf(meeting?.location ?: "") }
-    var description   by remember { mutableStateOf(meeting?.description ?: "") }
-    var selectedOwner by remember { mutableStateOf(Pair("", meeting?.ownerName ?: "-None-")) }
+    var title         by remember { mutableStateOf("") }
+    var startDateTime by remember { mutableStateOf("") }
+    var endDateTime   by remember { mutableStateOf("") }
+    var location      by remember { mutableStateOf("") }
+    var description   by remember { mutableStateOf("") }
+    var selectedOwner by remember { mutableStateOf(Pair("", "-None-")) }
+    var fieldsInitialised by remember { mutableStateOf(false) }
 
     val saveState      by vm.saveState.collectAsState()
     val owners         by vm.owners.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val snackbarHost    = remember { SnackbarHostState() }
 
+    LaunchedEffect(meeting, owners) {
+        if (meeting != null && !fieldsInitialised) {
+            title         = meeting.title
+            startDateTime = meeting.startDateTime
+            endDateTime   = meeting.endDateTime
+            location      = meeting.location
+            description   = meeting.description
+            val ownerPair = owners.firstOrNull { it.second == meeting.ownerName }
+            selectedOwner = ownerPair ?: Pair(meeting.ownerId, meeting.ownerName.ifEmpty { "-None-" })
+            fieldsInitialised = true
+        }
+    }
+
     LaunchedEffect(saveState) {
         when (val s = saveState) {
-            is MeetingActionState.Done  -> navController.popBackStack()
+            is MeetingActionState.Done  -> {
+                // ✅ FIX: signal the detail screen to re-fetch instead of calling
+                // detailVm.load() here (which fires on a dying VM scope and is discarded)
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("shouldRefresh", true)
+                navController.popBackStack()
+            }
             is MeetingActionState.Error -> { snackbarHost.showSnackbar(s.message); vm.resetState() }
             else -> Unit
         }
@@ -295,11 +330,11 @@ fun EditMeetingScreen(
                 actions = {
                     val saving = saveState is MeetingActionState.Working
                     Button(
-                        onClick  = {
+                        onClick = {
                             if (!saving && meeting != null)
                                 vm.update(meeting.zohoId, title, startDateTime, endDateTime, location, description, selectedOwner.first)
                         },
-                        enabled  = !saving,
+                        enabled  = !saving && meeting != null,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
@@ -313,9 +348,21 @@ fun EditMeetingScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        if (meeting == null) {
+
+        if (detailState is MeetingDetailUiState.Loading) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CrmPrimary)
+            }
+            return@Scaffold
+        }
+
+        if (detailState is MeetingDetailUiState.Error) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Meeting not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                Text(
+                    text     = (detailState as MeetingDetailUiState.Error).message,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
             }
             return@Scaffold
         }
@@ -324,7 +371,7 @@ fun EditMeetingScreen(
             SectionHeader("Meeting Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    ActivityTextField("Title",          title,         "Enter meeting title", required = true) { title = it }
+                    ActivityTextField("Title",           title,         "Enter meeting title", required = true) { title = it }
                     ActivityDivider()
                     ActivityTextField("Start Date/Time", startDateTime, "YYYY-MM-DDTHH:MM:SS", required = true) { startDateTime = it }
                     ActivityDivider()

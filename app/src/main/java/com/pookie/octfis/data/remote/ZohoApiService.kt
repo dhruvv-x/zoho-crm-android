@@ -81,10 +81,6 @@ interface ZohoApiService {
         @Query("sort_order") sortOrder: String = "desc",
     ): QuotesResponse
 
-    // FIXED: Removed ?fields= param entirely.
-    // When fields= is specified, Zoho treats Product_Details as a subform and
-    // silently excludes it from the response — so product names never arrive.
-    // Without the fields param, Zoho returns all fields including Product_Details.
     @GET("Quotes/{id}")
     suspend fun getQuoteById(@Path("id") id: String): QuotesResponse
 
@@ -133,7 +129,7 @@ interface ZohoApiService {
     @DELETE("Tasks/{id}")
     suspend fun deleteTask(@Path("id") id: String): CreateRecordResponse
 
-    // ── Events ────────────────────────────────────────────────────────────────
+    // ── Events (Meetings) ─────────────────────────────────────────────────────
 
     @GET("Events")
     suspend fun getEvents(
@@ -181,8 +177,12 @@ interface ZohoApiService {
     @POST("Calls")
     suspend fun createCall(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
 
-    @PUT("Calls")
-    suspend fun updateCall(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
+    // ✅ FIX: was @PUT("Calls") with no {id} — Zoho requires the record ID in the path
+    @PUT("Calls/{id}")
+    suspend fun updateCall(
+        @Path("id") id: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+    ): CreateRecordResponse
 
     @DELETE("Calls/{id}")
     suspend fun deleteCall(@Path("id") id: String): CreateRecordResponse

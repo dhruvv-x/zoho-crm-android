@@ -30,7 +30,6 @@ fun TaskDetailScreen(
     vm: TasksViewModel = viewModel(),
     detailVm: TaskDetailViewModel = viewModel(factory = TaskDetailViewModel.Factory(taskId)),
 ) {
-    // FIX: Use TaskDetailViewModel (fetches from API) instead of cache lookup
     val detailState by detailVm.uiState.collectAsState()
     val task = (detailState as? TaskDetailUiState.Success)?.task
 
@@ -43,6 +42,22 @@ fun TaskDetailScreen(
             is TaskActionState.Done  -> { vm.resetActionState(); navController.popBackStack() }
             is TaskActionState.Error -> { snackbarHost.showSnackbar(s.message); vm.resetActionState() }
             else -> Unit
+        }
+    }
+
+    // ✅ FIX: observe the refresh signal set by EditTaskScreen after a successful save
+    val shouldRefresh by navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow("shouldRefresh", false)
+        ?.collectAsState()
+        ?: remember { mutableStateOf(false) }
+
+    LaunchedEffect(shouldRefresh) {
+        if (shouldRefresh == true) {
+            detailVm.load()
+            navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.set("shouldRefresh", false)
         }
     }
 
@@ -94,7 +109,6 @@ fun TaskDetailScreen(
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
 
-        // Loading state
         if (detailState is TaskDetailUiState.Loading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = CrmPrimary)
@@ -102,7 +116,6 @@ fun TaskDetailScreen(
             return@Scaffold
         }
 
-        // Error state
         if (detailState is TaskDetailUiState.Error || task == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
                 Text(

@@ -13,14 +13,11 @@ class CallRepository(
     }
 
     /**
-     * ISSUE 4 FIX — duration display format.
+     * duration      → display-only "MM:SS" built from Call_Duration_In_Seconds (or raw fallback)
+     * durationRaw   → original "HH:MM" string from Zoho, sent back unchanged on create/update
      *
-     * Zoho returns two fields for duration:
-     *   Call_Duration            → "HH:MM" string (e.g. "00:02" = 2 minutes) — confusing
-     *   Call_Duration_In_Seconds → Int (e.g. 120 = 2 minutes)                — precise
-     *
-     * We prefer Call_Duration_In_Seconds and convert it to "MM:SS" (e.g. "02:00").
-     * Fall back to the raw Call_Duration string only when seconds are unavailable.
+     * Zoho's write API expects Call_Duration in "HH:MM" format.
+     * The edit form pre-fills from durationRaw so the round-trip is lossless.
      */
     private fun map(
         z: com.pookie.octfis.data.remote.dto.ZohoCall
@@ -44,6 +41,10 @@ class CallRepository(
                 z.duration.orEmpty()
             }
         },
+
+        // FIX: preserve the raw "HH:MM" value Zoho sends so the edit form can
+        // send it back unchanged — avoids "invalid data" on update.
+        durationRaw = z.duration.orEmpty(),
 
         callType = z.callType
             .orEmpty()
@@ -221,7 +222,7 @@ class CallRepository(
 
         val record = buildMap<String, Any> {
 
-            put("id", zohoId)
+            // zohoId goes in the URL path via @PUT("Calls/{id}"), not in the body
 
             put("Subject", subject)
 
@@ -266,7 +267,7 @@ class CallRepository(
             "PAYLOAD = $payload"
         )
 
-        val r = api.updateCall(payload)
+        val r = api.updateCall(zohoId, payload)
 
         android.util.Log.d(
             "ZOHO_UPDATE",

@@ -88,7 +88,7 @@ fun CallListScreen(
                 ) { Icon(Icons.Default.Add, "Create Call") }
             }
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
@@ -255,10 +255,10 @@ private fun CallRow(call: CrmCall, onClick: () -> Unit, onEdit: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (call.callType.lowercase() == "inbound") Icons.Default.CallReceived else Icons.Default.CallMade,
+                imageVector        = if (call.callType.lowercase() == "inbound") Icons.Default.CallReceived else Icons.Default.CallMade,
                 contentDescription = null,
-                tint     = typeColor,
-                modifier = Modifier.size(22.dp),
+                tint               = typeColor,
+                modifier           = Modifier.size(22.dp),
             )
         }
 
@@ -305,8 +305,11 @@ fun CallDetailScreen(
     navController: NavController,
     callId: String,
     vm: CallsViewModel = viewModel(),
+    detailVm: CallDetailViewModel = viewModel(factory = CallDetailViewModel.Factory(callId)),
 ) {
-    val call = CallRepository.cache.firstOrNull { it.zohoId == callId }
+    val detailState by detailVm.uiState.collectAsState()
+    val call = (detailState as? CallDetailUiState.Success)?.call
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     val actionState by vm.actionState.collectAsState()
     val snackbarHost = remember { SnackbarHostState() }
@@ -316,6 +319,22 @@ fun CallDetailScreen(
             is CallActionState.Done  -> { vm.resetActionState(); navController.popBackStack() }
             is CallActionState.Error -> { snackbarHost.showSnackbar(s.message); vm.resetActionState() }
             else -> Unit
+        }
+    }
+
+    // ✅ FIX: observe the refresh signal set by EditCallScreen after a successful save
+    val shouldRefresh by navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow("shouldRefresh", false)
+        ?.collectAsState()
+        ?: remember { mutableStateOf(false) }
+
+    LaunchedEffect(shouldRefresh) {
+        if (shouldRefresh == true) {
+            detailVm.load()
+            navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.set("shouldRefresh", false)
         }
     }
 
@@ -362,11 +381,23 @@ fun CallDetailScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        if (call == null) {
+
+        if (detailState is CallDetailUiState.Loading) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CrmPrimary)
+            }
+            return@Scaffold
+        }
+
+        if (detailState is CallDetailUiState.Error || call == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Call not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                Text(
+                    text     = (detailState as? CallDetailUiState.Error)?.message ?: "Call not found",
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
             }
             return@Scaffold
         }
@@ -461,9 +492,7 @@ fun CreateCallScreen(
                 actions = {
                     val saving = saveState is CallActionState.Working
                     Button(
-                        onClick  = {
-                            if (!saving) vm.create(subject, startTime, duration, callType, status, description, selectedOwner.first)
-                        },
+                        onClick  = { if (!saving) vm.create(subject, startTime, duration, callType, status, description, selectedOwner.first) },
                         enabled  = !saving,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
@@ -476,7 +505,7 @@ fun CreateCallScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             SectionHeader("Call Information")
@@ -490,7 +519,7 @@ fun CreateCallScreen(
                     ActivityDivider()
                     ActivityTextField("Start Time", startTime, "YYYY-MM-DDTHH:MM:SS") { startTime = it }
                     ActivityDivider()
-                    ActivityTextField("Duration",   duration,  "e.g. 00:05:00")       { duration = it }
+                    ActivityTextField("Duration",   duration,  "e.g. 00:05")          { duration = it }
                     ActivityDivider()
                     ActivityDropdown(
                         label   = "Owner",
@@ -523,25 +552,49 @@ fun EditCallScreen(
     navController: NavController,
     callId: String,
     vm: CallFormViewModel = viewModel(),
+    detailVm: CallDetailViewModel = viewModel(factory = CallDetailViewModel.Factory(callId)),
 ) {
-    val call = CallRepository.cache.firstOrNull { it.zohoId == callId }
+    val detailState by detailVm.uiState.collectAsState()
+    val call = (detailState as? CallDetailUiState.Success)?.call
 
-    var subject     by remember { mutableStateOf(call?.subject ?: "") }
-    var startTime   by remember { mutableStateOf(call?.callStartTime ?: "") }
-    var duration    by remember { mutableStateOf(call?.duration ?: "") }
-    var callType    by remember { mutableStateOf(call?.callType ?: "Outbound") }
-    var status      by remember { mutableStateOf(call?.status ?: "Scheduled") }
-    var description by remember { mutableStateOf(call?.description ?: "") }
-    var selectedOwner by remember { mutableStateOf(Pair("", call?.ownerName ?: "-None-")) }
+    var subject     by remember { mutableStateOf("") }
+    var startTime   by remember { mutableStateOf("") }
+    var duration    by remember { mutableStateOf("") }
+    var callType    by remember { mutableStateOf("Outbound") }
+    var status      by remember { mutableStateOf("Scheduled") }
+    var description by remember { mutableStateOf("") }
+    var selectedOwner by remember { mutableStateOf(Pair("", "-None-")) }
+    var fieldsInitialised by remember { mutableStateOf(false) }
 
     val saveState      by vm.saveState.collectAsState()
     val owners         by vm.owners.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val snackbarHost    = remember { SnackbarHostState() }
 
+    LaunchedEffect(call, owners) {
+        if (call != null && !fieldsInitialised) {
+            subject       = call.subject
+            startTime     = call.callStartTime
+            duration      = call.durationRaw
+            callType      = call.callType
+            status        = call.status
+            description   = call.description
+            val ownerPair = owners.firstOrNull { it.second == call.ownerName }
+            selectedOwner = ownerPair ?: Pair(call.ownerId, call.ownerName.ifEmpty { "-None-" })
+            fieldsInitialised = true
+        }
+    }
+
     LaunchedEffect(saveState) {
         when (val s = saveState) {
-            is CallActionState.Done  -> navController.popBackStack()
+            is CallActionState.Done  -> {
+                // ✅ FIX: signal the detail screen to re-fetch instead of calling
+                // detailVm.load() here (which fires on a dying VM scope and is discarded)
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("shouldRefresh", true)
+                navController.popBackStack()
+            }
             is CallActionState.Error -> { snackbarHost.showSnackbar(s.message); vm.resetState() }
             else -> Unit
         }
@@ -560,11 +613,11 @@ fun EditCallScreen(
                 actions = {
                     val saving = saveState is CallActionState.Working
                     Button(
-                        onClick  = {
+                        onClick = {
                             if (!saving && call != null)
                                 vm.update(call.zohoId, subject, startTime, duration, callType, status, description, selectedOwner.first)
                         },
-                        enabled  = !saving,
+                        enabled  = !saving && call != null,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
@@ -576,11 +629,23 @@ fun EditCallScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        if (call == null) {
+
+        if (detailState is CallDetailUiState.Loading) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CrmPrimary)
+            }
+            return@Scaffold
+        }
+
+        if (detailState is CallDetailUiState.Error) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Call not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                Text(
+                    text     = (detailState as CallDetailUiState.Error).message,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
             }
             return@Scaffold
         }
@@ -597,7 +662,7 @@ fun EditCallScreen(
                     ActivityDivider()
                     ActivityTextField("Start Time", startTime, "YYYY-MM-DDTHH:MM:SS") { startTime = it }
                     ActivityDivider()
-                    ActivityTextField("Duration",   duration,  "e.g. 00:05:00")       { duration = it }
+                    ActivityTextField("Duration",   duration,  "e.g. 00:05")          { duration = it }
                     ActivityDivider()
                     ActivityDropdown(
                         label   = "Owner",

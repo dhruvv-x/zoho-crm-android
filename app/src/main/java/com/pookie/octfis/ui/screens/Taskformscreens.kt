@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.pookie.octfis.data.repository.TaskRepository
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 
@@ -78,7 +77,7 @@ fun CreateTaskScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
@@ -86,9 +85,9 @@ fun CreateTaskScreen(
             SectionHeader("Task Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    ActivityTextField("Subject",     subject,     "Enter task subject", required = true) { subject = it }
+                    ActivityTextField("Subject",  subject,  "Enter task subject", required = true) { subject = it }
                     ActivityDivider()
-                    ActivityTextField("Due Date",    dueDate,     "YYYY-MM-DD")                          { dueDate = it }
+                    ActivityTextField("Due Date", dueDate,  "YYYY-MM-DD")                          { dueDate = it }
                     ActivityDivider()
                     ActivityDropdown("Status",   status,   statusList,   optionsLoading)  { status = it }
                     ActivityDivider()
@@ -123,15 +122,18 @@ fun EditTaskScreen(
     navController: NavController,
     taskId: String,
     vm: TaskFormViewModel = viewModel(),
+    detailVm: TaskDetailViewModel = viewModel(factory = TaskDetailViewModel.Factory(taskId)),
 ) {
-    val task = TaskRepository.cache.firstOrNull { it.id == taskId }
+    val detailState by detailVm.uiState.collectAsState()
+    val task = (detailState as? TaskDetailUiState.Success)?.task
 
-    var subject     by remember { mutableStateOf(task?.subject ?: "") }
-    var dueDate     by remember { mutableStateOf(task?.dueDate ?: "") }
-    var status      by remember { mutableStateOf(task?.status ?: "Not Started") }
-    var priority    by remember { mutableStateOf(task?.priority ?: "Normal") }
-    var description by remember { mutableStateOf(task?.description ?: "") }
-    var selectedOwner by remember { mutableStateOf(Pair("", task?.owner ?: "-None-")) }
+    var subject     by remember { mutableStateOf("") }
+    var dueDate     by remember { mutableStateOf("") }
+    var status      by remember { mutableStateOf("Not Started") }
+    var priority    by remember { mutableStateOf("Normal") }
+    var description by remember { mutableStateOf("") }
+    var selectedOwner by remember { mutableStateOf(Pair("", "-None-")) }
+    var fieldsInitialised by remember { mutableStateOf(false) }
 
     val saveState      by vm.saveState.collectAsState()
     val owners         by vm.owners.collectAsState()
@@ -140,9 +142,29 @@ fun EditTaskScreen(
     val optionsLoading by vm.optionsLoading.collectAsState()
     val snackbarHost    = remember { SnackbarHostState() }
 
+    LaunchedEffect(task, owners) {
+        if (task != null && !fieldsInitialised) {
+            subject     = task.subject
+            dueDate     = task.dueDate
+            status      = task.status
+            priority    = task.priority
+            description = task.description
+            val ownerPair = owners.firstOrNull { it.second == task.ownerName }
+            selectedOwner = ownerPair ?: Pair(task.ownerId, task.ownerName.ifEmpty { "-None-" })
+            fieldsInitialised = true
+        }
+    }
+
     LaunchedEffect(saveState) {
         when (val s = saveState) {
-            is TaskActionState.Done  -> navController.popBackStack()
+            is TaskActionState.Done  -> {
+                // ✅ FIX: signal the detail screen to re-fetch instead of calling
+                // detailVm.load() here (which fires on a dying VM scope and is discarded)
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("shouldRefresh", true)
+                navController.popBackStack()
+            }
             is TaskActionState.Error -> { snackbarHost.showSnackbar(s.message); vm.resetState() }
             else -> Unit
         }
@@ -161,11 +183,11 @@ fun EditTaskScreen(
                 actions = {
                     val saving = saveState is TaskActionState.Working
                     Button(
-                        onClick  = {
+                        onClick = {
                             if (!saving && task != null)
-                                vm.update(task.id, subject, dueDate, status, priority, description, selectedOwner.first)
+                                vm.update(task.zohoId, subject, dueDate, status, priority, description, selectedOwner.first)
                         },
-                        enabled  = !saving,
+                        enabled  = !saving && task != null,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
@@ -177,11 +199,23 @@ fun EditTaskScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        if (task == null) {
+
+        if (detailState is TaskDetailUiState.Loading) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CrmPrimary)
+            }
+            return@Scaffold
+        }
+
+        if (detailState is TaskDetailUiState.Error) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                Text("Task not found", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                Text(
+                    text     = (detailState as TaskDetailUiState.Error).message,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
             }
             return@Scaffold
         }
@@ -277,7 +311,7 @@ internal fun ActivityDropdown(
         Row(
             modifier          = Modifier
                 .fillMaxWidth()
-                .menuAnchor()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
