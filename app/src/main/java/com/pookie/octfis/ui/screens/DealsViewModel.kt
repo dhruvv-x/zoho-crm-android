@@ -51,6 +51,12 @@ class DealsViewModel : ViewModel() {
     private val _accountNames = MutableStateFlow<List<String>>(emptyList())
     val accountNames: StateFlow<List<String>> = _accountNames.asStateFlow()
 
+    // ── View mode — persists across navigation ────────────────────────────────
+    private val _isKanban = MutableStateFlow(false)
+    val isKanban: StateFlow<Boolean> = _isKanban.asStateFlow()
+
+    fun toggleViewMode() { _isKanban.value = !_isKanban.value }
+
     private val allDeals   = mutableListOf<Deal>()
     private var currentPage = 1
     private var loadingMore = false

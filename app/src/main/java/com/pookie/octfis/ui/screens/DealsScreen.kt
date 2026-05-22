@@ -81,7 +81,8 @@ fun DealsScreen(
     val listState      = rememberLazyListState()
     var searchActive   by remember { mutableStateOf(false) }
     var filterOpen     by remember { mutableStateOf(false) }
-    var viewMode       by remember { mutableStateOf(DealViewMode.LIST) }
+    val isKanban       by vm.isKanban.collectAsState()
+    val viewMode        = if (isKanban) DealViewMode.KANBAN else DealViewMode.LIST
     val focusRequester = remember { FocusRequester() }
     val isRefreshing   = uiState is DealsUiState.Loading
 
@@ -205,9 +206,7 @@ fun DealsScreen(
                         )
                     }
                     // ── View toggle ───────────────────────────────────────────
-                    IconButton(onClick = {
-                        viewMode = if (viewMode == DealViewMode.LIST) DealViewMode.KANBAN else DealViewMode.LIST
-                    }) {
+                    IconButton(onClick = { vm.toggleViewMode() }) {
                         Icon(
                             imageVector = if (viewMode == DealViewMode.LIST) Icons.Default.ViewKanban else Icons.Default.ViewList,
                             contentDescription = if (viewMode == DealViewMode.LIST) "Switch to Kanban" else "Switch to List",
