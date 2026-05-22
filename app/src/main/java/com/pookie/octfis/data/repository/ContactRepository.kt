@@ -103,6 +103,7 @@ class ContactRepository(private val api: ZohoApiService) {
                 accountZohoId  = accountZohoId,
                 title          = title,
                 department     = department,
+                contactOwner   = contactOwner,
                 leadSource     = leadSource,
                 description    = description,
                 mailingStreet  = mailingStreet,
@@ -174,6 +175,7 @@ class ContactRepository(private val api: ZohoApiService) {
                 accountZohoId  = accountZohoId,
                 title          = title,
                 department     = department,
+                contactOwner   = contactOwner,   // ← fix: was missing
                 leadSource     = leadSource,
                 description    = description,
                 mailingStreet  = mailingStreet,

@@ -58,10 +58,9 @@ class ContactsViewModel : ViewModel() {
         }
     }
 
-    // ON_RESUME: show cache instantly if available, avoiding a Zoho re-fetch
-    // right after create/edit (Zoho has a propagation delay of a few seconds).
+    // ON_RESUME: always sync from cache so edits/creates are reflected immediately
+    // without a full Zoho re-fetch (which has a propagation delay).
     fun loadIfEmpty() {
-        if (allContacts.isNotEmpty()) return  // already loaded — do nothing
         val cache = ContactRepository.cache
         if (cache.isNotEmpty()) {
             allContacts.clear()
