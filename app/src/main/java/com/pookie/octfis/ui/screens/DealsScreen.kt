@@ -2,10 +2,12 @@ package com.pookie.octfis.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -23,8 +25,12 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -34,9 +40,30 @@ import com.pookie.octfis.ui.components.CrmBottomBar
 import com.pookie.octfis.ui.components.CrmFilterSheet
 import com.pookie.octfis.ui.components.FilterChipRow
 import com.pookie.octfis.ui.theme.*
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+// ── View mode toggle ──────────────────────────────────────────────────────────
+private enum class DealViewMode { LIST, KANBAN }
+
+// ── Stage → color mapping (same vibe as Zoho) ────────────────────────────────
+private val stageColors = listOf(
+    Color(0xFFB35C00), // burnt orange
+    Color(0xFFD94F6B), // pink-red
+    Color(0xFF7B3FA0), // purple
+    Color(0xFF2E7D32), // green
+    Color(0xFF1565C0), // blue
+    Color(0xFF00838F), // teal
+    Color(0xFFF57C00), // amber
+    Color(0xFF558B2F), // olive green
+    Color(0xFF6A1B9A), // deep purple
+    Color(0xFF00695C), // dark teal
+)
+
+private fun colorForStage(stage: String, allStages: List<String>): Color {
+    val idx = allStages.indexOf(stage).coerceAtLeast(0)
+    return stageColors[idx % stageColors.size]
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +81,7 @@ fun DealsScreen(
     val listState      = rememberLazyListState()
     var searchActive   by remember { mutableStateOf(false) }
     var filterOpen     by remember { mutableStateOf(false) }
+    var viewMode       by remember { mutableStateOf(DealViewMode.LIST) }
     val focusRequester = remember { FocusRequester() }
     val isRefreshing   = uiState is DealsUiState.Loading
 
@@ -64,7 +92,7 @@ fun DealsScreen(
             last >= total - 8 && total > 0
         }
     }
-    LaunchedEffect(nearBottom) { if (nearBottom && !searchActive) vm.loadNextPage() }
+    LaunchedEffect(nearBottom) { if (nearBottom && !searchActive && viewMode == DealViewMode.LIST) vm.loadNextPage() }
     LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -76,6 +104,7 @@ fun DealsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // ── Filter sheet ──────────────────────────────────────────────────────────
     if (filterOpen) {
         CrmFilterSheet(
             title     = "Filter Deals",
@@ -98,7 +127,6 @@ fun DealsScreen(
                     onSelect = { vm.setFilter(filterState.copy(accountName = it)) },
                 )
             }
-            // Closing Date filter
             FilterChipRow(
                 label    = "Closing Date",
                 options  = ClosingDateFilter.values().map { it.label },
@@ -127,6 +155,7 @@ fun DealsScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
+            // ── Top bar ───────────────────────────────────────────────────────
             Row(
                 modifier          = Modifier
                     .fillMaxWidth()
@@ -175,6 +204,16 @@ fun DealsScreen(
                             color    = CrmSubtext,
                         )
                     }
+                    // ── View toggle ───────────────────────────────────────────
+                    IconButton(onClick = {
+                        viewMode = if (viewMode == DealViewMode.LIST) DealViewMode.KANBAN else DealViewMode.LIST
+                    }) {
+                        Icon(
+                            imageVector = if (viewMode == DealViewMode.LIST) Icons.Default.ViewKanban else Icons.Default.ViewList,
+                            contentDescription = if (viewMode == DealViewMode.LIST) "Switch to Kanban" else "Switch to List",
+                            tint = CrmPrimary,
+                        )
+                    }
                     IconButton(onClick = { searchActive = true }) {
                         Icon(Icons.Default.Search, "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -199,6 +238,7 @@ fun DealsScreen(
                 }
             }
 
+            // ── Content ───────────────────────────────────────────────────────
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh    = { vm.load() },
@@ -233,24 +273,9 @@ fun DealsScreen(
                                 Text("No results found", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             }
                         } else {
-                            LazyColumn(
-                                state          = listState,
-                                modifier       = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(vertical = 8.dp),
-                            ) {
-                                itemsIndexed(s.deals) { _, deal ->
-                                    DealRow(deal) {
-                                        navController.navigate(Screen.DealDetail.createRoute(deal.id))
-                                    }
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
-                                }
-                                if (s.hasMore && searchQuery.isBlank() && !filterState.isActive) {
-                                    item {
-                                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)
-                                        }
-                                    }
-                                }
+                            when (viewMode) {
+                                DealViewMode.LIST   -> DealsListView(s, searchQuery, filterState, listState, navController)
+                                DealViewMode.KANBAN -> DealsKanbanView(s.deals, stages, navController)
                             }
                         }
                     }
@@ -260,6 +285,240 @@ fun DealsScreen(
     }
 }
 
+// ── LIST VIEW (original, untouched) ──────────────────────────────────────────
+@Composable
+private fun DealsListView(
+    s            : DealsUiState.Success,
+    searchQuery  : String,
+    filterState  : DealFilterState,
+    listState    : androidx.compose.foundation.lazy.LazyListState,
+    navController: NavController,
+) {
+    LazyColumn(
+        state          = listState,
+        modifier       = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = 8.dp),
+    ) {
+        itemsIndexed(s.deals) { _, deal ->
+            DealRow(deal) {
+                navController.navigate(Screen.DealDetail.createRoute(deal.id))
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+        }
+        if (s.hasMore && searchQuery.isBlank() && !filterState.isActive) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = CrmPrimary, strokeWidth = 2.dp)
+                }
+            }
+        }
+    }
+}
+
+// ── KANBAN VIEW ───────────────────────────────────────────────────────────────
+@Composable
+private fun DealsKanbanView(
+    deals        : List<Deal>,
+    allStages    : List<String>,
+    navController: NavController,
+) {
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
+    val today         = remember { LocalDate.now() }
+
+    // Group deals by stage; preserve stage order from allStages
+    // If a deal's stage is not in allStages (e.g. "-None-"), put it in a fallback bucket
+    val stageOrder = if (allStages.isEmpty()) {
+        deals.map { it.stage }.filter { it.isNotBlank() && it != "-None-" }.distinct()
+    } else allStages
+
+    val grouped: Map<String, List<Deal>> = buildMap {
+        stageOrder.forEach { stage -> put(stage, deals.filter { it.stage == stage }) }
+        val others = deals.filter { it.stage == "-None-" || it.stage.isBlank() }
+        if (others.isNotEmpty()) put("-None-", others)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        grouped.entries.forEach { (stage, stageDeals) ->
+            val stageColor = colorForStage(stage, stageOrder)
+
+            // Total amount for this stage
+            val totalAmount = stageDeals.sumOf {
+                it.amount.replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
+            }
+
+            Column(
+                modifier = Modifier
+                    .width(220.dp)
+                    .fillMaxHeight()
+            ) {
+                // ── Column header ─────────────────────────────────────────────
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                        .background(stageColor)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text       = stage,
+                                color      = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize   = 13.sp,
+                                maxLines   = 1,
+                                overflow   = TextOverflow.Ellipsis,
+                                modifier   = Modifier.weight(1f),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            // Deal count badge
+                            Box(
+                                modifier         = Modifier
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.25f))
+                                    .padding(horizontal = 7.dp, vertical = 2.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text      = "${stageDeals.size}",
+                                    color     = Color.White,
+                                    fontSize  = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                        if (totalAmount > 0.0) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text      = "₹ ${"%.2f".format(totalAmount)}",
+                                color     = Color.White.copy(alpha = 0.92f),
+                                fontSize  = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
+                }
+
+                // ── Cards column ──────────────────────────────────────────────
+                LazyColumn(
+                    modifier       = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .clip(RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                    contentPadding = PaddingValues(vertical = 6.dp, horizontal = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    itemsIndexed(stageDeals) { _, deal ->
+                        KanbanDealCard(
+                            deal          = deal,
+                            stageColor    = stageColor,
+                            today         = today,
+                            dateFormatter = dateFormatter,
+                            onClick       = { navController.navigate(Screen.DealDetail.createRoute(deal.id)) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Kanban card ───────────────────────────────────────────────────────────────
+@Composable
+private fun KanbanDealCard(
+    deal         : Deal,
+    stageColor   : Color,
+    today        : LocalDate,
+    dateFormatter: DateTimeFormatter,
+    onClick      : () -> Unit,
+) {
+    val isOverdue = remember(deal.closingDate) {
+        if (deal.closingDate.isBlank()) false
+        else runCatching {
+            LocalDate.parse(deal.closingDate, dateFormatter).isBefore(today)
+        }.getOrDefault(false)
+    }
+
+    Card(
+        modifier  = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape     = RoundedCornerShape(8.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        // Colored left accent bar
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(stageColor)
+            )
+            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                // Deal name
+                Text(
+                    text       = deal.dealName.ifEmpty { "(No Name)" },
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize   = 13.sp,
+                    color      = MaterialTheme.colorScheme.onSurface,
+                    maxLines   = 2,
+                    overflow   = TextOverflow.Ellipsis,
+                )
+                // Owner
+                if (deal.dealOwner.isNotBlank() && deal.dealOwner != "-None-") {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text     = deal.dealOwner,
+                        fontSize = 11.sp,
+                        color    = CrmSubtext,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                // Account name
+                if (deal.accountName.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text     = deal.accountName,
+                        fontSize = 11.sp,
+                        color    = CrmPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                // Amount
+                if (deal.amount.isNotBlank()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text       = "₹ ${deal.amount}",
+                        fontSize   = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color      = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                // Closing date
+                if (deal.closingDate.isNotBlank()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        text     = deal.closingDate,
+                        fontSize = 11.sp,
+                        color    = if (isOverdue) CrmError else CrmSubtext,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── LIST ROW (original, untouched) ────────────────────────────────────────────
 @Composable
 private fun DealRow(deal: Deal, onClick: () -> Unit) {
     Row(
@@ -290,6 +549,5 @@ private fun DealRow(deal: Deal, onClick: () -> Unit) {
             }
             Text(deal.stage.ifEmpty { "-None-" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-
     }
 }
