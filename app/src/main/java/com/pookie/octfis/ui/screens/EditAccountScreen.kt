@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -35,6 +36,7 @@ sealed class EditAccountState {
     object Saved  : EditAccountState()
     data class Error(val message: String) : EditAccountState()
 }
+
 
 class EditAccountViewModel : ViewModel() {
 
@@ -136,33 +138,72 @@ fun EditAccountScreen(
     navController: NavController,
     zohoId: String,
     vm: EditAccountViewModel = viewModel(),
+    // ✅ FIX: fetch account from API instead of reading from cache
+    // (cache is empty when navigating directly to EditAccount or after app restart)
+    detailVm: AccountDetailViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                AccountDetailViewModel(zohoId) as T
+        }
+    ),
 ) {
-    val account = AccountRepository.cache.firstOrNull { it.zohoId == zohoId }
+    val detailState by detailVm.uiState.collectAsState()
+    val account = (detailState as? AccountDetailUiState.Success)?.account
 
-    var accountName    by remember { mutableStateOf(account?.name ?: "") }
-    var phone          by remember { mutableStateOf(account?.phone ?: "") }
-    var website        by remember { mutableStateOf(account?.website ?: "") }
-    var industry       by remember { mutableStateOf(account?.industry?.ifEmpty { "-None-" } ?: "-None-") }
-    var gstTreatment   by remember { mutableStateOf(account?.gstTreatment?.ifEmpty { "-None-" } ?: "-None-") }
-    var gstin          by remember { mutableStateOf(account?.gstin ?: "") }
-    var leadSource     by remember { mutableStateOf(account?.leadSource?.ifEmpty { "-None-" } ?: "-None-") }
-    var selectedOwner  by remember { mutableStateOf(Pair("", account?.accountOwner ?: "-None-")) }
-    var description    by remember { mutableStateOf(account?.description ?: "") }
-    var billingStreet  by remember { mutableStateOf(account?.billingStreet ?: "") }
-    var billingCity    by remember { mutableStateOf(account?.billingCity ?: "") }
-    var billingState   by remember { mutableStateOf(account?.billingState ?: "") }
-    var billingCode    by remember { mutableStateOf(account?.billingCode ?: "") }
-    var billingCountry by remember { mutableStateOf(account?.billingCountry ?: "") }
+    var accountName    by remember { mutableStateOf("") }
+    var phone          by remember { mutableStateOf("") }
+    var website        by remember { mutableStateOf("") }
+    var industry       by remember { mutableStateOf("-None-") }
+    var gstTreatment   by remember { mutableStateOf("-None-") }
+    var gstin          by remember { mutableStateOf("") }
+    var leadSource     by remember { mutableStateOf("-None-") }
+    var selectedOwner  by remember { mutableStateOf(Pair("", "-None-")) }
+    var description    by remember { mutableStateOf("") }
+    var billingStreet  by remember { mutableStateOf("") }
+    var billingCity    by remember { mutableStateOf("") }
+    var billingState   by remember { mutableStateOf("") }
+    var billingCode    by remember { mutableStateOf("") }
+    var billingCountry by remember { mutableStateOf("") }
+    var fieldsInitialised by remember { mutableStateOf(false) }
 
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val saveState      by vm.saveState.collectAsState()
     val snackbarHost    = remember { SnackbarHostState() }
 
+    // ✅ Populate form fields once the API fetch completes AND options have loaded
+    LaunchedEffect(account, options) {
+        if (account != null && !fieldsInitialised) {
+            accountName    = account.name
+            phone          = account.phone
+            website        = account.website
+            industry       = account.industry.ifEmpty { "-None-" }
+            gstTreatment   = account.gstTreatment.ifEmpty { "-None-" }
+            gstin          = account.gstin
+            leadSource     = account.leadSource.ifEmpty { "-None-" }
+            description    = account.description
+            billingStreet  = account.billingStreet
+            billingCity    = account.billingCity
+            billingState   = account.billingState
+            billingCode    = account.billingCode
+            billingCountry = account.billingCountry
+            val ownerPair  = options.owners.firstOrNull { it.second == account.accountOwner }
+            selectedOwner  = ownerPair ?: Pair("", account.accountOwner.ifEmpty { "-None-" })
+            fieldsInitialised = true
+        }
+    }
+
     LaunchedEffect(saveState) {
         when (val s = saveState) {
-            is EditAccountState.Saved        -> navController.popBackStack()
-            is EditAccountState.Error        -> { snackbarHost.showSnackbar(s.message); vm.resetState() }
+            is EditAccountState.Saved -> {
+                // ✅ FIX: signal the detail screen to re-fetch instead of relying on stale cache
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("shouldRefresh", true)
+                navController.popBackStack()
+            }
+            is EditAccountState.Error -> { snackbarHost.showSnackbar(s.message); vm.resetState() }
             else -> Unit
         }
     }
@@ -199,7 +240,7 @@ fun EditAccountScreen(
                                 billingCountry = billingCountry,
                             )
                         },
-                        enabled  = !saving,
+                        enabled  = !saving && account != null,
                         colors   = ButtonDefaults.buttonColors(containerColor = CrmPrimary),
                         shape    = RoundedCornerShape(6.dp),
                         modifier = Modifier.padding(end = 8.dp),
@@ -213,8 +254,29 @@ fun EditAccountScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
+
+        // Loading while fetching from API
+        if (detailState is AccountDetailUiState.Loading) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = CrmPrimary)
+            }
+            return@Scaffold
+        }
+
+        // Error state
+        if (detailState is AccountDetailUiState.Error) {
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                Text(
+                    text     = (detailState as AccountDetailUiState.Error).message,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -310,7 +372,7 @@ private fun EADropdown(
         Row(
             modifier          = Modifier
                 .fillMaxWidth()
-                .menuAnchor()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

@@ -10,13 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class PicklistOptions(
-    val industries    : List<String>            = emptyList(),
-    val gstTreatments : List<String>            = emptyList(),
-    val leadSources   : List<String>            = emptyList(),
-    val owners        : List<Pair<String, String>> = emptyList(), // id → display name
-)
-
 sealed class CreateAccountState {
     object Idle   : CreateAccountState()
     object Saving : CreateAccountState()

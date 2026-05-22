@@ -37,6 +37,22 @@ fun AccountDetailScreen(navController: NavController, zohoId: String) {
     )
     val uiState by vm.uiState.collectAsState()
 
+    // ✅ FIX: observe the refresh signal set by EditAccountScreen after a successful save
+    val shouldRefresh by navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow("shouldRefresh", false)
+        ?.collectAsState()
+        ?: remember { mutableStateOf(false) }
+
+    LaunchedEffect(shouldRefresh) {
+        if (shouldRefresh == true) {
+            vm.load()
+            navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.set("shouldRefresh", false)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -60,7 +76,7 @@ fun AccountDetailScreen(navController: NavController, zohoId: String) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
-       containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         when (val s = uiState) {
 
