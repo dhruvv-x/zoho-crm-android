@@ -83,7 +83,7 @@ class DealRepository(private val api: ZohoApiService) {
             if (description.isNotBlank())                           put("Description",            description)
             if (leadSource.isNotBlank() && leadSource != "-None-")  put("Lead_Source",            leadSource)
             if (leadSourceDrill.isNotBlank())                        put("Lead_Source_Drill_Down", leadSourceDrill)
-            if (dealOwner.isNotBlank())                              put("Owner",                  mapOf("id" to dealOwner))
+            if (dealOwner.isNotBlank() && dealOwner != "-None-" && dealOwner.toLongOrNull() != null) put("Owner", mapOf("id" to dealOwner))
         }
 
         Log.d("DEAL_DEBUG", "CREATE PAYLOAD: $record")
@@ -149,7 +149,7 @@ class DealRepository(private val api: ZohoApiService) {
             if (type.isNotBlank() && type != "-None-")              put("Type",                   type)
             if (leadSource.isNotBlank() && leadSource != "-None-")  put("Lead_Source",            leadSource)
             if (leadSourceDrill.isNotBlank())                        put("Lead_Source_Drill_Down", leadSourceDrill)
-            if (dealOwner.isNotBlank())                              put("Owner",                  mapOf("id" to dealOwner))
+            if (dealOwner.isNotBlank() && dealOwner != "-None-" && dealOwner.toLongOrNull() != null) put("Owner", mapOf("id" to dealOwner))
         }
 
         Log.d("DEAL_DEBUG", "UPDATE PAYLOAD: $record")
