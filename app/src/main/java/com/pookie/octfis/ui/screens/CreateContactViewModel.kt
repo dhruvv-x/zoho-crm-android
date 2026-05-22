@@ -39,7 +39,6 @@ class CreateContactViewModel : ViewModel() {
     private val _createState = MutableStateFlow<CreateContactState>(CreateContactState.Idle)
     val createState: StateFlow<CreateContactState> = _createState.asStateFlow()
 
-    // FIX: expose account lookup list so the screen can show a picker instead of a free-text field.
     private val _accountItems = MutableStateFlow<List<LookupItem>>(emptyList())
     val accountItems: StateFlow<List<LookupItem>> = _accountItems.asStateFlow()
 
@@ -74,7 +73,6 @@ class CreateContactViewModel : ViewModel() {
                 _optionsLoading.value = false
             }
 
-            // FIX: load accounts for the lookup picker
             loadAccountLookup()
         }
     }
@@ -100,10 +98,9 @@ class CreateContactViewModel : ViewModel() {
         firstName     : String,
         lastName      : String,
         phone         : String,
+        mobile        : String = "",
         email         : String,
         accountName   : String,
-        // FIX: accept the Zoho ID alongside the display name so the repository
-        // can send Account_Name as {"id": "..."} — the format Zoho requires.
         accountZohoId : String = "",
         title         : String,
         department    : String,
@@ -127,6 +124,7 @@ class CreateContactViewModel : ViewModel() {
                 firstName      = firstName,
                 lastName       = lastName,
                 phone          = phone,
+                mobile         = mobile,
                 email          = email,
                 accountName    = accountName,
                 accountZohoId  = accountZohoId,

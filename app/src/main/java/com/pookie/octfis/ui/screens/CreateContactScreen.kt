@@ -29,10 +29,9 @@ fun CreateContactScreen(
     var firstName      by remember { mutableStateOf("") }
     var lastName       by remember { mutableStateOf("") }
     var phone          by remember { mutableStateOf("") }
+    var mobile         by remember { mutableStateOf("") }
     var email          by remember { mutableStateOf("") }
     var accountName    by remember { mutableStateOf("") }
-    // FIX: track the Zoho ID alongside the display name so we can send the
-    // lookup object {"id": "..."} that Zoho requires for Account_Name.
     var accountZohoId  by remember { mutableStateOf("") }
     var title          by remember { mutableStateOf("") }
     var department     by remember { mutableStateOf("") }
@@ -50,7 +49,6 @@ fun CreateContactScreen(
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val createState    by vm.createState.collectAsState()
-    // FIX: collect the account list for the lookup picker
     val accountItems   by vm.accountItems.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -85,6 +83,7 @@ fun CreateContactScreen(
                                 firstName      = firstName,
                                 lastName       = lastName,
                                 phone          = phone,
+                                mobile         = mobile,
                                 email          = email,
                                 accountName    = accountName,
                                 accountZohoId  = accountZohoId,
@@ -131,17 +130,17 @@ fun CreateContactScreen(
             SectionHeader("Key Information")
             Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface) {
                 Column {
-                    ContactTextField("First Name",   firstName,   "Enter First Name")   { firstName = it }
+                    ContactTextField("First Name",  firstName,  "Enter First Name")  { firstName = it }
                     ContactDivider()
-                    ContactTextField("Last Name",    lastName,    "Enter Last Name")    { lastName = it }
+                    ContactTextField("Last Name",   lastName,   "Enter Last Name")   { lastName = it }
                     ContactDivider()
-                    ContactTextField("Phone",        phone,       "Enter Phone No")     { phone = it }
+                    ContactTextField("Phone",       phone,      "Enter Phone No")    { phone = it }
                     ContactDivider()
-                    ContactTextField("Email",        email,       "Enter Email ID")     { email = it }
+                    ContactTextField("Mobile",      mobile,     "Enter Mobile No")   { mobile = it }
+                    ContactDivider()
+                    ContactTextField("Email",       email,      "Enter Email ID")    { email = it }
                     ContactDivider()
 
-                    // FIX: was ContactTextField (free-text only) — changed to LookupField so
-                    // the user picks from real Zoho accounts and we capture their Zoho ID.
                     LookupField(
                         label       = "Account Name",
                         value       = accountName,
@@ -150,14 +149,14 @@ fun CreateContactScreen(
                         loading     = optionsLoading && accountItems.isEmpty(),
                         onSelect    = { item ->
                             accountName   = item.name
-                            accountZohoId = item.zohoId   // ← capture the Zoho ID
+                            accountZohoId = item.zohoId
                         },
                     )
 
                     ContactDivider()
-                    ContactTextField("Title",        title,       "Enter Job Title")    { title = it }
+                    ContactTextField("Title",       title,      "Enter Job Title")   { title = it }
                     ContactDivider()
-                    ContactTextField("Department",   department,  "Enter Department")   { department = it }
+                    ContactTextField("Department",  department, "Enter Department")  { department = it }
                     ContactDivider()
                     ContactDropdown(
                         label   = "Contact Owner",
@@ -173,7 +172,7 @@ fun CreateContactScreen(
                         loading = optionsLoading,
                     ) { leadSource = it }
                     ContactDivider()
-                    ContactTextField("Description",  description, "Short description")  { description = it }
+                    ContactTextField("Description", description, "Short description") { description = it }
                 }
             }
 

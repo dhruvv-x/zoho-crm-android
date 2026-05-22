@@ -36,24 +36,40 @@ class ContactsViewModel : ViewModel() {
     private val _filterState = MutableStateFlow(ContactFilterState())
     val filterState: StateFlow<ContactFilterState> = _filterState.asStateFlow()
 
-    private val _leadSources   = MutableStateFlow<List<String>>(emptyList())
+    private val _leadSources  = MutableStateFlow<List<String>>(emptyList())
     val leadSources: StateFlow<List<String>> = _leadSources.asStateFlow()
 
-    private val _accountNames  = MutableStateFlow<List<String>>(emptyList())
+    private val _accountNames = MutableStateFlow<List<String>>(emptyList())
     val accountNames: StateFlow<List<String>> = _accountNames.asStateFlow()
 
     private val allContacts = mutableListOf<Contact>()
-    private var currentPage  = 1
-    private var loadingMore  = false
+    private var currentPage = 1
+    private var loadingMore = false
 
     init { load() }
 
+    // Full refresh from Zoho — use for pull-to-refresh and manual refresh button only.
     fun load() {
         viewModelScope.launch {
             _uiState.value = ContactsUiState.Loading
             allContacts.clear()
             currentPage = 1
             fetchPage(1)
+        }
+    }
+
+    // ON_RESUME: show cache instantly if available, avoiding a Zoho re-fetch
+    // right after create/edit (Zoho has a propagation delay of a few seconds).
+    fun loadIfEmpty() {
+        if (allContacts.isNotEmpty()) return  // already loaded — do nothing
+        val cache = ContactRepository.cache
+        if (cache.isNotEmpty()) {
+            allContacts.clear()
+            allContacts.addAll(cache)
+            rebuildFilterOptions()
+            _uiState.value = ContactsUiState.Success(applyAll(allContacts), hasMore = false)
+        } else {
+            load()
         }
     }
 
@@ -85,6 +101,11 @@ class ContactsViewModel : ViewModel() {
         }
     }
 
+    private fun rebuildFilterOptions() {
+        _leadSources.value  = allContacts.map { it.leadSource }.filter { it.isNotBlank() && it != "-None-" }.distinct().sorted()
+        _accountNames.value = allContacts.map { it.accountName }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+
     private fun applyAll(list: List<Contact>): List<Contact> {
         val q = _searchQuery.value.trim().lowercase()
         val f = _filterState.value
@@ -106,9 +127,8 @@ class ContactsViewModel : ViewModel() {
         repo.getContacts(page).fold(
             onSuccess = { (newItems, hasMore) ->
                 allContacts.addAll(newItems)
-                currentPage    = page
-                _leadSources.value  = allContacts.map { it.leadSource }.filter { it.isNotBlank() && it != "-None-" }.distinct().sorted()
-                _accountNames.value = allContacts.map { it.accountName }.filter { it.isNotBlank() }.distinct().sorted()
+                currentPage = page
+                rebuildFilterOptions()
                 _uiState.value = ContactsUiState.Success(applyAll(allContacts), hasMore)
             },
             onFailure = { e ->

@@ -41,6 +41,7 @@ interface ZohoApiService {
         @Query("per_page")   perPage: Int = 100,
         @Query("sort_by")    sortBy: String = "Modified_Time",
         @Query("sort_order") sortOrder: String = "desc",
+        @Query("fields")     fields: String = "id,First_Name,Last_Name,Full_Name,Phone,Mobile,Email,Account_Name,Title,Department,Lead_Source,Contact_Owner,Description,Mailing_Street,Mailing_City,Mailing_State,Mailing_Zip,Mailing_Country",
     ): ContactsResponse
 
     @POST("Contacts")
