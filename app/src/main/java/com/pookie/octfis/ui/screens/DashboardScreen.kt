@@ -299,6 +299,7 @@ fun DashboardScreen(
                                             rows       = data.todayCalls.map { listOf(formatTime(it.startTime), it.subject) },
                                             rowIds     = data.todayCalls.map { it.id },
                                             onRowClick = { id -> navController.navigate(Screen.CallDetail.createRoute(id)) },
+                                            onAddClick = { navController.navigate(Screen.CreateCall.route) },
                                         )
                                         ProperTable(
                                             title      = "My Meetings",
@@ -306,6 +307,7 @@ fun DashboardScreen(
                                             rows       = data.todayMeetings.map { listOf(formatTime(it.startDateTime), it.title) },
                                             rowIds     = data.todayMeetings.map { it.id },
                                             onRowClick = { id -> navController.navigate(Screen.MeetingDetail.createRoute(id)) },
+                                            onAddClick = { navController.navigate(Screen.CreateMeeting.route) },
                                         )
                                         ProperTable(
                                             title      = "My Tasks",
@@ -313,6 +315,7 @@ fun DashboardScreen(
                                             rows       = data.todayTasks.map { listOf(it.dueDate, it.subject) },
                                             rowIds     = data.todayTasks.map { it.id },
                                             onRowClick = { id -> navController.navigate(Screen.TaskDetail.createRoute(id)) },
+                                            onAddClick = { navController.navigate(Screen.CreateTask.route) },
                                         )
                                     }
                                     DashTab.Calls -> {
@@ -732,11 +735,12 @@ private fun SummaryCard(label: String, count: String, icon: ImageVector, modifie
 
 @Composable
 private fun ProperTable(
-    title     : String,
-    headers   : List<String>,
-    rows      : List<List<String>>,
-    rowIds    : List<String> = emptyList(),
-    onRowClick: ((String) -> Unit)? = null,
+    title      : String,
+    headers    : List<String>,
+    rows       : List<List<String>>,
+    rowIds     : List<String> = emptyList(),
+    onRowClick : ((String) -> Unit)? = null,
+    onAddClick : (() -> Unit)? = null,
 ) {
     Column {
         Row(
@@ -744,7 +748,27 @@ private fun ProperTable(
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                if (onAddClick != null) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(CrmPrimary)
+                            .clickable { onAddClick() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector        = Icons.Default.Add,
+                            contentDescription = "Add",
+                            tint               = Color.White,
+                            modifier           = Modifier.size(14.dp),
+                        )
+                    }
+                }
+            }
             Text("${rows.size} records", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Card(
