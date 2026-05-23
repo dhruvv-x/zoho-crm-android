@@ -61,7 +61,7 @@ class CreateDealViewModel : ViewModel() {
                         ?.pickListValues?.map { it.actualValue } ?: emptyList()),
 
                     owners = listOf(Pair("", "-None-")) +
-                            (users?.users?.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                            (users?.users?.map { Pair(it.id, it.displayName) }
                                 ?: emptyList()),
                 )
             } catch (_: Exception) {
@@ -127,6 +127,7 @@ class CreateDealViewModel : ViewModel() {
                 type            = type,
                 email           = email,
                 dealOwner       = ownerEntry.first,
+                dealOwnerName   = ownerEntry.second,
                 description     = description,
                 stage           = stage,
                 leadSource      = leadSource,

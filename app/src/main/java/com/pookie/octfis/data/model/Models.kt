@@ -62,6 +62,7 @@ data class Deal(
     val type            : String = "-None-",
     val email           : String = "",
     val dealOwner       : String = "-None-",
+    val dealOwnerId     : String = "",
     val description     : String = "",
     val stage           : String = "-None-",
     val leadSource      : String = "-None-",

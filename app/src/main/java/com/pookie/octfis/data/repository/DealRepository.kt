@@ -8,6 +8,19 @@ class DealRepository(private val api: ZohoApiService) {
 
     companion object {
         val cache = mutableListOf<Deal>()
+
+        // ── FIX: Zoho returns lookup field names as "<Display Name> - <ZohoId>"
+        // e.g. Contact_Name.name = "Sapna Kachhadiya - 4475594000081653003"
+        //      Account_Name.name = "Acme Corp - 4475594000073526055"
+        // Strip the trailing " - <id>" so we store only the clean display name.
+        // This prevents the dirty string from being sent back to Zoho as Deal_Name
+        // via the Contact_Name name-fallback branch, which caused Zoho to overwrite
+        // the Deal Name with the contact's display label.
+        fun cleanLookupName(raw: String): String {
+            // Match " - " followed by a long numeric ID at the end of the string
+            val pattern = Regex("""\s-\s\d{10,}$""")
+            return raw.replace(pattern, "").trim()
+        }
     }
 
     suspend fun getDeals(page: Int = 1): Result<Pair<List<Deal>, Boolean>> =
@@ -19,9 +32,9 @@ class DealRepository(private val api: ZohoApiService) {
                     zohoId          = zoho.id,
                     name            = zoho.dealName.orEmpty().ifEmpty { "(No Name)" },
                     dealName        = zoho.dealName.orEmpty(),
-                    accountName     = zoho.accountName?.name.orEmpty(),
+                    accountName     = cleanLookupName(zoho.accountName?.name.orEmpty()),
                     accountZohoId   = zoho.accountName?.id.orEmpty(),
-                    contactName     = zoho.contactName?.name.orEmpty(),
+                    contactName     = cleanLookupName(zoho.contactName?.name.orEmpty()),
                     contactZohoId   = zoho.contactName?.id.orEmpty(),
                     amount          = zoho.amount?.let { "%.2f".format(it) }.orEmpty(),
                     closingDate     = zoho.closingDate.orEmpty(),
@@ -29,6 +42,7 @@ class DealRepository(private val api: ZohoApiService) {
                     email           = zoho.email.orEmpty(),
                     phone           = zoho.phone.orEmpty(),
                     dealOwner       = zoho.dealOwner?.name.orEmpty().ifEmpty { "-None-" },
+                    dealOwnerId     = zoho.dealOwner?.id.orEmpty(),
                     description     = zoho.description.orEmpty(),
                     stage           = zoho.stage.orEmpty().ifEmpty { "-None-" },
                     leadSource      = zoho.leadSource.orEmpty().ifEmpty { "-None-" },
@@ -51,6 +65,7 @@ class DealRepository(private val api: ZohoApiService) {
         type           : String,
         email          : String,
         dealOwner      : String,
+        dealOwnerName  : String = "",
         description    : String,
         stage          : String,
         leadSource     : String,
@@ -61,20 +76,17 @@ class DealRepository(private val api: ZohoApiService) {
             put("Stage", stage)
             if (closingDate.isNotBlank())                           put("Closing_Date",          closingDate)
 
-            // ── FIX: Account_Name lookup ──────────────────────────────────────
             // Zoho requires {"id": "<zohoId>"} for lookup fields.
-            // If we have the Zoho ID, use it. Otherwise fall back to name string
-            // so the field is never silently omitted.
+            // Always prefer id — name fallback uses cleanLookupName() as a safety net.
             when {
                 accountZohoId.isNotBlank() -> put("Account_Name", mapOf("id" to accountZohoId))
-                accountName.isNotBlank()   -> put("Account_Name", mapOf("name" to accountName))
+                accountName.isNotBlank()   -> put("Account_Name", mapOf("name" to cleanLookupName(accountName)))
                 // else: no account selected — omit the field entirely
             }
 
-            // Contact_Name (same pattern — already worked, keep consistent)
             when {
                 contactZohoId.isNotBlank() -> put("Contact_Name", mapOf("id" to contactZohoId))
-                contactName.isNotBlank()   -> put("Contact_Name", mapOf("name" to contactName))
+                contactName.isNotBlank()   -> put("Contact_Name", mapOf("name" to cleanLookupName(contactName)))
             }
 
             amount.toDoubleOrNull()?.let {                          put("Amount",                 it) }
@@ -97,11 +109,12 @@ class DealRepository(private val api: ZohoApiService) {
         val newZohoId = result?.details?.id ?: error("No ID returned from Zoho")
         cache.add(Deal(
             id = cache.size + 1, zohoId = newZohoId, name = dealName, dealName = dealName,
-            accountName = accountName, accountZohoId = accountZohoId,
-            contactName = contactName, contactZohoId = contactZohoId,
+            accountName = cleanLookupName(accountName), accountZohoId = accountZohoId,
+            contactName = cleanLookupName(contactName), contactZohoId = contactZohoId,
             amount = amount, closingDate = closingDate,
             type = type.ifEmpty { "-None-" }, email = email,
-            dealOwner = dealOwner.ifEmpty { "-None-" }, description = description,
+            dealOwner = dealOwnerName.ifEmpty { "-None-" }, dealOwnerId = dealOwner,
+            description = description,
             stage = stage.ifEmpty { "-None-" }, leadSource = leadSource.ifEmpty { "-None-" },
             leadSourceDrill = leadSourceDrill,
         ))
@@ -120,6 +133,7 @@ class DealRepository(private val api: ZohoApiService) {
         type           : String,
         email          : String,
         dealOwner      : String,
+        dealOwnerName  : String,
         description    : String,
         stage          : String,
         leadSource     : String,
@@ -130,17 +144,14 @@ class DealRepository(private val api: ZohoApiService) {
             put("Stage", stage)
             if (closingDate.isNotBlank())                           put("Closing_Date",          closingDate)
 
-            // ── FIX: Account_Name lookup ──────────────────────────────────────
             when {
                 accountZohoId.isNotBlank() -> put("Account_Name", mapOf("id" to accountZohoId))
-                accountName.isNotBlank()   -> put("Account_Name", mapOf("name" to accountName))
-                // else: user cleared the account — omit to leave unchanged in Zoho
+                accountName.isNotBlank()   -> put("Account_Name", mapOf("name" to cleanLookupName(accountName)))
             }
 
-            // Contact_Name
             when {
                 contactZohoId.isNotBlank() -> put("Contact_Name", mapOf("id" to contactZohoId))
-                contactName.isNotBlank()   -> put("Contact_Name", mapOf("name" to contactName))
+                contactName.isNotBlank()   -> put("Contact_Name", mapOf("name" to cleanLookupName(contactName)))
             }
 
             amount.toDoubleOrNull()?.let {                          put("Amount",                 it) }
@@ -160,14 +171,48 @@ class DealRepository(private val api: ZohoApiService) {
             val field = result?.details?.apiName ?: "unknown"
             error("${result?.message ?: "Update failed"} [field: $field]")
         }
+
+        val refreshed = runCatching { api.getDealById(zohoId) }.getOrNull()
+            ?.data?.firstOrNull()
+
+        Log.d("DEAL_DEBUG", "REFRESHED: dealName=${refreshed?.dealName} | ownerName=${refreshed?.dealOwner?.name} | ownerId=${refreshed?.dealOwner?.id}")
+
         val idx = cache.indexOfFirst { it.zohoId == zohoId }
-        if (idx >= 0) cache[idx] = cache[idx].copy(
-            dealName = dealName, accountName = accountName, accountZohoId = accountZohoId,
-            contactName = contactName, contactZohoId = contactZohoId,
-            amount = amount, closingDate = closingDate, type = type.ifEmpty { "-None-" },
-            email = email, dealOwner = dealOwner.ifEmpty { "-None-" }, description = description,
-            stage = stage.ifEmpty { "-None-" }, leadSource = leadSource.ifEmpty { "-None-" },
-            leadSourceDrill = leadSourceDrill,
-        )
+        if (idx >= 0) {
+            cache[idx] = if (refreshed != null) {
+                cache[idx].copy(
+                    name            = refreshed.dealName.orEmpty().ifEmpty { "(No Name)" },
+                    dealName        = refreshed.dealName.orEmpty(),
+                    accountName     = cleanLookupName(refreshed.accountName?.name.orEmpty()),
+                    accountZohoId   = refreshed.accountName?.id.orEmpty(),
+                    contactName     = cleanLookupName(refreshed.contactName?.name.orEmpty()),
+                    contactZohoId   = refreshed.contactName?.id.orEmpty(),
+                    amount          = refreshed.amount?.let { "%.2f".format(it) }.orEmpty(),
+                    closingDate     = refreshed.closingDate.orEmpty(),
+                    type            = refreshed.type.orEmpty().ifEmpty { "-None-" },
+                    email           = refreshed.email.orEmpty(),
+                    dealOwner       = refreshed.dealOwner?.name.orEmpty().ifEmpty { "-None-" },
+                    dealOwnerId     = refreshed.dealOwner?.id.orEmpty(),
+                    description     = refreshed.description.orEmpty(),
+                    stage           = refreshed.stage.orEmpty().ifEmpty { "-None-" },
+                    leadSource      = refreshed.leadSource.orEmpty().ifEmpty { "-None-" },
+                    leadSourceDrill = refreshed.leadSourceDrill.orEmpty(),
+                )
+            } else {
+                cache[idx].copy(
+                    name            = dealName.ifEmpty { "(No Name)" },
+                    dealName        = dealName,
+                    accountName     = cleanLookupName(accountName), accountZohoId = accountZohoId,
+                    contactName     = cleanLookupName(contactName), contactZohoId = contactZohoId,
+                    amount          = amount, closingDate = closingDate, type = type.ifEmpty { "-None-" },
+                    email           = email,
+                    dealOwner       = dealOwnerName.ifEmpty { cache[idx].dealOwner },
+                    dealOwnerId     = dealOwner.ifEmpty { cache[idx].dealOwnerId },
+                    description     = description,
+                    stage           = stage.ifEmpty { "-None-" }, leadSource = leadSource.ifEmpty { "-None-" },
+                    leadSourceDrill = leadSourceDrill,
+                )
+            }
+        }
     }
 }

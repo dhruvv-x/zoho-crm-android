@@ -1,5 +1,6 @@
 package com.pookie.octfis.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,7 +61,6 @@ class EditDealViewModel : ViewModel() {
     private val _saveState      = MutableStateFlow<EditDealState>(EditDealState.Idle)
     val saveState: StateFlow<EditDealState> = _saveState.asStateFlow()
 
-    // ── NEW: lookup lists ─────────────────────────────────────────────────────
     private val _accountItems   = MutableStateFlow<List<LookupItem>>(emptyList())
     val accountItems: StateFlow<List<LookupItem>> = _accountItems.asStateFlow()
 
@@ -76,6 +76,12 @@ class EditDealViewModel : ViewModel() {
                 val fields = runCatching { api.getFields("Deals") }.getOrNull()
                 val users  = runCatching { api.getUsers("AllUsers") }.getOrNull()
                 val none   = listOf("-None-")
+
+                // ── DEBUG: Zoho se kya aa raha hai users mein ─────────────────
+                users?.users?.forEach { u ->
+                    Log.d("USER_DEBUG", "id=${u.id} | full_name=${u.fullName} | first=${u.firstName} | last=${u.lastName} | email=${u.email} | displayName=${u.displayName}")
+                }
+
                 _options.value = DealPicklistOptions(
                     types       = none + (fields?.fields?.firstOrNull { it.apiName == "Type" }
                         ?.pickListValues?.map { it.displayValue } ?: emptyList()),
@@ -84,7 +90,7 @@ class EditDealViewModel : ViewModel() {
                     leadSources = none + (fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
                         ?.pickListValues?.map { it.displayValue } ?: emptyList()),
                     owners      = listOf(Pair("", "-None-")) +
-                            (users?.users?.map { Pair(it.id, it.fullName ?: it.email ?: it.id) } ?: emptyList()),
+                            (users?.users?.map { Pair(it.id, it.displayName) } ?: emptyList()),
                 )
             } catch (_: Exception) {
                 _options.value = DealPicklistOptions()
@@ -92,13 +98,11 @@ class EditDealViewModel : ViewModel() {
                 _optionsLoading.value = false
             }
 
-            // NEW: load lookup data
             loadAccountLookup()
             loadContactLookup()
         }
     }
 
-    // ── NEW ───────────────────────────────────────────────────────────────────
     private fun loadAccountLookup() {
         viewModelScope.launch {
             val cached = AccountRepository.cache
@@ -112,7 +116,6 @@ class EditDealViewModel : ViewModel() {
         }
     }
 
-    // ── NEW ───────────────────────────────────────────────────────────────────
     private fun loadContactLookup() {
         viewModelScope.launch {
             val cached = ContactRepository.cache
@@ -158,6 +161,7 @@ class EditDealViewModel : ViewModel() {
                 type            = if (type == "-None-") "" else type,
                 email           = email,
                 dealOwner       = ownerEntry.first,
+                dealOwnerName   = ownerEntry.second,
                 description     = description,
                 stage           = stage,
                 leadSource      = if (leadSource == "-None-") "" else leadSource,
@@ -185,14 +189,14 @@ fun EditDealScreen(
 
     var dealName        by remember { mutableStateOf(deal?.dealName ?: "") }
     var accountName     by remember { mutableStateOf(deal?.accountName ?: "") }
-    var accountZohoId   by remember { mutableStateOf(deal?.accountZohoId ?: "") }  // NEW
+    var accountZohoId   by remember { mutableStateOf(deal?.accountZohoId ?: "") }
     var contactName     by remember { mutableStateOf(deal?.contactName ?: "") }
-    var contactZohoId   by remember { mutableStateOf(deal?.contactZohoId ?: "") }  // NEW
+    var contactZohoId   by remember { mutableStateOf(deal?.contactZohoId ?: "") }
     var amount          by remember { mutableStateOf(deal?.amount ?: "") }
     var closingDate     by remember { mutableStateOf(deal?.closingDate ?: "") }
     var type            by remember { mutableStateOf(deal?.type?.ifEmpty { "-None-" } ?: "-None-") }
     var email           by remember { mutableStateOf(deal?.email ?: "") }
-    var selectedOwner   by remember { mutableStateOf(Pair("", deal?.dealOwner ?: "-None-")) }
+    var selectedOwner   by remember { mutableStateOf(Pair(deal?.dealOwnerId ?: "", deal?.dealOwner ?: "-None-")) }
     var description     by remember { mutableStateOf(deal?.description ?: "") }
     var stage           by remember { mutableStateOf(deal?.stage?.ifEmpty { "-None-" } ?: "-None-") }
     var leadSource      by remember { mutableStateOf(deal?.leadSource?.ifEmpty { "-None-" } ?: "-None-") }
@@ -201,7 +205,6 @@ fun EditDealScreen(
     val options        by vm.options.collectAsState()
     val optionsLoading by vm.optionsLoading.collectAsState()
     val saveState      by vm.saveState.collectAsState()
-    // NEW
     val accountItems   by vm.accountItems.collectAsState()
     val contactItems   by vm.contactItems.collectAsState()
     val snackbarHost    = remember { SnackbarHostState() }
@@ -232,9 +235,9 @@ fun EditDealScreen(
                                 zohoId          = deal?.zohoId ?: "",
                                 dealName        = dealName,
                                 accountName     = accountName,
-                                accountZohoId   = accountZohoId,   // NEW
+                                accountZohoId   = accountZohoId,
                                 contactName     = contactName,
-                                contactZohoId   = contactZohoId,   // NEW
+                                contactZohoId   = contactZohoId,
                                 amount          = amount,
                                 closingDate     = closingDate,
                                 type            = type,
@@ -281,7 +284,6 @@ fun EditDealScreen(
                     EDTextField("Deal Name",    dealName,    "Deal Name")           { dealName = it }
                     EDDivider()
 
-                    // ── CHANGED: Account Name → LookupField ──────────────────
                     LookupField(
                         label       = "Account Name",
                         value       = accountName,
@@ -295,7 +297,6 @@ fun EditDealScreen(
                     )
                     EDDivider()
 
-                    // ── CHANGED: Contact Name → LookupField ──────────────────
                     LookupField(
                         label       = "Contact Name",
                         value       = contactName,

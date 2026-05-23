@@ -63,6 +63,9 @@ interface ZohoApiService {
         @Query("sort_order") sortOrder: String = "desc",
     ): DealsResponse
 
+    @GET("Deals/{id}")
+    suspend fun getDealById(@Path("id") id: String): DealsResponse
+
     @POST("Deals")
     suspend fun createDeal(@Body body: Map<String, @JvmSuppressWildcards Any>): CreateRecordResponse
 

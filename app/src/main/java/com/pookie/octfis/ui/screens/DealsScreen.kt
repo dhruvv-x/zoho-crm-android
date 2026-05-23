@@ -95,11 +95,15 @@ fun DealsScreen(
     }
     LaunchedEffect(nearBottom) { if (nearBottom && !searchActive && viewMode == DealViewMode.LIST) vm.loadNextPage() }
     LaunchedEffect(searchActive) { if (searchActive) focusRequester.requestFocus() }
+    // Sync cache → list whenever this screen becomes the top destination (e.g. returning from edit)
+    LaunchedEffect(currentRoute) { if (currentRoute == Screen.Deals.route) vm.syncFromCache() }
 
+    // ON_RESUME: sync from cache so edits are reflected immediately without an extra network call.
+    // Full network refresh is triggered by init{}, pull-to-refresh, or the refresh icon button.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) vm.load()
+            if (event == Lifecycle.Event.ON_RESUME) vm.syncFromCache()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }

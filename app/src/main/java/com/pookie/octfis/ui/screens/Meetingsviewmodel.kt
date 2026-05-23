@@ -163,7 +163,7 @@ class MeetingFormViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { api.getUsers() }.getOrNull()?.users?.let { users ->
                 _owners.value = listOf(Pair("", "-None-")) +
-                        users.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                        users.map { Pair(it.id, it.displayName) }
             }
             _optionsLoading.value = false
         }
@@ -219,7 +219,7 @@ class CreateMeetingViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { api.getUsers() }.getOrNull()?.users?.let { users ->
                 _owners.value = listOf(Pair("", "-None-")) +
-                        users.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                        users.map { Pair(it.id, it.displayName) }
             }
             _optionsLoading.value = false
         }
@@ -254,7 +254,7 @@ class EditMeetingViewModel(private val zohoId: String) : ViewModel() {
             repo.getMeetingById(zohoId).onSuccess { _meeting.value = it }
             runCatching { api.getUsers() }.getOrNull()?.users?.let { users ->
                 _owners.value = listOf(Pair("", "-None-")) +
-                        users.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                        users.map { Pair(it.id, it.displayName) }
             }
             _optionsLoading.value = false
         }

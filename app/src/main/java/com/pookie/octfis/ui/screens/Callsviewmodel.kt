@@ -167,7 +167,7 @@ class CallFormViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { api.getUsers() }.getOrNull()?.users?.let { users ->
                 _owners.value = listOf(Pair("", "-None-")) +
-                        users.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                        users.map { Pair(it.id, it.displayName) }
             }
             _optionsLoading.value = false
         }
@@ -224,7 +224,7 @@ class CreateCallViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { api.getUsers() }.getOrNull()?.users?.let { users ->
                 _owners.value = listOf(Pair("", "-None-")) +
-                        users.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                        users.map { Pair(it.id, it.displayName) }
             }
             _optionsLoading.value = false
         }
@@ -261,7 +261,7 @@ class EditCallViewModel(private val zohoId: String) : ViewModel() {
             repo.getCallById(zohoId).onSuccess { _call.value = it }
             runCatching { api.getUsers() }.getOrNull()?.users?.let { users ->
                 _owners.value = listOf(Pair("", "-None-")) +
-                        users.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                        users.map { Pair(it.id, it.displayName) }
             }
             _optionsLoading.value = false
         }

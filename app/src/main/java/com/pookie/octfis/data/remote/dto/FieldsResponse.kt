@@ -24,10 +24,19 @@ data class UsersResponse(
 )
 
 data class ZohoUser(
-    @SerializedName("id")        val id: String,
-    @SerializedName("full_name") val fullName: String?,
-    @SerializedName("email")     val email: String?,
-)
+    @SerializedName("id")         val id: String,
+    @SerializedName("full_name")  val fullName: String?,
+    @SerializedName("first_name") val firstName: String?,
+    @SerializedName("last_name")  val lastName: String?,
+    @SerializedName("email")      val email: String?,
+) {
+    // full_name null hone par first+last se banao, phir email, last resort id
+    val displayName: String
+        get() = fullName?.takeIf { it.isNotBlank() }
+            ?: listOfNotNull(firstName, lastName).joinToString(" ").takeIf { it.isNotBlank() }
+            ?: email?.takeIf { it.isNotBlank() }
+            ?: id
+}
 
 // POST/PUT response (create or update any record)
 data class CreateRecordResponse(

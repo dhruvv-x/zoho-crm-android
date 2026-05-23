@@ -70,7 +70,7 @@ class EditContactViewModel : ViewModel() {
                     leadSources = none + (fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
                         ?.pickListValues?.map { it.displayValue } ?: emptyList()),
                     owners      = listOf(Pair("", "-None-")) +
-                            (users?.users?.map { Pair(it.id, it.fullName ?: it.email ?: it.id) } ?: emptyList()),
+                            (users?.users?.map { Pair(it.id, it.displayName) } ?: emptyList()),
                 )
             } catch (_: Exception) {
                 _options.value = ContactPicklistOptions(

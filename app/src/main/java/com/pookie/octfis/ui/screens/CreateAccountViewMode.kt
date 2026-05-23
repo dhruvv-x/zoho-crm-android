@@ -58,7 +58,7 @@ class CreateAccountViewModel : ViewModel() {
                         ?.pickListValues?.map { it.displayValue } ?: emptyList()),
 
                     owners = listOf(Pair("", "-None-")) +
-                            (users?.users?.map { Pair(it.id, it.fullName ?: it.email ?: it.id) }
+                            (users?.users?.map { Pair(it.id, it.displayName) }
                                 ?: emptyList()),
                 )
             } catch (_: Exception) {

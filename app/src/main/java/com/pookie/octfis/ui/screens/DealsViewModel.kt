@@ -95,6 +95,16 @@ class DealsViewModel : ViewModel() {
         recompute()
     }
 
+    /** Call this when returning from Edit/Create screens to sync cache → UI without a network call. */
+    fun syncFromCache() {
+        val cached = DealRepository.cache
+        if (cached.isEmpty()) return
+        allDeals.clear()
+        allDeals.addAll(cached)
+        val hasMore = (_uiState.value as? DealsUiState.Success)?.hasMore ?: false
+        _uiState.value = DealsUiState.Success(applyAll(allDeals), hasMore)
+    }
+
     private fun recompute() {
         val current = _uiState.value
         if (current is DealsUiState.Success) {

@@ -14,7 +14,10 @@ data class ZohoDeal(
     @SerializedName("Contact_Name")     val contactName: ZohoDealContact?,
     @SerializedName("Amount")           val amount: Double?,
     @SerializedName("Closing_Date")     val closingDate: String?,
-    @SerializedName("Deal_Owner")       val dealOwner: ZohoOwner?,
+    // ✅ FIX: Zoho returns the owner field as "Owner" (not "Deal_Owner") in both
+    // list and single-record responses. The wrong key caused dealOwner to always
+    // deserialize as null, making the owner appear blank after save/refresh.
+    @SerializedName("Owner")            val dealOwner: ZohoOwner?,
     @SerializedName("Stage")            val stage: String?,
     @SerializedName("Lead_Source")      val leadSource: String?,
     @SerializedName("Type")             val type: String?,
