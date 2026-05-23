@@ -35,6 +35,7 @@ import com.pookie.octfis.data.model.CrmCall
 import com.pookie.octfis.data.repository.CallRepository
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.CrmBottomBar
+import com.pookie.octfis.ui.components.DateTimePickerField
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
@@ -517,7 +518,7 @@ fun CreateCallScreen(
                     ActivityDivider()
                     ActivityDropdown("Status",    status,   vm.statusList, false) { status = it }
                     ActivityDivider()
-                    ActivityTextField("Start Time", startTime, "YYYY-MM-DDTHH:MM:SS") { startTime = it }
+                    DateTimePickerField("Start Time", startTime) { startTime = it }
                     ActivityDivider()
                     ActivityTextField("Duration",   duration,  "e.g. 00:05")          { duration = it }
                     ActivityDivider()
@@ -660,7 +661,7 @@ fun EditCallScreen(
                     ActivityDivider()
                     ActivityDropdown("Status",    status,   vm.statusList, false) { status = it }
                     ActivityDivider()
-                    ActivityTextField("Start Time", startTime, "YYYY-MM-DDTHH:MM:SS") { startTime = it }
+                    DateTimePickerField("Start Time", startTime) { startTime = it }
                     ActivityDivider()
                     ActivityTextField("Duration",   duration,  "e.g. 00:05")          { duration = it }
                     ActivityDivider()

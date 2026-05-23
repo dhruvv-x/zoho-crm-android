@@ -18,6 +18,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.ui.components.DatePickerField
 import com.pookie.octfis.data.remote.ZohoServiceLocator
 import com.pookie.octfis.data.repository.AccountRepository
 import com.pookie.octfis.data.repository.ContactRepository
@@ -310,7 +311,7 @@ fun EditDealScreen(
 
                     EDTextField("Amount",       amount,      "Enter Deal Amount")   { amount = it }
                     EDDivider()
-                    EDTextField("Closing Date", closingDate, "YYYY-MM-DD")          { closingDate = it }
+                    DatePickerField("Closing Date", closingDate) { closingDate = it }
                     EDDivider()
                     EDDropdown("Type", type, options.types, optionsLoading)         { type = it }
                     EDDivider()

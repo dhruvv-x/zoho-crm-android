@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.ui.components.DatePickerField
 import com.pookie.octfis.ui.components.LookupField
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
@@ -165,7 +166,7 @@ fun CreateDealScreen(
 
                     DealFormField("Amount",       amount,      "Enter Deal Amount") { amount = it }
                     DealDivider()
-                    DealFormField("Closing Date", closingDate, "YYYY-MM-DD")        { closingDate = it }
+                    DatePickerField("Closing Date", closingDate) { closingDate = it }
                     DealDivider()
                     DealPicklistField("Type", type, options.types, optionsLoading)  { type = it }
                     DealDivider()

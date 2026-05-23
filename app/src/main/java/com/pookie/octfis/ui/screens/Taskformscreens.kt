@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.ui.components.DatePickerField
 import com.pookie.octfis.ui.components.SectionHeader
 import com.pookie.octfis.ui.theme.*
 
@@ -87,7 +88,7 @@ fun CreateTaskScreen(
                 Column {
                     ActivityTextField("Subject",  subject,  "Enter task subject", required = true) { subject = it }
                     ActivityDivider()
-                    ActivityTextField("Due Date", dueDate,  "YYYY-MM-DD")                          { dueDate = it }
+                    DatePickerField("Due Date", dueDate) { dueDate = it }
                     ActivityDivider()
                     ActivityDropdown("Status",   status,   statusList,   optionsLoading)  { status = it }
                     ActivityDivider()
@@ -228,7 +229,7 @@ fun EditTaskScreen(
                 Column {
                     ActivityTextField("Subject",  subject,  "Enter task subject", required = true) { subject = it }
                     ActivityDivider()
-                    ActivityTextField("Due Date", dueDate,  "YYYY-MM-DD")                          { dueDate = it }
+                    DatePickerField("Due Date", dueDate) { dueDate = it }
                     ActivityDivider()
                     ActivityDropdown("Status",   status,   statusList,   optionsLoading) { status = it }
                     ActivityDivider()

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.pookie.octfis.ui.components.DateTimePickerField
 import com.pookie.octfis.navigation.Screen
 import com.pookie.octfis.ui.components.FormRow
 import com.pookie.octfis.ui.components.SectionHeader
@@ -236,9 +237,9 @@ fun CreateMeetingScreen(
                 Column {
                     ActivityTextField("Title",           title,         "Enter meeting title", required = true) { title = it }
                     ActivityDivider()
-                    ActivityTextField("Start Date/Time", startDateTime, "YYYY-MM-DDTHH:MM:SS", required = true) { startDateTime = it }
+                    DateTimePickerField("Start Date/Time", startDateTime, required = true) { startDateTime = it }
                     ActivityDivider()
-                    ActivityTextField("End Date/Time",   endDateTime,   "YYYY-MM-DDTHH:MM:SS", required = true) { endDateTime = it }
+                    DateTimePickerField("End Date/Time", endDateTime, required = true) { endDateTime = it }
                     ActivityDivider()
                     ActivityTextField("Location",        location,      "Enter location")                        { location = it }
                     ActivityDivider()
@@ -373,9 +374,9 @@ fun EditMeetingScreen(
                 Column {
                     ActivityTextField("Title",           title,         "Enter meeting title", required = true) { title = it }
                     ActivityDivider()
-                    ActivityTextField("Start Date/Time", startDateTime, "YYYY-MM-DDTHH:MM:SS", required = true) { startDateTime = it }
+                    DateTimePickerField("Start Date/Time", startDateTime, required = true) { startDateTime = it }
                     ActivityDivider()
-                    ActivityTextField("End Date/Time",   endDateTime,   "YYYY-MM-DDTHH:MM:SS", required = true) { endDateTime = it }
+                    DateTimePickerField("End Date/Time", endDateTime, required = true) { endDateTime = it }
                     ActivityDivider()
                     ActivityTextField("Location",        location,      "Enter location")                        { location = it }
                     ActivityDivider()
