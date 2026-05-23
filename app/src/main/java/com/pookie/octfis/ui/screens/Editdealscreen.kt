@@ -75,20 +75,13 @@ class EditDealViewModel : ViewModel() {
             try {
                 val fields = runCatching { api.getFields("Deals") }.getOrNull()
                 val users  = runCatching { api.getUsers("AllUsers") }.getOrNull()
-                val none   = listOf("-None-")
-
-                // ── DEBUG: Zoho se kya aa raha hai users mein ─────────────────
-                users?.users?.forEach { u ->
-                    Log.d("USER_DEBUG", "id=${u.id} | full_name=${u.fullName} | first=${u.firstName} | last=${u.lastName} | email=${u.email} | displayName=${u.displayName}")
-                }
-
                 _options.value = DealPicklistOptions(
-                    types       = none + (fields?.fields?.firstOrNull { it.apiName == "Type" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
-                    stages      = none + (fields?.fields?.firstOrNull { it.apiName == "Stage" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
-                    leadSources = none + (fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                    types       = fields?.fields?.firstOrNull { it.apiName == "Type" }
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
+                    stages      = fields?.fields?.firstOrNull { it.apiName == "Stage" }
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
+                    leadSources = fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
                     owners      = listOf(Pair("", "-None-")) +
                             (users?.users?.map { Pair(it.id, it.displayName) } ?: emptyList()),
                 )

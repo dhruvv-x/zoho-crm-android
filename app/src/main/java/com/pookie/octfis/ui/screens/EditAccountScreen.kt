@@ -60,14 +60,13 @@ class EditAccountViewModel : ViewModel() {
             try {
                 val fields = runCatching { api.getFields("Accounts") }.getOrNull()
                 val users  = runCatching { api.getUsers("AllUsers") }.getOrNull()
-                val none   = listOf("-None-")
                 _options.value = PicklistOptions(
-                    industries    = none + (fields?.fields?.firstOrNull { it.apiName == "Industry" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
-                    gstTreatments = none + (fields?.fields?.firstOrNull { it.apiName == "GST_Treatment" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
-                    leadSources   = none + (fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                    industries    = fields?.fields?.firstOrNull { it.apiName == "Industry" }
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
+                    gstTreatments = fields?.fields?.firstOrNull { it.apiName == "GST_Treatment" }
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
+                    leadSources   = fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
                     owners        = listOf(Pair("", "-None-")) +
                             (users?.users?.map { Pair(it.id, it.fullName ?: it.email ?: it.id) } ?: emptyList()),
                 )

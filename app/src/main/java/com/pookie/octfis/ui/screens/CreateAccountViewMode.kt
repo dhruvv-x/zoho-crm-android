@@ -42,20 +42,18 @@ class CreateAccountViewModel : ViewModel() {
                 val fields = fieldsDeferred.await()
                 val users  = usersDeferred.await()
 
-                val none = listOf("-None-")
-
                 _options.value = PicklistOptions(
-                    industries = none + (fields?.fields
+                    industries = fields?.fields
                         ?.firstOrNull { it.apiName == "Industry" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
 
-                    gstTreatments = none + (fields?.fields
+                    gstTreatments = fields?.fields
                         ?.firstOrNull { it.apiName == "GST_Treatment" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
 
-                    leadSources = none + (fields?.fields
+                    leadSources = fields?.fields
                         ?.firstOrNull { it.apiName == "Lead_Source" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
 
                     owners = listOf(Pair("", "-None-")) +
                             (users?.users?.map { Pair(it.id, it.displayName) }

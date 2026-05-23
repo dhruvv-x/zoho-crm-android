@@ -53,12 +53,10 @@ class CreateContactViewModel : ViewModel() {
                 val fields = fieldsDeferred.await()
                 val users  = usersDeferred.await()
 
-                val none = listOf("-None-")
-
                 _options.value = ContactPicklistOptions(
-                    leadSources = none + (fields?.fields
+                    leadSources = fields?.fields
                         ?.firstOrNull { it.apiName == "Lead_Source" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
 
                     owners = listOf(Pair("", "-None-")) +
                             (users?.users?.map { Pair(it.id, it.displayName) }

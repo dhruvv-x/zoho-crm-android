@@ -45,20 +45,18 @@ class CreateDealViewModel : ViewModel() {
                 val usersDeferred  = async { runCatching { api.getUsers("AllUsers") }.getOrNull() }
                 val fields = fieldsDeferred.await()
                 val users  = usersDeferred.await()
-                val none   = listOf("-None-")
-
                 _options.value = DealPicklistOptions(
-                    stages = none + (fields?.fields
+                    stages = fields?.fields
                         ?.firstOrNull { it.apiName == "Stage" }
-                        ?.pickListValues?.map { it.actualValue } ?: emptyList()),
+                        ?.pickListValues?.map { it.actualValue } ?: listOf("-None-"),
 
-                    types = none + (fields?.fields
+                    types = fields?.fields
                         ?.firstOrNull { it.apiName == "Type" }
-                        ?.pickListValues?.map { it.actualValue } ?: emptyList()),
+                        ?.pickListValues?.map { it.actualValue } ?: listOf("-None-"),
 
-                    leadSources = none + (fields?.fields
+                    leadSources = fields?.fields
                         ?.firstOrNull { it.apiName == "Lead_Source" }
-                        ?.pickListValues?.map { it.actualValue } ?: emptyList()),
+                        ?.pickListValues?.map { it.actualValue } ?: listOf("-None-"),
 
                     owners = listOf(Pair("", "-None-")) +
                             (users?.users?.map { Pair(it.id, it.displayName) }

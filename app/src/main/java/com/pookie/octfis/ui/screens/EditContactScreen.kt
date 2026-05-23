@@ -65,10 +65,9 @@ class EditContactViewModel : ViewModel() {
             try {
                 val fields = runCatching { api.getFields("Contacts") }.getOrNull()
                 val users  = runCatching { api.getUsers("AllUsers") }.getOrNull()
-                val none   = listOf("-None-")
                 _options.value = ContactPicklistOptions(
-                    leadSources = none + (fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
-                        ?.pickListValues?.map { it.displayValue } ?: emptyList()),
+                    leadSources = fields?.fields?.firstOrNull { it.apiName == "Lead_Source" }
+                        ?.pickListValues?.map { it.displayValue } ?: listOf("-None-"),
                     owners      = listOf(Pair("", "-None-")) +
                             (users?.users?.map { Pair(it.id, it.displayName) } ?: emptyList()),
                 )
